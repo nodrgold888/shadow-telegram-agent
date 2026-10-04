@@ -78,7 +78,7 @@ async def dashboard() -> str:
 
 @app.post("/dashboard/auth")
 async def dashboard_auth(request: Request) -> JSONResponse:
-    token = str((await request.json()).get("token", ""))
+    token = str((await request.json()).get("token", "")).strip()
     accepted = any(
         expected and secrets.compare_digest(token, expected)
         for expected in (settings.setup_token, settings.admin_token)
