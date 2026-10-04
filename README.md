@@ -131,6 +131,16 @@ Shadow's code and does not provide its own language model. API usage is billed
 separately from ChatGPT subscriptions. Deterministic arithmetic checks and Office
 file building/reading run in Shadow's code.
 
+## Telegram voice notes
+
+In approved chats, voice notes up to 3 minutes and 10 MB are transcribed and answered
+with an AI-generated Telegram voice note; its caption also includes the written answer.
+If speech generation is unavailable, Shadow falls back to its normal text reply.
+Voice processing only runs while replies are enabled and respects the same group
+mention/reply rules. OpenAI's text-to-speech voices are optimized for English; Uzbek
+speech may be less natural or pronounced imperfectly. Transcription and speech
+generation use the configured OpenAI API key and may incur additional API usage.
+
 ## Mathematics, Excel and Word skills
 
 Shadow loads task guidance from `shadow/skills/math.md`, `excel.md` and `word.md`.

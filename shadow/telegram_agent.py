@@ -196,6 +196,9 @@ class TelegramAgent:
         if chat_id is None or not chat_is_approved(chat_id, self.settings.approved_chat_ids):
             return
         text = (event.raw_text or "").strip()
+        is_voice = bool(getattr(event.message, "voice", None))
+        if is_voice and not text:
+            text = "Ovozli xabar"
         attachment = getattr(event, "file", None)
         extension = Path(getattr(attachment, "name", "") or "").suffix.lower()
         if not extension:
@@ -203,7 +206,7 @@ class TelegramAgent:
         office_attachment = extension in {".xlsx", ".docx", ".xls", ".doc", ".xlsm", ".docm"}
         if office_attachment and not text:
             text = "Faylni o‘qib, uning mazmunini qisqacha tahlil qilib ber."
-        if not text:
+        if not text and not is_voice:
             return
 
         sender = await event.get_sender()
@@ -249,7 +252,10 @@ class TelegramAgent:
                     return
                 async with _WORK_SLOTS:
                     async with asyncio.timeout(180):
-                        await self._work_reply(event, title, text, extension if office_attachment else "")
+                        if is_voice:
+                            await self._work_voice_reply(event, title)
+                        else:
+                            await self._work_reply(event, title, text, extension if office_attachment else "")
                 self.reply_count += 1
                 self.last_reply_at = datetime.now(timezone.utc).isoformat()
                 self.last_reply_error = None
@@ -269,7 +275,32 @@ class TelegramAgent:
     def _can_reply(self, chat_id: int) -> bool:
         return bool(self.reply_enabled and chat_is_approved(chat_id, self.settings.approved_chat_ids))
 
-    async def _work_reply(self, event, title: str, text: str, extension: str) -> None:
+    async def _work_voice_reply(self, event, title: str) -> None:
+        assert self.client is not None and self.assistant is not None
+        chat_id = event.chat_id
+        voice = getattr(event.message, "voice", None)
+        duration = getattr(voice, "duration", None)
+        attachment = getattr(event, "file", None)
+        size = getattr(attachment, "size", None)
+        if (duration is not None and duration > 180) or (size is not None and size > MAX_UPLOAD_BYTES):
+            if self._can_reply(chat_id):
+                await event.reply("Ovozli xabar 3 daqiqadan yoki 10 MB dan oshmasin.")
+            return
+        with TemporaryDirectory(prefix="shadow-voice-") as temporary:
+            source = Path(temporary) / "voice.ogg"
+            downloaded = await self.client.download_media(event.message, file=str(source))
+            if not downloaded or not source.exists() or source.stat().st_size > MAX_UPLOAD_BYTES:
+                if self._can_reply(chat_id):
+                    await event.reply("Ovozli xabarni yuklab bo‘lmadi yoki hajmi 10 MB dan oshdi.")
+                return
+            transcript = await self.assistant.transcribe_audio(source)
+            if not transcript:
+                if self._can_reply(chat_id):
+                    await event.reply("Ovozli xabarni tushunib bo‘lmadi. Iltimos, yana bir bor yuboring.")
+                return
+            await self._work_reply(event, title, transcript, "", voice_reply=True)
+
+    async def _work_reply(self, event, title: str, text: str, extension: str, *, voice_reply: bool = False) -> None:
         assert self.client is not None and self.assistant is not None
         chat_id = event.chat_id
         with TemporaryDirectory(prefix="shadow-work-") as temporary:
@@ -304,13 +335,28 @@ class TelegramAgent:
                 )
             if not answer and not files:
                 raise RuntimeError("empty_ai_reply")
-            for index, chunk in enumerate(split_telegram_message(answer, self.settings.max_reply_chars)):
-                if not self._can_reply(chat_id):
-                    return
-                if event.is_private or index > 0:
-                    await self.client.send_message(chat_id, chunk)
-                else:
-                    await event.reply(chunk)
+            speech_path = None
+            if voice_reply and answer and len(answer) <= 4000:
+                speech_path = directory / "reply.ogg"
+                try:
+                    await self.assistant.synthesize_speech(answer, speech_path)
+                except Exception:
+                    speech_path = None
+                    log.exception("Voice synthesis failed; sending text reply instead")
+            if speech_path and speech_path.exists() and self._can_reply(chat_id):
+                caption = "Shadow AI ovozida (sun’iy yaratilgan):\n" + answer
+                await self.client.send_file(
+                    chat_id, str(speech_path), caption=caption[:1024],
+                    reply_to=event.id, voice_note=True,
+                )
+            else:
+                for index, chunk in enumerate(split_telegram_message(answer, self.settings.max_reply_chars)):
+                    if not self._can_reply(chat_id):
+                        return
+                    if event.is_private or index > 0:
+                        await self.client.send_message(chat_id, chunk)
+                    else:
+                        await event.reply(chunk)
             for path in files:
                 if not self._can_reply(chat_id):
                     return

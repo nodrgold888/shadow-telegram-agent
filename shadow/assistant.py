@@ -43,6 +43,27 @@ class ShadowAssistant:
         self.client = AsyncOpenAI(api_key=settings.openai_api_key)
         self.last_model: str | None = None
 
+    async def transcribe_audio(self, path: Path) -> str:
+        with path.open("rb") as audio_file:
+            result = await self.client.audio.transcriptions.create(
+                model="gpt-4o-mini-transcribe",
+                file=audio_file,
+            )
+        return (result.text or "").strip()
+
+    async def synthesize_speech(self, text: str, path: Path) -> None:
+        text = text.strip()
+        if not text or len(text) > 4000:
+            raise ValueError("Voice reply must contain between 1 and 4000 characters")
+        async with self.client.audio.speech.with_streaming_response.create(
+            model="gpt-4o-mini-tts",
+            voice="marin",
+            input=text,
+            instructions="Speak naturally and warmly in Uzbek. Use clear conversational pacing.",
+            response_format="opus",
+        ) as response:
+            await response.stream_to_file(path)
+
     async def reply(self, *, chat_title: str, history: str, message: str) -> str:
         answer, _ = await self.reply_with_files(
             chat_title=chat_title, history=history, message=message, directory=None,
