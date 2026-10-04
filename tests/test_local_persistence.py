@@ -6,7 +6,8 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from shadow.persist import load_local_settings, save_approved_chats, save_reply_enabled, save_session
+from shadow.config import Settings
+from shadow.persist import load_local_settings, save_approved_chats, save_model_selection, save_reply_enabled, save_session
 
 
 class LocalPersistenceTests(unittest.IsolatedAsyncioTestCase):
@@ -18,13 +19,18 @@ class LocalPersistenceTests(unittest.IsolatedAsyncioTestCase):
                     save_session("test-session"),
                     save_approved_chats("123,456"),
                     save_reply_enabled(False),
+                    save_model_selection("gpt-6-luna", "gpt-5-mini"),
                 )
-                self.assertEqual(results, [True, True, True])
+                self.assertEqual(results, [True, True, True, True])
                 self.assertEqual(load_local_settings(), {
                     "TELEGRAM_SESSION": "test-session",
                     "APPROVED_CHAT_IDS": "123,456",
                     "REPLY_ENABLED": "false",
+                    "SHADOW_MODEL_SELECTION": "{\"openai_model\":\"gpt-6-luna\",\"complex_openai_model\":\"gpt-5-mini\"}",
                 })
+                current = Settings.from_env()
+                self.assertEqual(current.openai_model, "gpt-6-luna")
+                self.assertEqual(current.complex_openai_model, "gpt-5-mini")
                 if os.name != "nt":
                     self.assertEqual(path.stat().st_mode & 0o777, 0o600)
 
