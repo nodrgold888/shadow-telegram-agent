@@ -31,6 +31,7 @@ class ModelSelectionTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(files, [])
             self.assertEqual(request["model"], "gpt-5-mini")
             self.assertNotIn("reasoning", request)
+            self.assertEqual(assistant.last_model, "gpt-5-mini")
 
     async def test_complex_message_uses_only_configured_reasoning_model_at_medium(self):
         with patch("shadow.assistant.AsyncOpenAI") as client:
@@ -45,6 +46,7 @@ class ModelSelectionTests(unittest.IsolatedAsyncioTestCase):
             request = client.return_value.responses.create.call_args.kwargs
             self.assertEqual(request["model"], "gpt-6-luna")
             self.assertEqual(request["reasoning"], {"effort": "medium"})
+            self.assertEqual(assistant.last_model, "gpt-6-luna")
 
     async def test_document_always_uses_advanced_model(self):
         with patch("shadow.assistant.AsyncOpenAI") as client:
