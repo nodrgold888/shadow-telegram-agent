@@ -15,7 +15,7 @@ from .persist import save_model_selection, save_reply_enabled
 from .config import SUPPORTED_OPENAI_MODELS
 from .chat_memory import normalize_chat_profile
 from .keepalive import keepalive_interval, keepalive_url, run_keepalive
-from .telegram_agent import TelegramAgent
+from .telegram_agent import TelegramAgent, TelegramSetupTimeout
 
 logging.basicConfig(
     level=logging.INFO,
@@ -257,7 +257,10 @@ async def telegram_setup_code(request: Request, shadow_setup: str | None = Cooki
     phone = str((await request.json()).get("phone", "")).strip()
     if not phone.startswith("+") or len(phone) < 8:
         raise HTTPException(status_code=400, detail="Telefon raqamini xalqaro formatda kiriting")
-    await agent.request_login_code(phone)
+    try:
+        await agent.request_login_code(phone)
+    except TelegramSetupTimeout as exc:
+        raise HTTPException(status_code=504, detail=str(exc)) from exc
     return {"ok": True}
 
 
@@ -265,12 +268,18 @@ async def telegram_setup_code(request: Request, shadow_setup: str | None = Cooki
 async def telegram_setup_verify(request: Request, shadow_setup: str | None = Cookie(default=None)) -> dict[str, object]:
     _require_setup(shadow_setup)
     code = str((await request.json()).get("code", "")).strip()
-    return {"status": await agent.complete_login(code)}
+    try:
+        return {"status": await agent.complete_login(code)}
+    except TelegramSetupTimeout as exc:
+        raise HTTPException(status_code=504, detail=str(exc)) from exc
 
 
 @app.post("/setup/telegram/password")
 async def telegram_setup_password(request: Request, shadow_setup: str | None = Cookie(default=None)) -> dict[str, object]:
     _require_setup(shadow_setup)
     password = str((await request.json()).get("password", ""))
-    await agent.complete_password(password)
+    try:
+        await agent.complete_password(password)
+    except TelegramSetupTimeout as exc:
+        raise HTTPException(status_code=504, detail=str(exc)) from exc
     return {"status": "connected"}

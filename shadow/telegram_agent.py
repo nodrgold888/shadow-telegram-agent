@@ -24,6 +24,18 @@ from .policy import chat_is_approved, group_message_needs_reply, split_telegram_
 
 log = logging.getLogger("shadow.telegram")
 
+# Telethon network calls made during the browser-driven /setup/telegram flow
+# have no built-in timeout. If Telegram's servers are slow or unreachable
+# from the host's network, a call can hang indefinitely while holding
+# _setup_lock - wedging every subsequent setup attempt (including a fresh
+# "start over") behind a lock that never releases. This bounds that wait so
+# a stall surfaces as a clear, retryable error instead of a silent freeze.
+SETUP_NETWORK_TIMEOUT_SECONDS = 20
+
+
+class TelegramSetupTimeout(RuntimeError):
+    """Raised when a Telegram setup-flow network call exceeds its timeout."""
+
 
 class TelegramAgent:
     def __init__(self, settings: Settings) -> None:
@@ -141,8 +153,19 @@ class TelegramAgent:
                 self.settings.telegram_api_id,
                 self.settings.telegram_api_hash,
             )
-            await client.connect()
-            sent = await client.send_code_request(phone)
+            try:
+                await asyncio.wait_for(client.connect(), timeout=SETUP_NETWORK_TIMEOUT_SECONDS)
+                sent = await asyncio.wait_for(
+                    client.send_code_request(phone), timeout=SETUP_NETWORK_TIMEOUT_SECONDS
+                )
+            except TimeoutError as exc:
+                await client.disconnect()
+                raise TelegramSetupTimeout(
+                    "Telegram serveriga ulanib bo'lmadi (vaqt tugadi). Qaytadan urinib ko'ring."
+                ) from exc
+            except Exception:
+                await client.disconnect()
+                raise
             self._login_client = client
             self._login_phone = phone
             self._login_hash = sent.phone_code_hash
@@ -152,13 +175,20 @@ class TelegramAgent:
             if not self._login_client or not self._login_phone or not self._login_hash:
                 raise RuntimeError("Login code was not requested")
             try:
-                await self._login_client.sign_in(
-                    phone=self._login_phone,
-                    code=code,
-                    phone_code_hash=self._login_hash,
+                await asyncio.wait_for(
+                    self._login_client.sign_in(
+                        phone=self._login_phone,
+                        code=code,
+                        phone_code_hash=self._login_hash,
+                    ),
+                    timeout=SETUP_NETWORK_TIMEOUT_SECONDS,
                 )
             except SessionPasswordNeededError:
                 return "password_required"
+            except TimeoutError as exc:
+                raise TelegramSetupTimeout(
+                    "Telegram serveriga ulanib bo'lmadi (vaqt tugadi). Qaytadan urinib ko'ring."
+                ) from exc
             await self._activate_client(self._login_client)
             await self._persist_login(self._login_client)
             return "connected"
@@ -167,7 +197,15 @@ class TelegramAgent:
         async with self._setup_lock:
             if not self._login_client:
                 raise RuntimeError("Login session is not ready")
-            await self._login_client.sign_in(password=password)
+            try:
+                await asyncio.wait_for(
+                    self._login_client.sign_in(password=password),
+                    timeout=SETUP_NETWORK_TIMEOUT_SECONDS,
+                )
+            except TimeoutError as exc:
+                raise TelegramSetupTimeout(
+                    "Telegram serveriga ulanib bo'lmadi (vaqt tugadi). Qaytadan urinib ko'ring."
+                ) from exc
             await self._activate_client(self._login_client)
             await self._persist_login(self._login_client)
 
