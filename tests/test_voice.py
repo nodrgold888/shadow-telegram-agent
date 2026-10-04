@@ -2,7 +2,7 @@ import tempfile
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, Mock, patch
 
 from shadow.assistant import ShadowAssistant
 from shadow.config import Settings
@@ -42,7 +42,7 @@ class VoiceAssistantTests(unittest.IsolatedAsyncioTestCase):
                 Path(path).write_bytes(b"opus")
 
         with patch("shadow.assistant.AsyncOpenAI") as openai:
-            openai.return_value.audio.speech.with_streaming_response.create = AsyncMock(
+            openai.return_value.audio.speech.with_streaming_response.create = Mock(
                 return_value=StreamingResponse()
             )
             assistant = ShadowAssistant(settings())
@@ -50,7 +50,7 @@ class VoiceAssistantTests(unittest.IsolatedAsyncioTestCase):
                 output = Path(temporary) / "reply.ogg"
                 await assistant.synthesize_speech("Assalomu alaykum", output)
                 self.assertEqual(output.read_bytes(), b"opus")
-            call = openai.return_value.audio.speech.with_streaming_response.create.await_args
+            call = openai.return_value.audio.speech.with_streaming_response.create.call_args
             self.assertEqual(call.kwargs["model"], "gpt-4o-mini-tts")
             self.assertEqual(call.kwargs["response_format"], "opus")
 
