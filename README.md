@@ -118,6 +118,19 @@ The Telegram session created at `/setup/telegram` would normally live only in me
 
 While running, a watchdog checks the connection every 60 seconds and reconnects if it dropped or failed at boot. Only a session revoked from Telegram (Settings → Devices → Terminate) needs a new login; this is reported as `session_revoked`.
 
+## Selective model use
+
+Everyday replies use `OPENAI_MODEL` (default `gpt-5-mini`). Shadow sends explicit
+multi-step analysis, proofs and advanced equations, long prompts, and Office-file
+work to `OPENAI_COMPLEX_MODEL` (default `gpt-6-luna`) with medium reasoning effort.
+The routing decision happens in the app; the advanced model is not used for every
+message, and Shadow does not silently fall back to it for ordinary replies.
+Change either model in Render environment variables (or local `.env`) and restart.
+This still uses the OpenAI API for ordinary as well as advanced replies; GitHub hosts
+Shadow's code and does not provide its own language model. API usage is billed
+separately from ChatGPT subscriptions. Deterministic arithmetic checks and Office
+file building/reading run in Shadow's code.
+
 ## Mathematics, Excel and Word skills
 
 Shadow loads task guidance from `shadow/skills/math.md`, `excel.md` and `word.md`.
