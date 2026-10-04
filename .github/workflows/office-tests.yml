@@ -17,3 +17,5 @@ jobs:
       - run: python -m unittest discover -s tests -p 'test_model_routing.py'
       - run: python -m unittest discover -s tests -p 'test_model_selection.py'
       - run: python -m unittest discover -s tests -p 'test_voice.py'
+      - run: python -m unittest discover -s tests -p 'test_chat_memory.py'
+      - run: python -m unittest discover -s tests -p 'test_local_persistence.py'
