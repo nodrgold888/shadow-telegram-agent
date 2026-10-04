@@ -24,16 +24,16 @@ class WorkToolsTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             directory = Path(temporary)
             path = create_excel({"sheets": [{"name": "Budget", "rows": [
-                ["Item", "Amount"], ["Salary", 1200], ["Total", "=SUM(B2:B2)"],
+                ["Item", "Amount"], ["Salary", 1200], ["Total", "=SUM($B$2:$B$2)"],
             ]}]}, directory, 1)
             book = load_workbook(path)
-            self.assertEqual(book.active["B3"].value, "=SUM(B2:B2)")
+            self.assertEqual(book.active["B3"].value, "=SUM($B$2:$B$2)")
             self.assertEqual(book.active["B2"].value, 1200)
             self.assertEqual(book.active.freeze_panes, "A2")
             book.close()
             preview = inspect_office(path)
             self.assertIn("Salary", preview)
-            self.assertIn("=SUM(B2:B2)", preview)
+            self.assertIn("=SUM($B$2:$B$2)", preview)
             for formula in ['=WEBSERVICE("https://example.com")', "='[secret.xlsx]Sheet1'!A1"]:
                 with self.assertRaises(WorkToolError):
                     create_excel({"sheets": [{"name": "Test", "rows": [[formula]]}]}, directory, 2)
