@@ -9,13 +9,15 @@ import tempfile
 import threading
 from pathlib import Path
 
+from .chat_memory import MAX_CHAT_PROFILE_BYTES, normalize_chat_profiles
+
 log = logging.getLogger("shadow.persist")
 
 RENDER_API = "https://api.render.com/v1"
 
 
 _local_lock = threading.Lock()
-_LOCAL_KEYS = {"TELEGRAM_SESSION", "APPROVED_CHAT_IDS", "REPLY_ENABLED", "SHADOW_MODEL_SELECTION"}
+_LOCAL_KEYS = {"TELEGRAM_SESSION", "APPROVED_CHAT_IDS", "REPLY_ENABLED", "SHADOW_MODEL_SELECTION", "SHADOW_CHAT_PROFILES"}
 
 
 def load_local_settings() -> dict[str, str]:
@@ -152,6 +154,52 @@ async def save_model_selection(openai_model: str, complex_openai_model: str) -> 
         )
     except Exception as exc:
         log.warning("Could not persist model selection: %s", type(exc).__name__)
+        return False
+    return True
+
+
+def load_chat_profiles() -> dict[str, dict[str, str]]:
+    """Load owner-entered per-chat context without retaining message transcripts."""
+    raw = load_local_settings().get(
+        "SHADOW_CHAT_PROFILES",
+        os.getenv("SHADOW_CHAT_PROFILES", ""),
+    ).strip()
+    if not raw:
+        return {}
+    try:
+        return normalize_chat_profiles(json.loads(raw))
+    except (json.JSONDecodeError, ValueError) as exc:
+        raise ValueError("Saved chat profiles are invalid") from exc
+
+
+async def save_chat_profiles(profiles: dict[str, dict[str, str]]) -> bool:
+    """Persist chat-scoped notes privately in local state or a Render service variable."""
+    try:
+        normalized = normalize_chat_profiles(profiles)
+        value = json.dumps(normalized, ensure_ascii=False, separators=(",", ":"))
+        if len(value.encode("utf-8")) > MAX_CHAT_PROFILE_BYTES:
+            return False
+    except ValueError:
+        return False
+    if os.getenv("SHADOW_STATE_FILE", "").strip():
+        try:
+            await asyncio.to_thread(_save_local, "SHADOW_CHAT_PROFILES", value)
+            return True
+        except Exception as exc:
+            log.error("Could not save chat profiles locally: %s", type(exc).__name__)
+            return False
+    if not persistence_available():
+        return False
+    try:
+        await asyncio.to_thread(
+            _put_env_var,
+            os.environ["RENDER_SERVICE_ID"].strip(),
+            os.environ["RENDER_API_KEY"].strip(),
+            "SHADOW_CHAT_PROFILES",
+            value,
+        )
+    except Exception as exc:
+        log.warning("Could not persist chat profiles: %s", type(exc).__name__)
         return False
     return True
 
