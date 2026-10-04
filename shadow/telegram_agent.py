@@ -420,6 +420,8 @@ class TelegramAgent:
         profile = normalize_chat_profile(value)
         key = str(chat_id)
         async with self._profile_lock:
+            if not chat_is_approved(chat_id, self.settings.approved_chat_ids):
+                raise ValueError("Avval ushbu chatga avtojavob ruxsatini bering")
             updated = dict(self.chat_profiles)
             if any(profile.values()):
                 updated[key] = profile
