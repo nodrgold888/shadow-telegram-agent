@@ -70,3 +70,21 @@ async def save_approved_chats(value: str) -> bool:
         log.warning("Could not persist chat permissions: %s", type(exc).__name__)
         return False
     return True
+
+
+async def save_reply_enabled(enabled: bool) -> bool:
+    """Persist the user's explicit reply switch choice, when configured."""
+    if not persistence_available():
+        return False
+    try:
+        await asyncio.to_thread(
+            _put_env_var,
+            os.environ["RENDER_SERVICE_ID"].strip(),
+            os.environ["RENDER_API_KEY"].strip(),
+            "REPLY_ENABLED",
+            "true" if enabled else "false",
+        )
+    except Exception as exc:
+        log.warning("Could not persist reply mode: %s", type(exc).__name__)
+        return False
+    return True
