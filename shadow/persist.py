@@ -52,3 +52,21 @@ async def save_session(session: str) -> bool:
         return False
     log.info("Telegram session saved to Render environment")
     return True
+
+
+async def save_approved_chats(value: str) -> bool:
+    """Persist the dashboard allowlist when Render persistence is configured."""
+    if not persistence_available():
+        return False
+    try:
+        await asyncio.to_thread(
+            _put_env_var,
+            os.environ["RENDER_SERVICE_ID"].strip(),
+            os.environ["RENDER_API_KEY"].strip(),
+            "APPROVED_CHAT_IDS",
+            value,
+        )
+    except Exception as exc:
+        log.warning("Could not persist chat permissions: %s", type(exc).__name__)
+        return False
+    return True

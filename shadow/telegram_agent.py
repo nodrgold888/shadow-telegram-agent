@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from contextlib import asynccontextmanager
+from dataclasses import replace
 
 from telethon import TelegramClient, events
 from telethon.errors import SessionPasswordNeededError
@@ -10,7 +11,7 @@ from telethon.sessions import StringSession
 
 from .assistant import ShadowAssistant
 from .config import Settings
-from .persist import persistence_available, save_session
+from .persist import persistence_available, save_session, save_approved_chats
 from .policy import chat_is_approved, group_message_needs_reply, split_telegram_message
 
 log = logging.getLogger("shadow.telegram")
@@ -31,6 +32,7 @@ class TelegramAgent:
         self._login_phone: str | None = None
         self._login_hash: str | None = None
         self._setup_lock = asyncio.Lock()
+        self._approval_lock = asyncio.Lock()
         self.session_persisted = bool(settings.telegram_session)
         self._watchdog_task: asyncio.Task | None = None
         self.session_revoked = False
@@ -178,7 +180,7 @@ class TelegramAgent:
         return "\n".join(reversed(lines))[-9000:]
 
     async def _on_message(self, event: events.NewMessage.Event) -> None:
-        if not self.connected or not self.client or not self.assistant:
+        if not self.reply_enabled or not self.connected or not self.client or not self.assistant:
             return
         chat_id = event.chat_id
         if chat_id is None or not chat_is_approved(chat_id, self.settings.approved_chat_ids):
@@ -203,6 +205,8 @@ class TelegramAgent:
         if lock.locked():
             log.info("A reply is already running for chat %s", chat_id)
         async with lock:
+            if not self.reply_enabled or not self.assistant or not chat_is_approved(chat_id, self.settings.approved_chat_ids):
+                return
             try:
                 chat = await event.get_chat()
                 title = getattr(chat, "title", None) or getattr(chat, "first_name", None) or str(chat_id)
@@ -211,6 +215,8 @@ class TelegramAgent:
                     answer = await self.assistant.reply(chat_title=title, history=history, message=text)
                 chunks = split_telegram_message(answer, self.settings.max_reply_chars)
                 for index, chunk in enumerate(chunks):
+                    if not self.reply_enabled or not chat_is_approved(chat_id, self.settings.approved_chat_ids):
+                        return
                     if event.is_private or index > 0:
                         await self.client.send_message(chat_id, chunk)
                     else:
@@ -254,6 +260,34 @@ class TelegramAgent:
         else:
             self.client.remove_event_handler(self._on_message)
             self.assistant = None
+
+
+    async def update_chat_approval(self, chat_id: int, approved: bool) -> dict[str, object]:
+        async with self._approval_lock:
+            current = self.settings.approved_chat_ids
+            if current == "*":
+                raise ValueError("Avval barcha ruxsatlarni olib tashlang, so‘ng kerakli chatlarni tanlang")
+            if approved:
+                dialogs = await self.dialogs()
+                if not any(dialog["id"] == chat_id for dialog in dialogs):
+                    raise ValueError("Chat arxivlanmagan suhbatlar ro‘yxatida topilmadi")
+            selected = set(current)
+            if approved:
+                selected.add(chat_id)
+            else:
+                selected.discard(chat_id)
+            return await self._apply_chat_approvals(frozenset(selected))
+
+    async def clear_chat_approvals(self) -> dict[str, object]:
+        async with self._approval_lock:
+            return await self._apply_chat_approvals(frozenset())
+
+    async def _apply_chat_approvals(self, selected: frozenset[int]) -> dict[str, object]:
+        self.settings = replace(self.settings, approved_chat_ids=selected)
+        if not selected:
+            self.set_reply_enabled(False)
+        persisted = await save_approved_chats(",".join(str(i) for i in sorted(selected)))
+        return {"ok": True, "persisted": persisted, "approved_chat_count": len(selected)}
 
     async def dialogs(self, limit: int | None = None) -> list[dict[str, object]]:
         """Return all non-archived chats, including chats in custom folders."""
