@@ -32,7 +32,8 @@ class TelegramAgent:
             return
 
         try:
-            self.assistant = ShadowAssistant(self.settings)
+            if self.settings.reply_enabled:
+                self.assistant = ShadowAssistant(self.settings)
             self.client = TelegramClient(
                 StringSession(self.settings.telegram_session),
                 self.settings.telegram_api_id,
@@ -48,7 +49,8 @@ class TelegramAgent:
             me = await self.client.get_me()
             self._me_id = me.id
             self.account_label = f"@{me.username}" if me.username else str(me.id)
-            self.client.add_event_handler(self._on_message, events.NewMessage(incoming=True))
+            if self.settings.reply_enabled:
+                self.client.add_event_handler(self._on_message, events.NewMessage(incoming=True))
             self.connected = True
             self.last_error = None
             log.info("Shadow connected to Telegram account %s", self.account_label)
@@ -134,6 +136,7 @@ class TelegramAgent:
             "connected": self.connected,
             "account": self.account_label,
             "approved_chat_count": "all" if approved == "*" else len(approved),
+            "reply_enabled": self.settings.reply_enabled,
             "group_reply_mode": self.settings.group_reply_mode,
             "last_error": self.last_error,
         }

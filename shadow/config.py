@@ -26,6 +26,17 @@ def _chat_ids(raw: str) -> frozenset[int] | str:
         raise ValueError("APPROVED_CHAT_IDS must contain numeric IDs separated by commas") from exc
 
 
+def _boolean(name: str, default: bool = False) -> bool:
+    raw = os.getenv(name, "").strip().lower()
+    if not raw:
+        return default
+    if raw in {"1", "true", "yes", "on"}:
+        return True
+    if raw in {"0", "false", "no", "off"}:
+        return False
+    raise ValueError(f"{name} must be true or false")
+
+
 @dataclass(frozen=True)
 class Settings:
     telegram_api_id: int | None
@@ -34,6 +45,7 @@ class Settings:
     openai_api_key: str
     openai_model: str
     approved_chat_ids: frozenset[int] | str
+    reply_enabled: bool
     group_reply_mode: str
     context_messages: int
     max_reply_chars: int
@@ -51,6 +63,7 @@ class Settings:
             openai_api_key=os.getenv("OPENAI_API_KEY", "").strip(),
             openai_model=os.getenv("OPENAI_MODEL", "gpt-5-mini").strip(),
             approved_chat_ids=_chat_ids(os.getenv("APPROVED_CHAT_IDS", "")),
+            reply_enabled=_boolean("REPLY_ENABLED", False),
             group_reply_mode=mode,
             context_messages=max(2, min(_integer("CONTEXT_MESSAGES", 12) or 12, 30)),
             max_reply_chars=max(500, min(_integer("MAX_REPLY_CHARS", 3800) or 3800, 4000)),
@@ -58,12 +71,6 @@ class Settings:
         )
     @property
     def configured(self) -> bool:
-        return all(
-            (
-                self.telegram_api_id,
-                self.telegram_api_hash,
-                self.telegram_session,
-                self.openai_api_key,
-                self.approved_chat_ids,
-            )
-        )
+        telegram_ready = all((self.telegram_api_id, self.telegram_api_hash, self.telegram_session))
+        reply_ready = bool(self.openai_api_key and self.approved_chat_ids)
+        return bool(telegram_ready and (not self.reply_enabled or reply_ready))
