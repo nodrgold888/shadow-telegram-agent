@@ -344,7 +344,7 @@ class TelegramAgent:
                     speech_path = None
                     log.exception("Voice synthesis failed; sending text reply instead")
             if speech_path and speech_path.exists() and self._can_reply(chat_id):
-                caption = "Shadow AI ovozida (sun’iy yaratilgan):\\n" + answer
+                caption = "Shadow AI ovozida (sun’iy yaratilgan):\n" + answer
                 await self.client.send_file(
                     chat_id, str(speech_path), caption=caption[:1024],
                     reply_to=event.id, voice_note=True,
