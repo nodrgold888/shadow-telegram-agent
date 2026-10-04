@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import secrets
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import Cookie, FastAPI, Header, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse
@@ -30,6 +31,19 @@ async def lifespan(_: FastAPI):
 
 app = FastAPI(title="Shadow", version="0.1.0", lifespan=lifespan)
 
+_DASHBOARD_FILE = Path(__file__).with_name("dashboard.html")
+
+
+def _dashboard_allowed(cookie: str | None) -> bool:
+    return bool(cookie and any(
+        expected and secrets.compare_digest(cookie, expected)
+        for expected in (settings.setup_token, settings.admin_token)
+    ))
+
+
+def _setup_allowed(cookie: str | None) -> bool:
+    return bool(settings.setup_token and cookie and secrets.compare_digest(cookie, settings.setup_token))
+
 
 def _setup_allowed(cookie: str | None) -> bool:
     return bool(settings.setup_token and cookie and secrets.compare_digest(cookie, settings.setup_token))
@@ -37,9 +51,61 @@ def _setup_allowed(cookie: str | None) -> bool:
 
 @app.get("/", response_class=HTMLResponse)
 async def home() -> str:
-    state = "ONLAYN" if agent.connected else "SOZLASH KERAK"
-    color = "#6ce5d8" if agent.connected else "#f5c866"
-    return f"""<!doctype html><html lang='uz'><head><meta name='viewport' content='width=device-width,initial-scale=1'><title>Shadow</title><style>body{{margin:0;min-height:100vh;display:grid;place-items:center;background:#080b12;color:#f5f7fb;font:16px system-ui}}main{{width:min(520px,calc(100% - 40px));padding:30px;border:1px solid #252d3d;border-radius:18px;background:#101520}}h1{{font-size:2rem;margin:0 0 8px}}p{{color:#99a3b7}}b{{color:{color}}}code{{display:block;padding:12px;background:#080b12;border-radius:10px;color:#c6cedd}}</style></head><body><main><h1>Shadow</h1><p>Shaxsiy Telegram AI yordamchi</p><p>Holat: <b>{state}</b></p><code>/healthz</code></main></body></html>"""
+    return _DASHBOARD_FILE.read_text(encoding="utf-8")
+
+
+@app.get("/dashboard", response_class=HTMLResponse)
+async def dashboard() -> str:
+    return _DASHBOARD_FILE.read_text(encoding="utf-8")
+
+
+@app.post("/dashboard/auth")
+async def dashboard_auth(request: Request) -> JSONResponse:
+    token = str((await request.json()).get("token", ""))
+    accepted = any(
+        expected and secrets.compare_digest(token, expected)
+        for expected in (settings.setup_token, settings.admin_token)
+    )
+    if not accepted:
+        raise HTTPException(status_code=401, detail="Kirish kodi noto‘g‘ri")
+    response = JSONResponse({"ok": True})
+    response.set_cookie("shadow_setup", token, httponly=True, secure=True, samesite="strict", max_age=1800)
+    return response
+
+
+@app.post("/dashboard/logout")
+async def dashboard_logout() -> JSONResponse:
+    response = JSONResponse({"ok": True})
+    response.delete_cookie("shadow_setup")
+    return response
+
+
+@app.get("/dashboard/api/status")
+async def dashboard_status(shadow_setup: str | None = Cookie(default=None)) -> dict[str, object]:
+    if not _dashboard_allowed(shadow_setup):
+        raise HTTPException(status_code=401, detail="Kirish kerak")
+    return agent.status()
+
+
+@app.get("/dashboard/api/chats")
+async def dashboard_chats(shadow_setup: str | None = Cookie(default=None)) -> dict[str, object]:
+    if not _dashboard_allowed(shadow_setup):
+        raise HTTPException(status_code=401, detail="Kirish kerak")
+    return {"chats": await agent.dialogs()}
+
+
+@app.post("/dashboard/api/replies")
+async def dashboard_replies(request: Request, shadow_setup: str | None = Cookie(default=None)) -> dict[str, object]:
+    if not _dashboard_allowed(shadow_setup):
+        raise HTTPException(status_code=401, detail="Kirish kerak")
+    enabled = (await request.json()).get("enabled")
+    if not isinstance(enabled, bool):
+        raise HTTPException(status_code=400, detail="enabled qiymati true yoki false bo‘lishi kerak")
+    try:
+        agent.set_reply_enabled(enabled)
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    return {"reply_enabled": agent.reply_enabled}
 
 
 @app.get("/healthz")
