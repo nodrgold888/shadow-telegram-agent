@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 import secrets
 from contextlib import asynccontextmanager
@@ -9,6 +10,7 @@ from fastapi import Cookie, FastAPI, Header, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 
 from .config import Settings
+from .keepalive import keepalive_interval, keepalive_url, run_keepalive
 from .telegram_agent import TelegramAgent
 
 logging.basicConfig(
@@ -23,9 +25,13 @@ agent = TelegramAgent(settings)
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     await agent.start()
+    url = keepalive_url()
+    ping_task = asyncio.create_task(run_keepalive(url, keepalive_interval())) if url else None
     try:
         yield
     finally:
+        if ping_task:
+            ping_task.cancel()
         await agent.stop()
 
 
