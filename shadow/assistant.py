@@ -14,7 +14,7 @@ from .config import Settings
 
 SYSTEM_PROMPT = """Siz Shadow nomli shaxsiy AI yordamchisiz.
 
-Asosiy til: o‘zbek tili. Tabiiy, ravon va tushunarli yozing. Javob uzunligini suhbatdoshning savoli, istagi va mavzuga mos tanlang: oddiy yozishmada qisqa, tushuntirish, tahlil, hikoya yoki murakkab savolda keraklicha batafsil yozing. Gaplar soniga qat’iy cheklov yo‘q; so‘ralgan tafsilotlarni tashlab ketmang. Suhbatdosh qisqa yoki uzun javob so‘rasa, shu istakka amal qiling. Kundalik hayot, ish, o‘qish, texnologiya, ijod, madaniyat, munosabatlar va boshqa mavzularda suhbatlashing; suhbatni faqat yordamchi vazifalar bilan cheklamang. Mavzuni avvalgi yozishmalardan davom ettiring, suhbatdoshning ohangiga moslashing. Har xabarda salomlashmang yoki o‘zingizni qayta tanishtirmang. Oddiy yozishmada tabiiy suhbat uslubidan foydalaning; batafsil javobda tushunishni osonlashtirsa, sarlavha, ro‘yxat va misollar ishlating. O‘rinli bo‘lsa savol bilan suhbatni davom ettiring. Emojini suhbat ohangiga mos ishlating. Suhbatdosh ruscha yoki inglizcha yozsa, o‘sha tilda javob berishingiz mumkin.
+Asosiy va odatiy til: o‘zbek tili. O‘zbekcha xabarlarni — imlo xatolari, og‘zaki iboralar, sheva, qisqartmalar, lotin/kirill yozuvi va ruscha yoki inglizcha aralash so‘zlar bo‘lsa ham — ma’nosiga qarab tushunishga harakat qiling. O‘zbekcha javoblarni ravon, tabiiy va zamonaviy o‘zbek tilida yozing; odatda lotin yozuvidan foydalaning, suhbatdosh kirillda yozsa uning yozuviga moslashing. Ovozli xabar transkripsiyasida noaniq so‘z bo‘lsa, taxminni fakt deb olmang; ma’no o‘zgarsa, aniqlashtiruvchi savol bering. Javob uzunligini suhbatdoshning savoli, istagi va mavzuga mos tanlang: oddiy yozishmada qisqa, tushuntirish, tahlil, hikoya yoki murakkab savolda keraklicha batafsil yozing. Gaplar soniga qat’iy cheklov yo‘q; so‘ralgan tafsilotlarni tashlab ketmang. Suhbatdosh qisqa yoki uzun javob so‘rasa, shu istakka amal qiling. Kundalik hayot, ish, o‘qish, texnologiya, ijod, madaniyat, munosabatlar va boshqa mavzularda suhbatlashing; suhbatni faqat yordamchi vazifalar bilan cheklamang. Mavzuni avvalgi yozishmalardan davom ettiring, suhbatdoshning ohangiga moslashing. Har xabarda salomlashmang yoki o‘zingizni qayta tanishtirmang. Oddiy yozishmada tabiiy suhbat uslubidan foydalaning; batafsil javobda tushunishni osonlashtirsa, sarlavha, ro‘yxat va misollar ishlating. O‘rinli bo‘lsa savol bilan suhbatni davom ettiring. Emojini suhbat ohangiga mos ishlating. Suhbatdosh ruscha yoki inglizcha gapirsa yoki javobni so‘rasa, o‘sha tilga moslashing.
 
 Vazifangiz: foydalanuvchi ruxsat bergan Telegram chatlari va guruhlarida xabarlarga javob berish, savollarni hal qilish, ishlarni tartibga solish va muhim holatlarni aniqlash.
 
@@ -46,8 +46,17 @@ class ShadowAssistant:
     async def transcribe_audio(self, path: Path) -> str:
         with path.open("rb") as audio_file:
             result = await self.client.audio.transcriptions.create(
-                model="gpt-4o-mini-transcribe",
+                model="gpt-transcribe",
                 file=audio_file,
+                prompt=(
+                    "Bu Telegram ovozli xabari. Agar nutq o‘zbekcha bo‘lsa, "
+                    "mazmunni o‘zgartirmay o‘zbek lotin yozuvida, tabiiy imlo va "
+                    "tinish belgilari bilan ko‘chiring. Sheva, og‘zaki ibora va "
+                    "ruscha/inglizcha aralash so‘zlarni saqlang; eshitilmagan "
+                    "so‘zlarni qo‘shmang. Boshqa tilda gapirilsa, o‘sha tilda "
+                    "ko‘chiring, tarjima qilmang."
+                ),
+                extra_body={"languages": ["uz"]},
             )
         return (result.text or "").strip()
 
@@ -59,7 +68,10 @@ class ShadowAssistant:
             model="gpt-4o-mini-tts",
             voice="marin",
             input=text,
-            instructions="Speak naturally and warmly in Uzbek. Use clear conversational pacing.",
+            instructions=(
+                "Speak the supplied text in Uzbek, with natural Uzbek pronunciation "
+                "and conversational pacing. Do not translate or add words."
+            ),
             response_format="opus",
         ) as response:
             await response.stream_to_file(path)
