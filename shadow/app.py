@@ -10,6 +10,7 @@ from fastapi import Cookie, FastAPI, Header, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 
 from .config import Settings
+from .persist import save_reply_enabled
 from .keepalive import keepalive_interval, keepalive_url, run_keepalive
 from .telegram_agent import TelegramAgent
 
@@ -121,7 +122,8 @@ async def dashboard_chat_approval(request: Request, shadow_setup: str | None = C
 async def dashboard_clear_chat_approvals(shadow_setup: str | None = Cookie(default=None)) -> dict[str, object]:
     if not _dashboard_allowed(shadow_setup):
         raise HTTPException(status_code=401, detail="Kirish kerak")
-    return await agent.clear_chat_approvals()
+    result = await agent.clear_chat_approvals()
+    return result
 
 
 @app.post("/dashboard/api/replies")
@@ -135,7 +137,8 @@ async def dashboard_replies(request: Request, shadow_setup: str | None = Cookie(
         agent.set_reply_enabled(enabled)
     except ValueError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
-    return {"reply_enabled": agent.reply_enabled}
+    persisted = await save_reply_enabled(agent.reply_enabled)
+    return {"reply_enabled": agent.reply_enabled, "persisted": persisted}
 
 
 @app.get("/healthz")
