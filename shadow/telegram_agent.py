@@ -229,6 +229,8 @@ class TelegramAgent:
             "account": self.account_label,
             "approved_chat_count": "all" if approved == "*" else len(approved),
             "reply_enabled": self.reply_enabled,
+            "openai_configured": bool(self.settings.openai_api_key),
+            "reply_ready": bool(self.connected and self.client and self.settings.openai_api_key and approved),
             "group_reply_mode": self.settings.group_reply_mode,
             "last_error": self.last_error,
             "session_persisted": self.session_persisted,
