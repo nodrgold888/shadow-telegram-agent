@@ -6,7 +6,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-RUN addgroup --system shadow && adduser --system --ingroup shadow shadow
+RUN addgroup --system shadowagent && adduser --system --ingroup shadowagent shadowagent
 
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
@@ -14,7 +14,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY shadow ./shadow
 COPY scripts ./scripts
 
-USER shadow
+USER shadowagent
 EXPOSE 10000
 
 CMD ["uvicorn", "shadow.app:app", "--host", "0.0.0.0", "--port", "10000"]
