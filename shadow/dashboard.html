@@ -5,6 +5,9 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="theme-color" content="#f3f6f7">
 <title>Shadow · Boshqaruv paneli</title>
+<script>
+(function(){var theme='dark';try{var saved=localStorage.getItem('shadow-theme');if(saved==='light'||saved==='dark')theme=saved}catch(e){}document.documentElement.dataset.theme=theme;document.querySelector('meta[name="theme-color"]').content=theme==='dark'?'#0c1218':'#f3f6f7'})()
+</script>
 <style>
 :root{color-scheme:light;--bg:#f3f6f7;--paper:#fff;--ink:#17242a;--muted:#728188;--line:#e3eaeb;--nav:#14242a;--mint:#138d78;--mint-bg:#e7f6f1;--amber:#8a631b;--amber-bg:#fff5df;--shadow:0 10px 30px #1a33370b}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}button,input{font:inherit}button{cursor:pointer}button:focus-visible,input:focus-visible{outline:3px solid #52bda8;outline-offset:2px}
 .login-wrap{min-height:100vh;display:grid;place-items:center;padding:24px;background:radial-gradient(ellipse at 15% 15%,#d9f0ea 0,transparent 35%),radial-gradient(ellipse at 90% 85%,#e1eaf2 0,transparent 36%),var(--bg)}.login{width:min(440px,100%);padding:36px;border:1px solid var(--line);border-radius:24px;background:var(--paper);box-shadow:0 24px 70px #122c3016}.brand{display:flex;align-items:center;gap:12px}.mark{width:42px;height:42px;display:grid;place-items:center;border-radius:14px;background:linear-gradient(145deg,#22b69b,#117c6c);color:white;font-size:20px;font-weight:850;box-shadow:0 6px 15px #159d8638}.brand strong{font-size:16px;letter-spacing:.11em}.brand small{display:block;color:var(--muted);font-size:10px;letter-spacing:.08em}.login h1{margin:30px 0 7px;font-size:28px;letter-spacing:-.04em}.login p{margin:0;color:var(--muted)}.login input{width:100%;margin:24px 0 11px;padding:14px;border:1px solid #d8e1e3;border-radius:12px;background:#fbfcfc;color:var(--ink)}.primary{width:100%;padding:14px;border:0;border-radius:12px;background:var(--mint);color:white;font-weight:750}.primary:hover{background:#0e7966}.error{min-height:19px;margin-top:9px;color:#b54747;font-size:12px}
@@ -16,12 +19,43 @@
 @media(max-width:680px){.shell{display:block}.side{position:static;height:auto;flex-direction:row;align-items:center;padding:12px 18px;border-bottom:1px solid #263740}.side .brand{padding:0}.side .mark{width:36px;height:36px}.side>div:nth-child(2),.side-note{display:none}.content{padding:24px 18px 36px}.top{align-items:flex-start;margin-bottom:23px}.top-actions{gap:6px}.language{display:none}.btn{padding:8px 10px}.grid{grid-template-columns:1fr 1fr}.card:last-child{grid-column:span 2}.warning{align-items:flex-start;gap:10px;padding:14px}.warn-icon{flex-basis:30px;height:30px}.reply-control{gap:7px}.reply-label small{display:none}.row{grid-template-columns:minmax(0,1fr) auto;padding:11px 13px}.row>*:nth-child(2),.row>*:nth-child(4),.thead>*:nth-child(2),.thead>*:nth-child(4){display:none}.row>*:nth-child(3){justify-self:end}}
 @media(max-width:390px){.content{padding-inline:13px}.top{gap:9px}.top-actions{flex-wrap:wrap;justify-content:flex-end}.top h1{font-size:26px}.grid{grid-template-columns:1fr}.card:last-child{grid-column:auto}.warning{flex-wrap:wrap}.warning-copy{flex:1}.reply-control{width:100%;justify-content:flex-end}.section-head h2{font-size:15px}}
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{scroll-behavior:auto!important;transition:none!important}}
+
+/* Theme surfaces */
+.theme-toggle{display:inline-grid;place-items:center;min-width:36px;height:36px;padding:0 10px;border:1px solid var(--line);border-radius:11px;background:var(--paper);color:var(--ink);font-size:18px;line-height:1}
+.theme-toggle:hover{border-color:var(--mint)}.login{position:relative}.login .theme-toggle{position:absolute;top:38px;right:36px}
+:root[data-theme="dark"]{color-scheme:dark;--bg:#0c1218;--paper:#141e26;--ink:#edf4f5;--muted:#99aab4;--line:#26343e;--nav:#0a1117;--mint:#65dcc0;--mint-bg:#18382f;--amber:#ebc27a;--amber-bg:#292419;--shadow:0 12px 32px #00000020}
+[data-theme="dark"] .login-wrap{background:radial-gradient(ellipse at 15% 15%,#17322d 0,transparent 36%),radial-gradient(ellipse at 90% 85%,#172431 0,transparent 36%),var(--bg)}
+[data-theme="dark"] .login{box-shadow:0 24px 70px #00000035}
+[data-theme="dark"] .login input{background:#0e171e;border-color:#33434e;color:var(--ink)}
+[data-theme="dark"] .primary{background:#58d1b5;color:#08251d}
+[data-theme="dark"] .primary:hover{background:#7de2ca}
+[data-theme="dark"] .language,[data-theme="dark"] .btn{color:#c3d1d7}
+[data-theme="dark"] .btn:hover{background:#1a2a31;border-color:#466b65}
+[data-theme="dark"] .section-kicker,[data-theme="dark"] .card-label{color:#a7b8c1}
+[data-theme="dark"] .card-icon{background:#20332e;color:#82c7b6}
+[data-theme="dark"] .safe{color:#e5bb6c}
+[data-theme="dark"] .online{color:#65dcc0}
+[data-theme="dark"] .warning{border-color:#4c4027}
+[data-theme="dark"] .warn-icon{background:#44351c;color:#ebc27a}
+[data-theme="dark"] .warning strong,[data-theme="dark"] .reply-control{color:#f0d395}
+[data-theme="dark"] .warning p,[data-theme="dark"] .reply-label small{color:#c0aa81}
+[data-theme="dark"] .switch{background:#4b3b24;border-color:#796139}
+[data-theme="dark"] .switch[aria-checked="true"]{background:#248b72;border-color:#4db99b}
+[data-theme="dark"] .table,[data-theme="dark"] .count{background:var(--paper)}
+[data-theme="dark"] .row{border-color:#24323b}
+[data-theme="dark"] .thead{background:#111b22;color:#94a8b4}
+[data-theme="dark"] .avatar{background:#20372f;color:#82d3bb}
+[data-theme="dark"] .badge{background:#1d3b30;color:#89d9b7}
+[data-theme="dark"] .badge.off{background:#27323b;color:#acbac4}
+[data-theme="dark"] .count,[data-theme="dark"] .foot{color:#9aadb7}
+[data-theme="dark"] .error{color:#ff9b9b}
+
 </style>
 </head>
 <body>
-<section id="login" class="login-wrap"><main class="login"><div class="brand"><div class="mark">S</div><div><strong>SHADOW</strong><small>SHAXSIY YORDAMCHI</small></div></div><h1>Boshqaruv paneli</h1><p>Davom etish uchun maxfiy boshqaruv tokenini kiriting.</p><form id="loginForm"><label class="sr-only" for="token">Boshqaruv tokeni</label><input id="token" type="password" autocomplete="current-password" placeholder="Boshqaruv tokeni" required><button class="primary">Panelga kirish</button><div id="loginError" class="error" role="status" aria-live="polite"></div></form></main></section>
+<section id="login" class="login-wrap"><main class="login"><div class="brand"><div class="mark">S</div><div><strong>SHADOW</strong><small>SHAXSIY YORDAMCHI</small></div></div><button class="theme-toggle" type="button" data-theme-toggle aria-label="Rang rejimini o‘zgartirish" title="Rang rejimi">☀</button><h1>Boshqaruv paneli</h1><p>Davom etish uchun maxfiy boshqaruv tokenini kiriting.</p><form id="loginForm"><label class="sr-only" for="token">Boshqaruv tokeni</label><input id="token" type="password" autocomplete="current-password" placeholder="Boshqaruv tokeni" required><button class="primary">Panelga kirish</button><div id="loginError" class="error" role="status" aria-live="polite"></div></form></main></section>
 <div id="app" class="shell" hidden><aside class="side"><div class="brand"><div class="mark">S</div><div><strong>SHADOW</strong><small>SHAXSIY YORDAMCHI</small></div></div><div><div class="nav-label">Ish maydoni</div><div class="nav" aria-current="page"><b>◈</b>Umumiy ko‘rinish</div></div><div class="side-note"><div class="secure"><i></i>Himoyalangan boshqaruv</div>Shaxsiy Telegram akkauntingiz uchun</div></aside>
-<main class="content"><header class="top"><div><div class="eyebrow">TELEGRAM&nbsp; / &nbsp;SHAXSIY</div><h1>Boshqaruv paneli</h1><p>Shadow va Telegram ulanishi holati</p></div><div class="top-actions"><span class="language"><i></i>UZ&nbsp; O‘zbekcha</span><button id="refresh" class="btn" type="button">↻&nbsp; Yangilash</button><button id="logout" class="btn" type="button">Chiqish</button></div></header>
+<main class="content"><header class="top"><div><div class="eyebrow">TELEGRAM&nbsp; / &nbsp;SHAXSIY</div><h1>Boshqaruv paneli</h1><p>Shadow va Telegram ulanishi holati</p></div><div class="top-actions"><button class="theme-toggle" type="button" data-theme-toggle aria-label="Rang rejimini o‘zgartirish" title="Rang rejimi">☀</button><span class="language"><i></i>UZ&nbsp; O‘zbekcha</span><button id="refresh" class="btn" type="button">↻&nbsp; Yangilash</button><button id="logout" class="btn" type="button">Chiqish</button></div></header>
 <div class="section-kicker">Hisob holati</div><section class="grid" aria-label="Hisob holati">
 <article class="card"><div class="card-top"><div class="card-label">Telegram ulanishi</div><span class="card-icon" aria-hidden="true">↗</span></div><div id="connection" class="value"><span class="status-dot"></span>Tekshirilmoqda</div><div id="connectionSub" class="sub">Ulanish holati yangilanmoqda</div></article>
 <article class="card"><div class="card-top"><div class="card-label">Ulangan akkaunt</div><span class="card-icon" aria-hidden="true">◎</span></div><div id="account" class="value">—</div><div class="sub">Shaxsiy Telegram akkaunti</div></article>
@@ -30,6 +64,10 @@
 <section class="section-head"><div><h2>Telegram suhbatlari</h2><p>Oxirgi ko‘rinadigan chatlar · faqat o‘qish</p></div><span id="chatCount" class="count">— ta chat</span></section><div class="table" role="table" aria-label="Telegram suhbatlari"><div class="row thead" role="row"><span role="columnheader">Suhbat nomi</span><span role="columnheader">Turi</span><span role="columnheader">Ruxsat holati</span><span role="columnheader">O‘qilmagan</span></div><div id="chats" class="empty">Yuklanmoqda…</div></div><div class="foot"><i>●</i>Chatlar ro‘yxati maxfiy. Panel xabar matnlarini ko‘rsatmaydi.</div></main></div>
 <script>
 const $=s=>document.querySelector(s);
+
+function updateThemeButtons(){const dark=document.documentElement.dataset.theme==='dark';document.querySelectorAll('[data-theme-toggle]').forEach(button=>{button.textContent=dark?'☀':'☾';button.setAttribute('aria-label',dark?'Yorug‘ rejimga o‘tish':'Qorong‘i rejimga o‘tish');button.title=dark?'Yorug‘ rejim':'Qorong‘i rejim'})}
+document.querySelectorAll('[data-theme-toggle]').forEach(button=>button.addEventListener('click',()=>{const theme=document.documentElement.dataset.theme==='dark'?'light':'dark';document.documentElement.dataset.theme=theme;document.querySelector('meta[name="theme-color"]').content=theme==='dark'?'#0c1218':'#f3f6f7';try{localStorage.setItem('shadow-theme',theme)}catch(e){}updateThemeButtons()}));updateThemeButtons();
+
 async function api(path,options={}){const r=await fetch(path,{credentials:'same-origin',...options});if(r.status===401)throw Error('auth');const j=await r.json();if(!r.ok)throw Error(j.detail||'Xatolik');return j}
 function showApp(){$('#login').hidden=true;$('#app').hidden=false}
 $('#loginForm').addEventListener('submit',async e=>{e.preventDefault();$('#loginError').textContent='';try{await api('/dashboard/auth',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({token:$('#token').value})});$('#token').value='';showApp();await load()}catch(err){$('#loginError').textContent='Kirish amalga oshmadi. Tokenni tekshiring.'}});
