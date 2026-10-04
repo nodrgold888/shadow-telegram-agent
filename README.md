@@ -4,6 +4,46 @@ Shadow is a private, always-on Telegram assistant for one personal account. It r
 
 New deployments start in read-only connection mode with `REPLY_ENABLED=false`. In this mode Shadow connects to Telegram but does not register a message handler, mark messages read, show typing activity, or send replies.
 
+## Run locally from GitHub
+
+Requires Python 3.12 or newer. No Render account is needed.
+
+```bash
+git clone https://github.com/nodrgold888/shadow-telegram-agent.git
+cd shadow-telegram-agent
+python -m venv .venv
+```
+
+Activate the environment:
+
+- Windows PowerShell: `.venv\Scripts\Activate.ps1`
+- macOS/Linux: `source .venv/bin/activate`
+
+Then run:
+
+```bash
+python -m pip install -r requirements.txt
+python scripts/run_local.py
+```
+
+The first launch creates a private `.env` file and generates `SETUP_TOKEN`.
+Edit `.env` and fill `TELEGRAM_API_ID`, `TELEGRAM_API_HASH`, and
+`OPENAI_API_KEY`, then restart the command. Existing Render secrets are not
+downloaded automatically. Obtain Telegram credentials from
+https://my.telegram.org and an OpenAI key from https://platform.openai.com/api-keys.
+
+Open http://127.0.0.1:10000/setup/telegram and use your `SETUP_TOKEN` to sign in.
+Complete Telegram phone/code verification (and your two-step password if enabled).
+Open http://127.0.0.1:10000/ for the dashboard, select chats, then enable replies
+when ready. Replies start disabled; no chats are automatically approved.
+
+Telegram login, chat permissions, and the reply switch are saved privately in
+`.shadow-state/state.json`; saved choices override their corresponding `.env`
+values on later launches. Never upload this directory or `.env`.
+Keep the terminal and computer running with internet access for continuous operation.
+Stop with Ctrl+C; start again with `python scripts/run_local.py`.
+Public Instagram/TikTok video downloading also runs locally.
+
 ## Safety model
 
 - No chat is handled until its numeric Telegram chat ID is listed in `APPROVED_CHAT_IDS`.

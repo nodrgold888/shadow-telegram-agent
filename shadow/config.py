@@ -3,6 +3,8 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass
 
+from .persist import load_local_settings
+
 
 def _integer(name: str, default: int | None = None) -> int | None:
     raw = os.getenv(name, "").strip()
@@ -26,8 +28,8 @@ def _chat_ids(raw: str) -> frozenset[int] | str:
         raise ValueError("APPROVED_CHAT_IDS must contain numeric IDs separated by commas") from exc
 
 
-def _boolean(name: str, default: bool = False) -> bool:
-    raw = os.getenv(name, "").strip().lower()
+def _boolean(name: str, default: bool = False, value: str | None = None) -> bool:
+    raw = (os.getenv(name, "") if value is None else value).strip().lower()
     if not raw:
         return default
     if raw in {"1", "true", "yes", "on"}:
@@ -54,17 +56,18 @@ class Settings:
 
     @classmethod
     def from_env(cls) -> "Settings":
+        local = load_local_settings()
         mode = os.getenv("GROUP_REPLY_MODE", "mentions").strip().lower()
         if mode not in {"mentions", "all"}:
             raise ValueError("GROUP_REPLY_MODE must be 'mentions' or 'all'")
         return cls(
             telegram_api_id=_integer("TELEGRAM_API_ID"),
             telegram_api_hash=os.getenv("TELEGRAM_API_HASH", "").strip(),
-            telegram_session=os.getenv("TELEGRAM_SESSION", "").strip(),
+            telegram_session=local.get("TELEGRAM_SESSION", os.getenv("TELEGRAM_SESSION", "")).strip(),
             openai_api_key=os.getenv("OPENAI_API_KEY", "").strip(),
             openai_model=os.getenv("OPENAI_MODEL", "gpt-5-mini").strip(),
-            approved_chat_ids=_chat_ids(os.getenv("APPROVED_CHAT_IDS", "")),
-            reply_enabled=_boolean("REPLY_ENABLED", False),
+            approved_chat_ids=_chat_ids(local.get("APPROVED_CHAT_IDS", os.getenv("APPROVED_CHAT_IDS", ""))),
+            reply_enabled=_boolean("REPLY_ENABLED", False, local.get("REPLY_ENABLED")),
             group_reply_mode=mode,
             context_messages=max(2, min(_integer("CONTEXT_MESSAGES", 12) or 12, 30)),
             max_reply_chars=max(500, min(_integer("MAX_REPLY_CHARS", 3800) or 3800, 4000)),
