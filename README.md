@@ -117,3 +117,33 @@ The Telegram session created at `/setup/telegram` would normally live only in me
 `/admin/status` reports `session_persisted` and `can_persist_session`. If you prefer, run `scripts/create_session.py` locally and paste `TELEGRAM_SESSION` into Render yourself. The session string is never logged or exposed over HTTP.
 
 While running, a watchdog checks the connection every 60 seconds and reconnects if it dropped or failed at boot. Only a session revoked from Telegram (Settings → Devices → Terminate) needs a new login; this is reported as `session_revoked`.
+
+## Mathematics, Excel and Word skills
+
+Shadow loads task guidance from `shadow/skills/math.md`, `excel.md` and `word.md`.
+Arithmetic tools validate expressions without executing Python. The assistant explains
+equations and word problems and can check arithmetic, percentages, roots and trigonometry
+(trigonometric calculator arguments are radians).
+
+Send a DOCX or XLSX attachment to an approved chat with your instructions, or request a new file:
+- "Masalani bosqichma-bosqich yech: ..."
+- "Oylik budjetimni Excel fayl qilib ber: ..."
+- Send XLSX with "Jadvalni tahlil qil, xatolarini top."
+- Send DOCX with "Matnni tahrir qilib, yangi Word nusxa tayyorla."
+
+Attachments without captions receive a summary. In groups the existing mention/reply
+policy still applies. File contents are sent to the configured OpenAI API for analysis.
+Only selected chats with replies enabled are processed. Permissions are checked again
+before returning text or files.
+
+Limits: uploads up to 10 MB, decompressed Office contents up to 40 MB; XLSX previews
+include at most 5 sheets, 200 rows and 30 columns per sheet within a 24,000-character
+budget. Truncation is disclosed. DOCX previews extract paragraphs and tables, without
+images or original layout. Legacy DOC/XLS and macro formats are not supported.
+Edits produce a NEW document, not a lossless edit of the original. Formula generation
+uses a limited set of local Excel formulas; results recalculate in Excel, not on the server.
+Generated files are capped at 3 per request. XLSX creation supports up to 5 sheets,
+500 rows and 30 columns per sheet. Temporary input/output files are deleted after processing.
+
+Local update: `git pull`, `python -m pip install -r requirements.txt`, then restart
+`python scripts/run_local.py`. Python tests: `python -m unittest discover -s tests`.
