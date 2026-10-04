@@ -11,6 +11,7 @@ from telethon.errors import SessionPasswordNeededError
 from telethon.sessions import StringSession
 
 from .assistant import ShadowAssistant
+from .video_download import VideoDownloadError, downloaded_video, find_video_url
 from .config import Settings
 from .persist import persistence_available, save_session, save_approved_chats, save_reply_enabled
 from .policy import chat_is_approved, group_message_needs_reply, split_telegram_message
@@ -196,8 +197,9 @@ class TelegramAgent:
         sender = await event.get_sender()
         if getattr(sender, "bot", False):
             return
+        video_url = find_video_url(text)
         replying_to_shadow = await self._is_reply_to_shadow(event)
-        if not group_message_needs_reply(
+        if not video_url and not group_message_needs_reply(
             is_private=event.is_private,
             mode=self.settings.group_reply_mode,
             mentioned=bool(getattr(event.message, "mentioned", False)),
@@ -214,6 +216,25 @@ class TelegramAgent:
             try:
                 chat = await event.get_chat()
                 title = getattr(chat, "title", None) or getattr(chat, "first_name", None) or str(chat_id)
+
+                if video_url:
+                    try:
+                        async with downloaded_video(video_url) as video:
+                            if not self.reply_enabled or not chat_is_approved(chat_id, self.settings.approved_chat_ids):
+                                return
+                            await self.client.send_file(
+                                chat_id, str(video), caption="Video tayyor.",
+                                reply_to=event.id, supports_streaming=True,
+                            )
+                        self.reply_count += 1
+                        self.last_reply_at = datetime.now(timezone.utc).isoformat()
+                        self.last_reply_error = None
+                        await self.client.send_read_acknowledge(chat_id)
+                    except VideoDownloadError as exc:
+                        self.last_reply_error = "video_download_failed"
+                        if self.reply_enabled and chat_is_approved(chat_id, self.settings.approved_chat_ids):
+                            await event.reply(str(exc))
+                    return
                 history = await self._history(chat_id)
                 async with self.client.action(chat_id, "typing"):
                     answer = await self.assistant.reply(chat_title=title, history=history, message=text)
