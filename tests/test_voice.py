@@ -27,7 +27,9 @@ class VoiceAssistantTests(unittest.IsolatedAsyncioTestCase):
                 text = await assistant.transcribe_audio(source)
             self.assertEqual(text, "Salom, qalaysiz?")
             call = openai.return_value.audio.transcriptions.create.await_args
-            self.assertEqual(call.kwargs["model"], "gpt-4o-mini-transcribe")
+            self.assertEqual(call.kwargs["model"], "gpt-transcribe")
+            self.assertEqual(call.kwargs["extra_body"]["languages"], ["uz"])
+            self.assertIn("o‘zbek", call.kwargs["prompt"].lower())
             self.assertTrue(call.kwargs["file"].name.endswith("voice.ogg"))
 
     async def test_generates_telegram_opus_speech(self):
@@ -53,6 +55,7 @@ class VoiceAssistantTests(unittest.IsolatedAsyncioTestCase):
             call = openai.return_value.audio.speech.with_streaming_response.create.call_args
             self.assertEqual(call.kwargs["model"], "gpt-4o-mini-tts")
             self.assertEqual(call.kwargs["response_format"], "opus")
+            self.assertIn("Uzbek", call.kwargs["instructions"])
 
     async def test_voice_handler_transcribes_then_requests_voice_reply(self):
         agent = TelegramAgent(settings())

@@ -149,11 +149,13 @@ file building/reading run in Shadow's code.
 
 In approved chats, voice notes up to 3 minutes and 10 MB are transcribed and answered
 with an AI-generated Telegram voice note; its caption also includes the written answer.
+Transcription asks for Uzbek Latin script while preserving informal speech and mixed
+language words. OpenAI's current transcription guidance supports language hints, but
+accuracy still depends on audio quality and documented language coverage.
 If speech generation is unavailable, Shadow falls back to its normal text reply.
-Voice processing only runs while replies are enabled and respects the same group
-mention/reply rules. OpenAI's text-to-speech voices are optimized for English; Uzbek
-speech may be less natural or pronounced imperfectly. Transcription and speech
-generation use the configured OpenAI API key and may incur additional API usage.
+OpenAI's TTS voices are optimized for English, so natural Uzbek pronunciation cannot
+be guaranteed. Transcription and speech generation use the configured OpenAI API key
+and may incur additional API usage.
 
 ## Mathematics, Excel and Word skills
 
