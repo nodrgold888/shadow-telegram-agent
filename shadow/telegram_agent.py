@@ -13,12 +13,13 @@ from telethon.errors import SessionPasswordNeededError
 from telethon.sessions import StringSession
 
 from .assistant import ShadowAssistant
+from .chat_memory import normalize_chat_profile
 from .office_files import OfficeFileError, MAX_UPLOAD_BYTES, inspect_office
 
 _WORK_SLOTS = asyncio.Semaphore(2)
 from .video_download import VideoDownloadError, downloaded_video, find_video_url
 from .config import Settings
-from .persist import persistence_available, save_session, save_approved_chats, save_reply_enabled
+from .persist import persistence_available, load_chat_profiles, save_chat_profiles, save_session, save_approved_chats, save_reply_enabled
 from .policy import chat_is_approved, group_message_needs_reply, split_telegram_message
 
 log = logging.getLogger("shadow.telegram")
@@ -43,6 +44,8 @@ class TelegramAgent:
         self._login_hash: str | None = None
         self._setup_lock = asyncio.Lock()
         self._approval_lock = asyncio.Lock()
+        self._profile_lock = asyncio.Lock()
+        self.chat_profiles = load_chat_profiles()
         self.session_persisted = bool(settings.telegram_session)
         self._watchdog_task: asyncio.Task | None = None
         self.session_revoked = False
@@ -332,6 +335,7 @@ class TelegramAgent:
                 answer, files = await self.assistant.reply_with_files(
                     chat_title=title, history=history, message=text,
                     directory=directory, document_preview=preview,
+                    chat_profile=self.chat_profiles.get(str(chat_id), {}),
                 )
             if not answer and not files:
                 raise RuntimeError("empty_ai_reply")
@@ -403,6 +407,31 @@ class TelegramAgent:
             self.assistant = None
 
 
+    def chat_profile_for(self, chat_id: int) -> dict[str, str]:
+        if not chat_is_approved(chat_id, self.settings.approved_chat_ids):
+            raise ValueError("Chat avtojavob uchun ruxsat etilmagan")
+        return dict(self.chat_profiles.get(str(chat_id), {
+            "style": "", "memory": "", "notes": "", "routines": "",
+        }))
+
+    async def update_chat_profile(self, chat_id: int, value: dict[str, object]) -> dict[str, object]:
+        if not chat_is_approved(chat_id, self.settings.approved_chat_ids):
+            raise ValueError("Avval ushbu chatga avtojavob ruxsatini bering")
+        profile = normalize_chat_profile(value)
+        key = str(chat_id)
+        async with self._profile_lock:
+            updated = dict(self.chat_profiles)
+            if any(profile.values()):
+                updated[key] = profile
+            else:
+                updated.pop(key, None)
+            self.chat_profiles = updated
+            persisted = await save_chat_profiles(updated)
+        return {"profile": profile, "has_profile": any(profile.values()), "persisted": persisted}
+
+    async def clear_chat_profile(self, chat_id: int) -> dict[str, object]:
+        return await self.update_chat_profile(chat_id, {})
+
     async def update_chat_approval(self, chat_id: int, approved: bool) -> dict[str, object]:
         async with self._approval_lock:
             current = self.settings.approved_chat_ids
@@ -429,7 +458,18 @@ class TelegramAgent:
             self.set_reply_enabled(False)
             await save_reply_enabled(False)
         persisted = await save_approved_chats(",".join(str(i) for i in sorted(selected)))
-        return {"ok": True, "persisted": persisted, "approved_chat_count": len(selected)}
+        allowed = {str(chat_id) for chat_id in selected}
+        async with self._profile_lock:
+            retained = {key: value for key, value in self.chat_profiles.items() if key in allowed}
+            profiles_persisted = True
+            if retained != self.chat_profiles:
+                self.chat_profiles = retained
+                profiles_persisted = await save_chat_profiles(retained)
+        return {
+            "ok": True, "persisted": persisted,
+            "approved_chat_count": len(selected),
+            "chat_profiles_persisted": profiles_persisted,
+        }
 
     async def dialogs(self, limit: int | None = None) -> list[dict[str, object]]:
         """Return all non-archived chats, including chats in custom folders."""
@@ -446,6 +486,7 @@ class TelegramAgent:
                 "title": dialog.name or "Telegram chat",
                 "kind": "Kanal" if is_channel else "Guruh" if is_group else "Shaxsiy chat",
                 "approved": approved == "*" or dialog.id in approved,
+                "has_profile": (approved == "*" or dialog.id in approved) and str(dialog.id) in self.chat_profiles,
                 "unread_count": dialog.unread_count,
             })
         return result
