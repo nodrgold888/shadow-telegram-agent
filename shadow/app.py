@@ -100,6 +100,30 @@ async def dashboard_chats(shadow_setup: str | None = Cookie(default=None)) -> di
     return {"chats": await agent.dialogs()}
 
 
+
+@app.post("/dashboard/api/chats/approval")
+async def dashboard_chat_approval(request: Request, shadow_setup: str | None = Cookie(default=None)) -> dict[str, object]:
+    if not _dashboard_allowed(shadow_setup):
+        raise HTTPException(status_code=401, detail="Kirish kerak")
+    body = await request.json()
+    if not isinstance(body, dict):
+        raise HTTPException(status_code=400, detail="So‘rov noto‘g‘ri")
+    chat_id, approved = body.get("chat_id"), body.get("approved")
+    if type(chat_id) is not int or type(approved) is not bool:
+        raise HTTPException(status_code=400, detail="Chat ID va ruxsat holati noto‘g‘ri")
+    try:
+        return await agent.update_chat_approval(chat_id, approved)
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
+@app.post("/dashboard/api/chats/clear-approvals")
+async def dashboard_clear_chat_approvals(shadow_setup: str | None = Cookie(default=None)) -> dict[str, object]:
+    if not _dashboard_allowed(shadow_setup):
+        raise HTTPException(status_code=401, detail="Kirish kerak")
+    return await agent.clear_chat_approvals()
+
+
 @app.post("/dashboard/api/replies")
 async def dashboard_replies(request: Request, shadow_setup: str | None = Cookie(default=None)) -> dict[str, object]:
     if not _dashboard_allowed(shadow_setup):
