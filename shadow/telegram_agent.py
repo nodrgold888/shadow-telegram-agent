@@ -21,6 +21,7 @@ class TelegramAgent:
         self.client: TelegramClient | None = None
         self.assistant: ShadowAssistant | None = None
         self.connected = False
+        self.reply_enabled = settings.reply_enabled
         self.account_label: str | None = None
         self.last_error: str | None = None
         self._locks: dict[int, asyncio.Lock] = {}
@@ -62,13 +63,13 @@ class TelegramAgent:
         self.connected = False
 
     async def _activate_client(self, client: TelegramClient) -> None:
-        if self.settings.reply_enabled:
+        if self.reply_enabled:
             self.assistant = ShadowAssistant(self.settings)
         self.client = client
         me = await client.get_me()
         self._me_id = me.id
         self.account_label = f"@{me.username}" if me.username else str(me.id)
-        if self.settings.reply_enabled:
+        if self.reply_enabled:
             client.add_event_handler(self._on_message, events.NewMessage(incoming=True))
         self.connected = True
         self.last_error = None
@@ -185,10 +186,46 @@ class TelegramAgent:
             "connected": self.connected,
             "account": self.account_label,
             "approved_chat_count": "all" if approved == "*" else len(approved),
-            "reply_enabled": self.settings.reply_enabled,
+            "reply_enabled": self.reply_enabled,
             "group_reply_mode": self.settings.group_reply_mode,
             "last_error": self.last_error,
         }
+
+    def set_reply_enabled(self, enabled: bool) -> None:
+        if enabled and not (self.settings.openai_api_key and self.settings.approved_chat_ids):
+            raise ValueError("Avtomatik javobni yoqish uchun OpenAI kaliti va ruxsatli chat ID kerak")
+        if enabled and (not self.connected or not self.client):
+            raise ValueError("Avtomatik javobni yoqish uchun Telegram ulangan bo‘lishi kerak")
+        if self.reply_enabled == enabled:
+            return
+        self.reply_enabled = enabled
+        if not self.client:
+            return
+        if enabled:
+            self.assistant = ShadowAssistant(self.settings)
+            self.client.add_event_handler(self._on_message, events.NewMessage(incoming=True))
+        else:
+            self.client.remove_event_handler(self._on_message)
+            self.assistant = None
+
+    async def dialogs(self, limit: int = 40) -> list[dict[str, object]]:
+        """Return a small, read-only overview of chats for the private dashboard."""
+        if not self.connected or not self.client:
+            return []
+        approved = self.settings.approved_chat_ids
+        result: list[dict[str, object]] = []
+        async for dialog in self.client.iter_dialogs(limit=limit):
+            entity = dialog.entity
+            is_group = bool(dialog.is_group or getattr(entity, "megagroup", False) or getattr(entity, "gigagroup", False))
+            is_channel = bool(dialog.is_channel or getattr(entity, "broadcast", False)) and not is_group
+            result.append({
+                "id": dialog.id,
+                "title": dialog.name or "Telegram chat",
+                "kind": "Kanal" if is_channel else "Guruh" if is_group else "Shaxsiy chat",
+                "approved": approved == "*" or dialog.id in approved,
+                "unread_count": dialog.unread_count,
+            })
+        return result
 
 @asynccontextmanager
 async def telegram_lifespan(agent: TelegramAgent):
