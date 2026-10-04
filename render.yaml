@@ -1,0 +1,31 @@
+services:
+  - type: web
+    name: shadow-telegram-agent
+    runtime: docker
+    plan: 0.5c-512mb
+    region: frankfurt
+    autoDeployTrigger: commit
+    healthCheckPath: /healthz
+    envVars:
+      - key: TELEGRAM_API_ID
+        sync: false
+      - key: TELEGRAM_API_HASH
+        sync: false
+      - key: TELEGRAM_SESSION
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: OPENAI_MODEL
+        value: gpt-5-mini
+      - key: APPROVED_CHAT_IDS
+        sync: false
+      - key: GROUP_REPLY_MODE
+        value: mentions
+      - key: CONTEXT_MESSAGES
+        value: "12"
+      - key: MAX_REPLY_CHARS
+        value: "3800"
+      - key: ADMIN_TOKEN
+        generateValue: true
+      - key: PORT
+        value: "10000"
