@@ -255,8 +255,8 @@ class TelegramAgent:
             self.client.remove_event_handler(self._on_message)
             self.assistant = None
 
-    async def dialogs(self, limit: int = 40) -> list[dict[str, object]]:
-        """Return a small, read-only overview of chats for the private dashboard."""
+    async def dialogs(self, limit: int | None = None) -> list[dict[str, object]]:
+        """Return all non-archived chats, including chats in custom folders."""
         if not self.connected or not self.client:
             return []
         approved = self.settings.approved_chat_ids
