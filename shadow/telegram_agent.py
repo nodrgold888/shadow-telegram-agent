@@ -10,6 +10,7 @@ from telethon.sessions import StringSession
 
 from .assistant import ShadowAssistant
 from .config import Settings
+from .persist import persistence_available, save_session
 from .policy import chat_is_approved, group_message_needs_reply, split_telegram_message
 
 log = logging.getLogger("shadow.telegram")
@@ -30,6 +31,9 @@ class TelegramAgent:
         self._login_phone: str | None = None
         self._login_hash: str | None = None
         self._setup_lock = asyncio.Lock()
+        self.session_persisted = bool(settings.telegram_session)
+        self._watchdog_task: asyncio.Task | None = None
+        self.session_revoked = False
 
     async def start(self) -> None:
         if not self.settings.telegram_api_ready or not self.settings.telegram_session:
@@ -37,6 +41,10 @@ class TelegramAgent:
             log.warning("Shadow is waiting for Telegram session setup")
             return
 
+        await self._connect_saved_session()
+        self._watchdog_task = asyncio.create_task(self._watchdog())
+
+    async def _connect_saved_session(self) -> None:
         try:
             client = TelegramClient(
                 StringSession(self.settings.telegram_session),
@@ -48,6 +56,8 @@ class TelegramAgent:
             )
             await client.connect()
             if not await client.is_user_authorized():
+                await client.disconnect()
+                self.session_revoked = True
                 raise RuntimeError("The Telegram session is not authorized")
             await self._activate_client(client)
         except Exception as exc:
@@ -55,7 +65,37 @@ class TelegramAgent:
             self.last_error = type(exc).__name__
             log.exception("Telegram connection failed")
 
+    async def _watchdog(self) -> None:
+        """Keep the saved session connected without manual re-setup.
+
+        Telethon already reconnects dropped sockets; this covers a failed boot
+        (Telegram/network briefly unreachable) and a client left disconnected.
+        A revoked session cannot be fixed automatically, so we stop retrying it.
+        """
+        while True:
+            await asyncio.sleep(60)
+            if self.session_revoked:
+                return
+            try:
+                if self.client is None:
+                    await self._connect_saved_session()
+                elif not self.client.is_connected():
+                    await self.client.connect()
+                    self.connected = self.client.is_connected()
+                    if self.connected:
+                        self.last_error = None
+                        log.info("Telegram connection restored")
+            except Exception as exc:
+                self.connected = False
+                self.last_error = type(exc).__name__
+                log.warning("Telegram reconnect attempt failed: %s", type(exc).__name__)
+
+    async def _persist_login(self, client: TelegramClient) -> None:
+        self.session_persisted = await save_session(client.session.save())
+
     async def stop(self) -> None:
+        if self._watchdog_task:
+            self._watchdog_task.cancel()
         if self.client:
             await self.client.disconnect()
         if self._login_client and self._login_client is not self.client:
@@ -105,6 +145,7 @@ class TelegramAgent:
             except SessionPasswordNeededError:
                 return "password_required"
             await self._activate_client(self._login_client)
+            await self._persist_login(self._login_client)
             return "connected"
 
     async def complete_password(self, password: str) -> None:
@@ -113,6 +154,7 @@ class TelegramAgent:
                 raise RuntimeError("Login session is not ready")
             await self._login_client.sign_in(password=password)
             await self._activate_client(self._login_client)
+            await self._persist_login(self._login_client)
 
     async def _is_reply_to_shadow(self, event: events.NewMessage.Event) -> bool:
         if not event.is_reply or self._me_id is None:
@@ -189,6 +231,9 @@ class TelegramAgent:
             "reply_enabled": self.reply_enabled,
             "group_reply_mode": self.settings.group_reply_mode,
             "last_error": self.last_error,
+            "session_persisted": self.session_persisted,
+            "session_revoked": self.session_revoked,
+            "can_persist_session": persistence_available(),
         }
 
     def set_reply_enabled(self, enabled: bool) -> None:

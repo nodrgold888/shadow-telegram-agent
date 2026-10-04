@@ -13,6 +13,8 @@ services:
         sync: false
       - key: SETUP_TOKEN
         sync: false
+      - key: RENDER_API_KEY
+        sync: false
       - key: REPLY_ENABLED
         value: "false"
       - key: OPENAI_MODEL
