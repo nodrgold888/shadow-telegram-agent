@@ -261,7 +261,7 @@ class TelegramAgent:
             return []
         approved = self.settings.approved_chat_ids
         result: list[dict[str, object]] = []
-        async for dialog in self.client.iter_dialogs(limit=limit):
+        async for dialog in self.client.iter_dialogs(limit=limit, archived=False):
             entity = dialog.entity
             is_group = bool(dialog.is_group or getattr(entity, "megagroup", False) or getattr(entity, "gigagroup", False))
             is_channel = bool(dialog.is_channel or getattr(entity, "broadcast", False)) and not is_group
