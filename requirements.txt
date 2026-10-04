@@ -3,3 +3,6 @@ openai==1.109.1
 telethon==1.41.2
 uvicorn[standard]==0.35.0
 yt-dlp==2026.08.19
+openpyxl==3.1.5
+python-docx==1.2.0
+defusedxml==0.7.1
