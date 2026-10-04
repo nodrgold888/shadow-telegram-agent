@@ -4,13 +4,15 @@ import asyncio
 import logging
 import secrets
 from contextlib import asynccontextmanager
+from dataclasses import replace
 from pathlib import Path
 
 from fastapi import Cookie, FastAPI, Header, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 
 from .config import Settings
-from .persist import save_reply_enabled
+from .persist import save_model_selection, save_reply_enabled
+from .config import SUPPORTED_OPENAI_MODELS
 from .keepalive import keepalive_interval, keepalive_url, run_keepalive
 from .telegram_agent import TelegramAgent
 
@@ -99,6 +101,33 @@ async def dashboard_status(shadow_setup: str | None = Cookie(default=None)) -> d
     if not _dashboard_allowed(shadow_setup):
         raise HTTPException(status_code=401, detail="Kirish kerak")
     return agent.status()
+
+
+@app.post("/dashboard/api/models")
+async def dashboard_models(request: Request, shadow_setup: str | None = Cookie(default=None)) -> dict[str, object]:
+    if not _dashboard_allowed(shadow_setup):
+        raise HTTPException(status_code=401, detail="Kirish kerak")
+    body = await request.json()
+    if not isinstance(body, dict):
+        raise HTTPException(status_code=400, detail="Model sozlamasi noto‘g‘ri")
+    openai_model = body.get("openai_model")
+    complex_model = body.get("complex_openai_model")
+    if openai_model not in SUPPORTED_OPENAI_MODELS or complex_model not in SUPPORTED_OPENAI_MODELS:
+        raise HTTPException(status_code=400, detail="Model tanlovini tekshiring")
+    updated_settings = replace(
+        agent.settings,
+        openai_model=openai_model,
+        complex_openai_model=complex_model,
+    )
+    agent.settings = updated_settings
+    if agent.assistant:
+        agent.assistant.settings = updated_settings
+    persisted = await save_model_selection(openai_model, complex_model)
+    return {
+        "openai_model": openai_model,
+        "complex_openai_model": complex_model,
+        "persisted": persisted,
+    }
 
 
 @app.get("/dashboard/api/chats")
