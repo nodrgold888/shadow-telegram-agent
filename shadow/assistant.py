@@ -97,6 +97,7 @@ class ShadowAssistant:
         items = [{"role": "user", "content": prompt}]
         use_reasoning_model = needs_reasoning_model(message, has_document=bool(document_preview))
         selected_model = self.settings.complex_openai_model if use_reasoning_model else self.settings.openai_model
+        self.last_model = selected_model
         files: list[Path] = []
         tools = WORK_TOOLS if directory is not None else WORK_TOOLS[:1]
         # Finite tool budget; no arbitrary code or filesystem paths are exposed to the model.

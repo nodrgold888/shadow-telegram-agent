@@ -15,7 +15,7 @@ RENDER_API = "https://api.render.com/v1"
 
 
 _local_lock = threading.Lock()
-_LOCAL_KEYS = {"TELEGRAM_SESSION", "APPROVED_CHAT_IDS", "REPLY_ENABLED"}
+_LOCAL_KEYS = {"TELEGRAM_SESSION", "APPROVED_CHAT_IDS", "REPLY_ENABLED", "SHADOW_MODEL_SELECTION"}
 
 
 def load_local_settings() -> dict[str, str]:
@@ -123,6 +123,35 @@ async def save_approved_chats(value: str) -> bool:
         )
     except Exception as exc:
         log.warning("Could not persist chat permissions: %s", type(exc).__name__)
+        return False
+    return True
+
+
+async def save_model_selection(openai_model: str, complex_openai_model: str) -> bool:
+    """Persist the dashboard's two model choices as one atomic selection."""
+    value = json.dumps(
+        {"openai_model": openai_model, "complex_openai_model": complex_openai_model},
+        separators=(",", ":"),
+    )
+    if os.getenv("SHADOW_STATE_FILE", "").strip():
+        try:
+            await asyncio.to_thread(_save_local, "SHADOW_MODEL_SELECTION", value)
+            return True
+        except Exception as exc:
+            log.error("Could not save model selection locally: %s", type(exc).__name__)
+            return False
+    if not persistence_available():
+        return False
+    try:
+        await asyncio.to_thread(
+            _put_env_var,
+            os.environ["RENDER_SERVICE_ID"].strip(),
+            os.environ["RENDER_API_KEY"].strip(),
+            "SHADOW_MODEL_SELECTION",
+            value,
+        )
+    except Exception as exc:
+        log.warning("Could not persist model selection: %s", type(exc).__name__)
         return False
     return True
 
