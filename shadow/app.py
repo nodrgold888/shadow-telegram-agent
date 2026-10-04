@@ -41,6 +41,13 @@ app = FastAPI(title="Shadow", version="0.1.0", lifespan=lifespan)
 _DASHBOARD_FILE = Path(__file__).with_name("dashboard.html")
 
 
+def _secure_cookie(request: Request) -> bool:
+    return not (
+        request.url.scheme == "http"
+        and request.url.hostname in {"localhost", "127.0.0.1", "::1"}
+    )
+
+
 def _dashboard_allowed(cookie: str | None) -> bool:
     return bool(cookie and any(
         expected and secrets.compare_digest(cookie, expected)
@@ -76,7 +83,7 @@ async def dashboard_auth(request: Request) -> JSONResponse:
     if not accepted:
         raise HTTPException(status_code=401, detail="Kirish kodi noto‘g‘ri")
     response = JSONResponse({"ok": True})
-    response.set_cookie("shadow_setup", token, httponly=True, secure=True, samesite="strict", max_age=1800)
+    response.set_cookie("shadow_setup", token, httponly=True, secure=_secure_cookie(request), samesite="strict", max_age=1800)
     return response
 
 
@@ -167,7 +174,7 @@ async def telegram_setup_auth(request: Request) -> JSONResponse:
     if not settings.setup_token or not secrets.compare_digest(token, settings.setup_token):
         raise HTTPException(status_code=401, detail="Setup token noto‘g‘ri")
     response = JSONResponse({"ok": True})
-    response.set_cookie("shadow_setup", token, httponly=True, secure=True, samesite="strict", max_age=1800)
+    response.set_cookie("shadow_setup", token, httponly=True, secure=_secure_cookie(request), samesite="strict", max_age=1800)
     return response
 
 
