@@ -43,7 +43,9 @@ Required secrets:
 
 - `TELEGRAM_API_ID`
 - `TELEGRAM_API_HASH`
-- `TELEGRAM_SESSION`
+- `SETUP_TOKEN`
+
+For the free preview, open `/setup/telegram` and authenticate with the private setup token. The resulting Telegram session lives only in memory and is lost whenever the free service sleeps or restarts.
 
 When you are ready to allow replies, add `OPENAI_API_KEY` and `APPROVED_CHAT_IDS`, then explicitly set `REPLY_ENABLED=true`.
 
