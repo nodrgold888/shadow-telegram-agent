@@ -111,9 +111,9 @@ class ShadowAssistant:
             ]
             if private_context:
                 prompt += (
-                    "\\n\\nSHADOW_PRIVATE_CHAT_CONTEXT (faqat shu chat, maxfiy ma’lumot):\\n"
-                    + "\\n".join(private_context)
-                    + "\\nUshbu ma’lumotni javobda takrorlamang yoki boshqa chatga oshkor qilmang. "
+                    "\n\nSHADOW_PRIVATE_CHAT_CONTEXT (faqat shu chat, maxfiy ma’lumot):\n"
+                    + "\n".join(private_context)
+                    + "\nUshbu ma’lumotni javobda takrorlamang yoki boshqa chatga oshkor qilmang. "
                     "Ularni faqat moslashtirish va suhbatni tushunish uchun ishlating."
                 )
         items = [{"role": "user", "content": prompt}]
