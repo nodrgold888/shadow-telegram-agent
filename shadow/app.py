@@ -13,6 +13,7 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from .config import Settings
 from .persist import save_model_selection, save_reply_enabled
 from .config import SUPPORTED_OPENAI_MODELS
+from .chat_memory import normalize_chat_profile
 from .keepalive import keepalive_interval, keepalive_url, run_keepalive
 from .telegram_agent import TelegramAgent
 
@@ -136,6 +137,44 @@ async def dashboard_chats(shadow_setup: str | None = Cookie(default=None)) -> di
         raise HTTPException(status_code=401, detail="Kirish kerak")
     return {"chats": await agent.dialogs()}
 
+
+
+@app.get("/dashboard/api/chats/{chat_id}/profile")
+async def dashboard_chat_profile(chat_id: int, shadow_setup: str | None = Cookie(default=None)) -> dict[str, object]:
+    if not _dashboard_allowed(shadow_setup):
+        raise HTTPException(status_code=401, detail="Kirish kerak")
+    try:
+        return {"profile": agent.chat_profile_for(chat_id)}
+    except ValueError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+
+
+@app.put("/dashboard/api/chats/{chat_id}/profile")
+async def dashboard_update_chat_profile(
+    chat_id: int, request: Request, shadow_setup: str | None = Cookie(default=None),
+) -> dict[str, object]:
+    if not _dashboard_allowed(shadow_setup):
+        raise HTTPException(status_code=401, detail="Kirish kerak")
+    body = await request.json()
+    if not isinstance(body, dict):
+        raise HTTPException(status_code=400, detail="Chat xotirasi noto‘g‘ri formatda")
+    try:
+        profile = normalize_chat_profile(body)
+        return await agent.update_chat_profile(chat_id, profile)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.delete("/dashboard/api/chats/{chat_id}/profile")
+async def dashboard_clear_chat_profile(
+    chat_id: int, shadow_setup: str | None = Cookie(default=None),
+) -> dict[str, object]:
+    if not _dashboard_allowed(shadow_setup):
+        raise HTTPException(status_code=401, detail="Kirish kerak")
+    try:
+        return await agent.clear_chat_profile(chat_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
 
 
 @app.post("/dashboard/api/chats/approval")

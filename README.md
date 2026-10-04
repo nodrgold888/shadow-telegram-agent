@@ -186,3 +186,8 @@ Generated files are capped at 3 per request. XLSX creation supports up to 5 shee
 
 Local update: `git pull`, `python -m pip install -r requirements.txt`, then restart
 `python scripts/run_local.py`. Python tests: `python -m unittest discover -s tests`.
+
+
+## Per-chat memory, notes, and routines
+
+The dashboard's **Suhbatlar** page lets you add a separate response style, owner-written memory, notes, and routine context for each approved chat. These are explicit profile fields; Shadow does not save full chat transcripts as long-term memory. When generating a reply in that chat, the selected profile context is sent to the configured OpenAI API; do not store passwords, login codes, or financial secrets there. Profiles are used only in that chat, can be edited or erased from the chat's **Maxsus xotira** control, and are erased when its reply approval is removed. They are stored in the configured private local state file or Render environment settings. Without persistence configured, edits apply only until the current process restarts. Routine notes are contextual only; they do not trigger scheduled reminders. Shadow can help with math, writing, explanations, planning, coding guidance, and its connected Word/Excel features, but does not claim unavailable browsing or code execution.
