@@ -53,6 +53,7 @@ class Settings:
     max_reply_chars: int
     admin_token: str
     setup_token: str
+    complex_openai_model: str = "gpt-6-luna"
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -66,6 +67,7 @@ class Settings:
             telegram_session=local.get("TELEGRAM_SESSION", os.getenv("TELEGRAM_SESSION", "")).strip(),
             openai_api_key=os.getenv("OPENAI_API_KEY", "").strip(),
             openai_model=os.getenv("OPENAI_MODEL", "gpt-5-mini").strip(),
+            complex_openai_model=os.getenv("OPENAI_COMPLEX_MODEL", "gpt-6-luna").strip() or "gpt-6-luna",
             approved_chat_ids=_chat_ids(local.get("APPROVED_CHAT_IDS", os.getenv("APPROVED_CHAT_IDS", ""))),
             reply_enabled=_boolean("REPLY_ENABLED", False, local.get("REPLY_ENABLED")),
             group_reply_mode=mode,
