@@ -2,6 +2,8 @@
 
 Shadow is a private, always-on Telegram assistant for one personal account. It replies in Uzbek inside approved chats and groups, using the OpenAI Responses API.
 
+New deployments start in read-only connection mode with `REPLY_ENABLED=false`. In this mode Shadow connects to Telegram but does not register a message handler, mark messages read, show typing activity, or send replies.
+
 ## Safety model
 
 - No chat is handled until its numeric Telegram chat ID is listed in `APPROVED_CHAT_IDS`.
@@ -42,8 +44,8 @@ Required secrets:
 - `TELEGRAM_API_ID`
 - `TELEGRAM_API_HASH`
 - `TELEGRAM_SESSION`
-- `OPENAI_API_KEY`
-- `APPROVED_CHAT_IDS`
+
+When you are ready to allow replies, add `OPENAI_API_KEY` and `APPROVED_CHAT_IDS`, then explicitly set `REPLY_ENABLED=true`.
 
 The public `/healthz` route reports connection state without exposing secrets. `/admin/status` requires the generated `ADMIN_TOKEN` bearer token.
 
