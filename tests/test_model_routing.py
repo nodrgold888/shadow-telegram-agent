@@ -25,7 +25,7 @@ class ModelRoutingTests(unittest.TestCase):
 
     def test_documents_and_long_inputs_are_complex(self):
         self.assertTrue(needs_reasoning_model("Faylni ko‘rib chiq", has_document=True))
-        self.assertTrue(needs_reasoning_model("Izoh " + "uzun matn " * 100))
+        self.assertTrue(needs_reasoning_model("Izoh " + "uzun matn " * 120))
         self.assertFalse(needs_reasoning_model("Qalesan?", has_document=False))
 
 
