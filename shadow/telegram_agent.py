@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from pathlib import Path
+from tempfile import TemporaryDirectory
 from contextlib import asynccontextmanager
 from dataclasses import replace
 from datetime import datetime, timezone
@@ -11,6 +13,9 @@ from telethon.errors import SessionPasswordNeededError
 from telethon.sessions import StringSession
 
 from .assistant import ShadowAssistant
+from .office_files import OfficeFileError, MAX_UPLOAD_BYTES, inspect_office
+
+_WORK_SLOTS = asyncio.Semaphore(2)
 from .video_download import VideoDownloadError, downloaded_video, find_video_url
 from .config import Settings
 from .persist import persistence_available, save_session, save_approved_chats, save_reply_enabled
@@ -191,13 +196,20 @@ class TelegramAgent:
         if chat_id is None or not chat_is_approved(chat_id, self.settings.approved_chat_ids):
             return
         text = (event.raw_text or "").strip()
+        attachment = getattr(event, "file", None)
+        extension = Path(getattr(attachment, "name", "") or "").suffix.lower()
+        if not extension:
+            extension = (getattr(attachment, "ext", "") or "").lower()
+        office_attachment = extension in {".xlsx", ".docx", ".xls", ".doc", ".xlsm", ".docm"}
+        if office_attachment and not text:
+            text = "Faylni o‘qib, uning mazmunini qisqacha tahlil qilib ber."
         if not text:
             return
 
         sender = await event.get_sender()
         if getattr(sender, "bot", False):
             return
-        video_url = find_video_url(text)
+        video_url = None if office_attachment else find_video_url(text)
         replying_to_shadow = await self._is_reply_to_shadow(event)
         if not video_url and not group_message_needs_reply(
             is_private=event.is_private,
@@ -235,19 +247,9 @@ class TelegramAgent:
                         if self.reply_enabled and chat_is_approved(chat_id, self.settings.approved_chat_ids):
                             await event.reply(str(exc))
                     return
-                history = await self._history(chat_id)
-                async with self.client.action(chat_id, "typing"):
-                    answer = await self.assistant.reply(chat_title=title, history=history, message=text)
-                if not answer:
-                    raise RuntimeError("empty_ai_reply")
-                chunks = split_telegram_message(answer, self.settings.max_reply_chars)
-                for index, chunk in enumerate(chunks):
-                    if not self.reply_enabled or not chat_is_approved(chat_id, self.settings.approved_chat_ids):
-                        return
-                    if event.is_private or index > 0:
-                        await self.client.send_message(chat_id, chunk)
-                    else:
-                        await event.reply(chunk)
+                async with _WORK_SLOTS:
+                    async with asyncio.timeout(180):
+                        await self._work_reply(event, title, text, extension if office_attachment else "")
                 self.reply_count += 1
                 self.last_reply_at = datetime.now(timezone.utc).isoformat()
                 self.last_reply_error = None
@@ -263,6 +265,56 @@ class TelegramAgent:
                 elif str(exc) == "empty_ai_reply":
                     self.last_reply_error = "empty_ai_reply"
                 log.exception("Failed to reply in chat %s", chat_id)
+
+    def _can_reply(self, chat_id: int) -> bool:
+        return bool(self.reply_enabled and chat_is_approved(chat_id, self.settings.approved_chat_ids))
+
+    async def _work_reply(self, event, title: str, text: str, extension: str) -> None:
+        assert self.client is not None and self.assistant is not None
+        chat_id = event.chat_id
+        with TemporaryDirectory(prefix="shadow-work-") as temporary:
+            directory = Path(temporary)
+            preview = ""
+            if extension:
+                try:
+                    if extension not in {".xlsx", ".docx"}:
+                        raise OfficeFileError("Faylni .xlsx yoki .docx formatida yuboring; eski va makrosli formatlar qo‘llanmaydi.")
+                    size = getattr(event.file, "size", None)
+                    if size is None or size > MAX_UPLOAD_BYTES:
+                        raise OfficeFileError("Fayl hajmi 10 MB dan oshmasin.")
+                    async def progress(current, total):
+                        if current > MAX_UPLOAD_BYTES or total > MAX_UPLOAD_BYTES:
+                            raise OfficeFileError("Fayl hajmi 10 MB dan oshmasin.")
+                    source = directory / ("input" + extension)
+                    downloaded = await self.client.download_media(event.message, file=str(source), progress_callback=progress)
+                    if not downloaded:
+                        raise OfficeFileError("Faylni yuklab bo‘lmadi. Qayta yuboring.")
+                    preview = await asyncio.to_thread(inspect_office, source)
+                except OfficeFileError as exc:
+                    if self._can_reply(chat_id):
+                        await event.reply(str(exc))
+                    return
+            if not self._can_reply(chat_id):
+                return
+            history = await self._history(chat_id)
+            async with self.client.action(chat_id, "typing"):
+                answer, files = await self.assistant.reply_with_files(
+                    chat_title=title, history=history, message=text,
+                    directory=directory, document_preview=preview,
+                )
+            if not answer and not files:
+                raise RuntimeError("empty_ai_reply")
+            for index, chunk in enumerate(split_telegram_message(answer, self.settings.max_reply_chars)):
+                if not self._can_reply(chat_id):
+                    return
+                if event.is_private or index > 0:
+                    await self.client.send_message(chat_id, chunk)
+                else:
+                    await event.reply(chunk)
+            for path in files:
+                if not self._can_reply(chat_id):
+                    return
+                await self.client.send_file(chat_id, str(path), reply_to=event.id, force_document=True)
 
     def status(self) -> dict[str, object]:
         approved = self.settings.approved_chat_ids
