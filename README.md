@@ -139,7 +139,7 @@ multi-step analysis, proofs and advanced equations, long prompts, and Office-fil
 work to `OPENAI_COMPLEX_MODEL` (default `gpt-6-luna`) with medium reasoning effort.
 The routing decision happens in the app; the advanced model is not used for every
 message, and Shadow does not silently fall back to it for ordinary replies.
-Change either model in Render environment variables (or local `.env`) and restart.
+Choose either model for everyday or complex work in Dashboard → Sozlamalar → AI modeli. The selection applies immediately and is saved for future restarts when local state or Render API persistence is configured. Environment variables remain available for initial setup.
 This still uses the OpenAI API for ordinary as well as advanced replies; GitHub hosts
 Shadow's code and does not provide its own language model. API usage is billed
 separately from ChatGPT subscriptions. Deterministic arithmetic checks and Office
