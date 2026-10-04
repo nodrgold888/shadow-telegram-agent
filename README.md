@@ -107,6 +107,20 @@ Open <http://localhost:10000/healthz>.
 
 On Render's free plan the service sleeps after ~15 minutes without inbound traffic, which drops the in-memory Telegram session. Shadow therefore pings its own public `/healthz` every 10 minutes. It is enabled automatically when `RENDER_EXTERNAL_URL` is set (Render sets it for you); set `KEEPALIVE_URL` to override the target and `KEEPALIVE_INTERVAL_SECONDS` (minimum 60) to change the cadence. Leave both unset locally to disable it. The ping only calls `/healthz`; it never sends Telegram messages.
 
+### Second ping source (external, survives a crashed process)
+
+The self-ping above only runs while Shadow's own process is alive — it cannot
+wake a service that has fully crashed or failed to boot. `.github/workflows/keepalive.yml`
+adds an independent ping from GitHub Actions on a 10-minute schedule, calling
+the same `/healthz` endpoint from outside the service entirely. Set it up:
+
+1. Repo Settings → Secrets and variables → Actions → **Variables** tab → New repository variable.
+2. Name: `HEALTHZ_URL`. Value: `https://<your-service>.onrender.com/healthz`.
+
+Like the internal ping, this only calls `/healthz` and never touches Telegram.
+GitHub's own scheduler can run a few minutes late under load, so treat this as
+a redundant second source, not a replacement for the internal ping.
+
 ## Surviving restarts (no re-login)
 
 The Telegram session created at `/setup/telegram` would normally live only in memory. To keep it across restarts and redeploys:
