@@ -5,6 +5,7 @@ import logging
 from contextlib import asynccontextmanager
 
 from telethon import TelegramClient, events
+from telethon.errors import SessionPasswordNeededError
 from telethon.sessions import StringSession
 
 from .assistant import ShadowAssistant
@@ -24,17 +25,19 @@ class TelegramAgent:
         self.last_error: str | None = None
         self._locks: dict[int, asyncio.Lock] = {}
         self._me_id: int | None = None
+        self._login_client: TelegramClient | None = None
+        self._login_phone: str | None = None
+        self._login_hash: str | None = None
+        self._setup_lock = asyncio.Lock()
 
     async def start(self) -> None:
-        if not self.settings.configured:
+        if not self.settings.telegram_api_ready or not self.settings.telegram_session:
             self.last_error = "configuration_required"
-            log.warning("Shadow is waiting for required environment variables")
+            log.warning("Shadow is waiting for Telegram session setup")
             return
 
         try:
-            if self.settings.reply_enabled:
-                self.assistant = ShadowAssistant(self.settings)
-            self.client = TelegramClient(
+            client = TelegramClient(
                 StringSession(self.settings.telegram_session),
                 self.settings.telegram_api_id,
                 self.settings.telegram_api_hash,
@@ -42,18 +45,10 @@ class TelegramAgent:
                 connection_retries=None,
                 retry_delay=3,
             )
-            await self.client.connect()
-            if not await self.client.is_user_authorized():
+            await client.connect()
+            if not await client.is_user_authorized():
                 raise RuntimeError("The Telegram session is not authorized")
-
-            me = await self.client.get_me()
-            self._me_id = me.id
-            self.account_label = f"@{me.username}" if me.username else str(me.id)
-            if self.settings.reply_enabled:
-                self.client.add_event_handler(self._on_message, events.NewMessage(incoming=True))
-            self.connected = True
-            self.last_error = None
-            log.info("Shadow connected to Telegram account %s", self.account_label)
+            await self._activate_client(client)
         except Exception as exc:
             self.connected = False
             self.last_error = type(exc).__name__
@@ -62,7 +57,61 @@ class TelegramAgent:
     async def stop(self) -> None:
         if self.client:
             await self.client.disconnect()
+        if self._login_client and self._login_client is not self.client:
+            await self._login_client.disconnect()
         self.connected = False
+
+    async def _activate_client(self, client: TelegramClient) -> None:
+        if self.settings.reply_enabled:
+            self.assistant = ShadowAssistant(self.settings)
+        self.client = client
+        me = await client.get_me()
+        self._me_id = me.id
+        self.account_label = f"@{me.username}" if me.username else str(me.id)
+        if self.settings.reply_enabled:
+            client.add_event_handler(self._on_message, events.NewMessage(incoming=True))
+        self.connected = True
+        self.last_error = None
+        log.info("Shadow connected to Telegram account %s", self.account_label)
+
+    async def request_login_code(self, phone: str) -> None:
+        if not self.settings.telegram_api_ready:
+            raise RuntimeError("Telegram API credentials are missing")
+        async with self._setup_lock:
+            if self._login_client:
+                await self._login_client.disconnect()
+            client = TelegramClient(
+                StringSession(),
+                self.settings.telegram_api_id,
+                self.settings.telegram_api_hash,
+            )
+            await client.connect()
+            sent = await client.send_code_request(phone)
+            self._login_client = client
+            self._login_phone = phone
+            self._login_hash = sent.phone_code_hash
+
+    async def complete_login(self, code: str) -> str:
+        async with self._setup_lock:
+            if not self._login_client or not self._login_phone or not self._login_hash:
+                raise RuntimeError("Login code was not requested")
+            try:
+                await self._login_client.sign_in(
+                    phone=self._login_phone,
+                    code=code,
+                    phone_code_hash=self._login_hash,
+                )
+            except SessionPasswordNeededError:
+                return "password_required"
+            await self._activate_client(self._login_client)
+            return "connected"
+
+    async def complete_password(self, password: str) -> None:
+        async with self._setup_lock:
+            if not self._login_client:
+                raise RuntimeError("Login session is not ready")
+            await self._login_client.sign_in(password=password)
+            await self._activate_client(self._login_client)
 
     async def _is_reply_to_shadow(self, event: events.NewMessage.Event) -> bool:
         if not event.is_reply or self._me_id is None:
@@ -132,7 +181,7 @@ class TelegramAgent:
     def status(self) -> dict[str, object]:
         approved = self.settings.approved_chat_ids
         return {
-            "configured": self.settings.configured,
+            "configured": self.settings.configured or self.connected,
             "connected": self.connected,
             "account": self.account_label,
             "approved_chat_count": "all" if approved == "*" else len(approved),

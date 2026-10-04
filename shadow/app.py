@@ -4,8 +4,8 @@ import logging
 import secrets
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, Header, HTTPException
-from fastapi.responses import HTMLResponse
+from fastapi import Cookie, FastAPI, Header, HTTPException, Request
+from fastapi.responses import HTMLResponse, JSONResponse
 
 from .config import Settings
 from .telegram_agent import TelegramAgent
@@ -31,6 +31,10 @@ async def lifespan(_: FastAPI):
 app = FastAPI(title="Shadow", version="0.1.0", lifespan=lifespan)
 
 
+def _setup_allowed(cookie: str | None) -> bool:
+    return bool(settings.setup_token and cookie and secrets.compare_digest(cookie, settings.setup_token))
+
+
 @app.get("/", response_class=HTMLResponse)
 async def home() -> str:
     state = "ONLAYN" if agent.connected else "SOZLASH KERAK"
@@ -51,3 +55,48 @@ async def admin_status(authorization: str | None = Header(default=None)) -> dict
     if not secrets.compare_digest(supplied, settings.admin_token):
         raise HTTPException(status_code=401, detail="Unauthorized")
     return agent.status()
+
+
+@app.get("/setup/telegram", response_class=HTMLResponse)
+async def telegram_setup() -> str:
+    return """<!doctype html><html lang='uz'><head><meta name='viewport' content='width=device-width,initial-scale=1'><title>Shadow Telegram Setup</title><style>body{margin:0;min-height:100vh;display:grid;place-items:center;background:#080b12;color:#f5f7fb;font:16px system-ui}main{width:min(520px,calc(100% - 40px));padding:28px;border:1px solid #252d3d;border-radius:18px;background:#101520}input,button{box-sizing:border-box;width:100%;padding:13px;margin:7px 0;border-radius:10px;border:1px solid #344056;background:#090d15;color:#fff}button{background:#58c8bb;color:#07110f;font-weight:700}p{color:#aab3c4}.ok{color:#6ce5d8}.err{color:#ff8f8f}</style></head><body><main><h1>Shadow</h1><p>Telegram ulanishini xavfsiz sozlash</p><section id='auth'><input id='token' type='password' autocomplete='off' placeholder='Setup token'><button onclick='auth()'>Davom etish</button></section><section id='phone' hidden><input id='phoneValue' type='tel' autocomplete='tel' placeholder='+998...'><button onclick='sendCode()'>Kod yuborish</button></section><section id='code' hidden><input id='codeValue' type='text' autocomplete='one-time-code' placeholder='Telegram kodi'><button onclick='verify()'>Tasdiqlash</button></section><section id='password' hidden><input id='passwordValue' type='password' autocomplete='current-password' placeholder='Telegram 2FA paroli'><button onclick='verifyPassword()'>Kirish</button></section><p id='status'></p><script>const q=s=>document.querySelector(s), show=id=>{['auth','phone','code','password'].forEach(x=>q('#'+x).hidden=x!==id)}; async function call(url,body){const r=await fetch(url,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});const j=await r.json();if(!r.ok)throw Error(j.detail||'Xato');return j}async function auth(){try{await call('/setup/telegram/auth',{token:q('#token').value});show('phone');q('#status').textContent='Xavfsiz kirish tasdiqlandi'}catch(e){q('#status').textContent=e.message}}async function sendCode(){try{await call('/setup/telegram/code',{phone:q('#phoneValue').value});show('code');q('#status').textContent='Kod Telegram ilovasiga yuborildi'}catch(e){q('#status').textContent=e.message}}async function verify(){try{const j=await call('/setup/telegram/verify',{code:q('#codeValue').value});if(j.status==='password_required'){show('password');q('#status').textContent='2FA parolini kiriting'}else done()}catch(e){q('#status').textContent=e.message}}async function verifyPassword(){try{await call('/setup/telegram/password',{password:q('#passwordValue').value});done()}catch(e){q('#status').textContent=e.message}}function done(){['auth','phone','code','password'].forEach(x=>q('#'+x).hidden=true);q('#status').className='ok';q('#status').textContent='Shadow Telegramga ulandi. Xabar yuborish o‘chirilgan.'}</script></main></body></html>"""
+
+
+@app.post("/setup/telegram/auth")
+async def telegram_setup_auth(request: Request) -> JSONResponse:
+    token = str((await request.json()).get("token", ""))
+    if not settings.setup_token or not secrets.compare_digest(token, settings.setup_token):
+        raise HTTPException(status_code=401, detail="Setup token noto‘g‘ri")
+    response = JSONResponse({"ok": True})
+    response.set_cookie("shadow_setup", token, httponly=True, secure=True, samesite="strict", max_age=1800)
+    return response
+
+
+def _require_setup(cookie: str | None) -> None:
+    if not _setup_allowed(cookie):
+        raise HTTPException(status_code=401, detail="Setup ruxsati kerak")
+
+
+@app.post("/setup/telegram/code")
+async def telegram_setup_code(request: Request, shadow_setup: str | None = Cookie(default=None)) -> dict[str, object]:
+    _require_setup(shadow_setup)
+    phone = str((await request.json()).get("phone", "")).strip()
+    if not phone.startswith("+") or len(phone) < 8:
+        raise HTTPException(status_code=400, detail="Telefon raqamini xalqaro formatda kiriting")
+    await agent.request_login_code(phone)
+    return {"ok": True}
+
+
+@app.post("/setup/telegram/verify")
+async def telegram_setup_verify(request: Request, shadow_setup: str | None = Cookie(default=None)) -> dict[str, object]:
+    _require_setup(shadow_setup)
+    code = str((await request.json()).get("code", "")).strip()
+    return {"status": await agent.complete_login(code)}
+
+
+@app.post("/setup/telegram/password")
+async def telegram_setup_password(request: Request, shadow_setup: str | None = Cookie(default=None)) -> dict[str, object]:
+    _require_setup(shadow_setup)
+    password = str((await request.json()).get("password", ""))
+    await agent.complete_password(password)
+    return {"status": "connected"}

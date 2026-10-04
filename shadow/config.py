@@ -50,6 +50,7 @@ class Settings:
     context_messages: int
     max_reply_chars: int
     admin_token: str
+    setup_token: str
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -68,9 +69,15 @@ class Settings:
             context_messages=max(2, min(_integer("CONTEXT_MESSAGES", 12) or 12, 30)),
             max_reply_chars=max(500, min(_integer("MAX_REPLY_CHARS", 3800) or 3800, 4000)),
             admin_token=os.getenv("ADMIN_TOKEN", "").strip(),
+            setup_token=os.getenv("SETUP_TOKEN", "").strip(),
         )
+
+    @property
+    def telegram_api_ready(self) -> bool:
+        return bool(self.telegram_api_id and self.telegram_api_hash)
+
     @property
     def configured(self) -> bool:
-        telegram_ready = all((self.telegram_api_id, self.telegram_api_hash, self.telegram_session))
+        telegram_ready = bool(self.telegram_api_ready and self.telegram_session)
         reply_ready = bool(self.openai_api_key and self.approved_chat_ids)
         return bool(telegram_ready and (not self.reply_enabled or reply_ready))
