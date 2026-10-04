@@ -374,6 +374,8 @@ class TelegramAgent:
             "reply_ready": bool(self.connected and self.client and self.settings.openai_api_key and approved),
             "group_reply_mode": self.settings.group_reply_mode,
             "last_ai_model": self.assistant.last_model if self.assistant else None,
+            "openai_model": self.settings.openai_model,
+            "complex_openai_model": self.settings.complex_openai_model,
             "last_error": self.last_error,
             "last_reply_at": self.last_reply_at,
             "last_reply_error": self.last_reply_error,
