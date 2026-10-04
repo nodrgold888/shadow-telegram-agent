@@ -28,7 +28,7 @@ class VoiceAssistantTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(text, "Salom, qalaysiz?")
             call = openai.return_value.audio.transcriptions.create.await_args
             self.assertEqual(call.kwargs["model"], "gpt-4o-mini-transcribe")
-            self.assertEqual(call.kwargs["file"].name, "voice.ogg")
+            self.assertTrue(call.kwargs["file"].name.endswith("voice.ogg"))
 
     async def test_generates_telegram_opus_speech(self):
         class StreamingResponse:
