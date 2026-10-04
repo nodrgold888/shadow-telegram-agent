@@ -4,6 +4,7 @@ import asyncio
 import logging
 from contextlib import asynccontextmanager
 from dataclasses import replace
+from datetime import datetime, timezone
 
 from telethon import TelegramClient, events
 from telethon.errors import SessionPasswordNeededError
@@ -11,7 +12,7 @@ from telethon.sessions import StringSession
 
 from .assistant import ShadowAssistant
 from .config import Settings
-from .persist import persistence_available, save_session, save_approved_chats
+from .persist import persistence_available, save_session, save_approved_chats, save_reply_enabled
 from .policy import chat_is_approved, group_message_needs_reply, split_telegram_message
 
 log = logging.getLogger("shadow.telegram")
@@ -26,6 +27,9 @@ class TelegramAgent:
         self.reply_enabled = settings.reply_enabled
         self.account_label: str | None = None
         self.last_error: str | None = None
+        self.last_reply_at: str | None = None
+        self.last_reply_error: str | None = None
+        self.reply_count = 0
         self._locks: dict[int, asyncio.Lock] = {}
         self._me_id: int | None = None
         self._login_client: TelegramClient | None = None
@@ -213,6 +217,8 @@ class TelegramAgent:
                 history = await self._history(chat_id)
                 async with self.client.action(chat_id, "typing"):
                     answer = await self.assistant.reply(chat_title=title, history=history, message=text)
+                if not answer:
+                    raise RuntimeError("empty_ai_reply")
                 chunks = split_telegram_message(answer, self.settings.max_reply_chars)
                 for index, chunk in enumerate(chunks):
                     if not self.reply_enabled or not chat_is_approved(chat_id, self.settings.approved_chat_ids):
@@ -221,10 +227,20 @@ class TelegramAgent:
                         await self.client.send_message(chat_id, chunk)
                     else:
                         await event.reply(chunk)
+                self.reply_count += 1
+                self.last_reply_at = datetime.now(timezone.utc).isoformat()
+                self.last_reply_error = None
                 await self.client.send_read_acknowledge(chat_id)
                 log.info("Replied in approved chat %s", chat_id)
             except Exception as exc:
                 self.last_error = type(exc).__name__
+                self.last_reply_error = type(exc).__name__
+                if getattr(exc, "status_code", None) == 401:
+                    self.last_reply_error = "openai_authentication_failed"
+                elif getattr(exc, "status_code", None) == 429:
+                    self.last_reply_error = "openai_quota_or_rate_limit"
+                elif str(exc) == "empty_ai_reply":
+                    self.last_reply_error = "empty_ai_reply"
                 log.exception("Failed to reply in chat %s", chat_id)
 
     def status(self) -> dict[str, object]:
@@ -239,6 +255,9 @@ class TelegramAgent:
             "reply_ready": bool(self.connected and self.client and self.settings.openai_api_key and approved),
             "group_reply_mode": self.settings.group_reply_mode,
             "last_error": self.last_error,
+            "last_reply_at": self.last_reply_at,
+            "last_reply_error": self.last_reply_error,
+            "reply_count": self.reply_count,
             "session_persisted": self.session_persisted,
             "session_revoked": self.session_revoked,
             "can_persist_session": persistence_available(),
@@ -286,6 +305,7 @@ class TelegramAgent:
         self.settings = replace(self.settings, approved_chat_ids=selected)
         if not selected:
             self.set_reply_enabled(False)
+            await save_reply_enabled(False)
         persisted = await save_approved_chats(",".join(str(i) for i in sorted(selected)))
         return {"ok": True, "persisted": persisted, "approved_chat_count": len(selected)}
 
