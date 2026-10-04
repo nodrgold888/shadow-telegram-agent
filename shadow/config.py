@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import json
 import os
 from dataclasses import dataclass
 
 from .persist import load_local_settings
+
+SUPPORTED_OPENAI_MODELS = ("gpt-5-mini", "gpt-6-luna")
 
 
 def _integer(name: str, default: int | None = None) -> int | None:
@@ -59,6 +62,17 @@ class Settings:
     def from_env(cls) -> "Settings":
         local = load_local_settings()
         mode = os.getenv("GROUP_REPLY_MODE", "mentions").strip().lower()
+        raw_models = local.get("SHADOW_MODEL_SELECTION", os.getenv("SHADOW_MODEL_SELECTION", "")).strip()
+        try:
+            model_selection = json.loads(raw_models) if raw_models else {}
+        except json.JSONDecodeError as exc:
+            raise ValueError("SHADOW_MODEL_SELECTION is invalid") from exc
+        if not isinstance(model_selection, dict) or any(
+            key not in {"openai_model", "complex_openai_model"}
+            or value not in SUPPORTED_OPENAI_MODELS
+            for key, value in model_selection.items()
+        ):
+            raise ValueError("SHADOW_MODEL_SELECTION contains an unsupported model")
         if mode not in {"mentions", "all"}:
             raise ValueError("GROUP_REPLY_MODE must be 'mentions' or 'all'")
         return cls(
@@ -66,8 +80,8 @@ class Settings:
             telegram_api_hash=os.getenv("TELEGRAM_API_HASH", "").strip(),
             telegram_session=local.get("TELEGRAM_SESSION", os.getenv("TELEGRAM_SESSION", "")).strip(),
             openai_api_key=os.getenv("OPENAI_API_KEY", "").strip(),
-            openai_model=os.getenv("OPENAI_MODEL", "gpt-5-mini").strip(),
-            complex_openai_model=os.getenv("OPENAI_COMPLEX_MODEL", "gpt-6-luna").strip() or "gpt-6-luna",
+            openai_model=model_selection.get("openai_model", local.get("OPENAI_MODEL", os.getenv("OPENAI_MODEL", "gpt-5-mini"))).strip(),
+            complex_openai_model=model_selection.get("complex_openai_model", local.get("OPENAI_COMPLEX_MODEL", os.getenv("OPENAI_COMPLEX_MODEL", "gpt-6-luna"))).strip() or "gpt-6-luna",
             approved_chat_ids=_chat_ids(local.get("APPROVED_CHAT_IDS", os.getenv("APPROVED_CHAT_IDS", ""))),
             reply_enabled=_boolean("REPLY_ENABLED", False, local.get("REPLY_ENABLED")),
             group_reply_mode=mode,
