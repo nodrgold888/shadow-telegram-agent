@@ -17,4 +17,8 @@ COPY scripts ./scripts
 USER shadowagent
 EXPOSE 10000
 
-CMD ["uvicorn", "shadow.app:app", "--host", "0.0.0.0", "--port", "10000"]
+# --proxy-headers trusts X-Forwarded-Proto from Render's edge (the only thing
+# that can reach this container), so request.url.scheme reflects the
+# browser's real HTTPS connection instead of the plain HTTP Render forwards
+# internally -- this is what makes the session cookie's Secure flag correct.
+CMD ["uvicorn", "shadow.app:app", "--host", "0.0.0.0", "--port", "10000", "--proxy-headers", "--forwarded-allow-ips=*"]

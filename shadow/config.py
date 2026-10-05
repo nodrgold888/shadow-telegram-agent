@@ -42,6 +42,17 @@ def _boolean(name: str, default: bool = False, value: str | None = None) -> bool
     raise ValueError(f"{name} must be true or false")
 
 
+def _optional_boolean(name: str) -> bool | None:
+    raw = os.getenv(name, "").strip().lower()
+    if not raw:
+        return None
+    if raw in {"1", "true", "yes", "on"}:
+        return True
+    if raw in {"0", "false", "no", "off"}:
+        return False
+    raise ValueError(f"{name} must be true or false")
+
+
 @dataclass(frozen=True)
 class Settings:
     telegram_api_id: int | None
@@ -57,6 +68,7 @@ class Settings:
     admin_token: str
     setup_token: str
     complex_openai_model: str = "gpt-6-luna"
+    cookie_secure_override: bool | None = None
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -89,6 +101,7 @@ class Settings:
             max_reply_chars=max(500, min(_integer("MAX_REPLY_CHARS", 3800) or 3800, 4000)),
             admin_token=os.getenv("ADMIN_TOKEN", "").strip(),
             setup_token=os.getenv("SETUP_TOKEN", "").strip(),
+            cookie_secure_override=_optional_boolean("SHADOW_COOKIE_SECURE"),
         )
 
     @property

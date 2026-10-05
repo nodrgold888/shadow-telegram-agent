@@ -77,7 +77,7 @@ Forward a message to a trusted ID helper or temporarily inspect Telethon logs lo
 
 ## Render deployment
 
-`render.yaml` defines a paid 512 MB web service in Frankfurt so Shadow remains available continuously. Create a Blueprint from this repository, add the required secret values, and deploy.
+`render.yaml` defines a **free** web service in Frankfurt. Create a Blueprint from this repository, add the required secret values, and deploy. (There is no persistent disk on the free plan, so the SQLite database file is wiped on every redeploy/restart; see "State and persistence" below for how that's handled.)
 
 Required secrets:
 
@@ -85,7 +85,9 @@ Required secrets:
 - `TELEGRAM_API_HASH`
 - `SETUP_TOKEN`
 
-For the free preview, open `/setup/telegram` and authenticate with the private setup token. The resulting Telegram session lives only in memory and is lost whenever the free service sleeps or restarts.
+Open `/setup/telegram` and authenticate with the private setup token. See "State and persistence" for what happens to the resulting Telegram session across restarts.
+
+Optional: `SHADOW_COOKIE_SECURE` forces the dashboard/setup session cookie's `Secure` attribute to a fixed `true`/`false` instead of inferring it from the request's scheme. Leave it unset on Render (the default infers correctly once proxy headers are trusted, see Dockerfile). Set it only for self-hosting behind a reverse proxy that does not forward `X-Forwarded-Proto`.
 
 When you are ready to allow replies, add `OPENAI_API_KEY` and `APPROVED_CHAT_IDS`, then explicitly set `REPLY_ENABLED=true`.
 
@@ -121,14 +123,36 @@ Like the internal ping, this only calls `/healthz` and never touches Telegram.
 GitHub's own scheduler can run a few minutes late under load, so treat this as
 a redundant second source, not a replacement for the internal ping.
 
-## Surviving restarts (no re-login)
+## State and persistence
 
-The Telegram session created at `/setup/telegram` would normally live only in memory. To keep it across restarts and redeploys:
+Session string, approved-chat list, model selection, reply switch, and
+per-chat profiles are all stored in a local SQLite database
+(`SHADOW_DB_PATH`, default `.shadow-state/shadow.db`).
 
-1. Create a Render API key (Account Settings → API Keys) and add it as the `RENDER_API_KEY` secret. `RENDER_SERVICE_ID` is provided by Render automatically.
-2. Log in once at `/setup/telegram`. After a successful login Shadow writes the session into the service's `TELEGRAM_SESSION` secret (Render redeploys once, then boots straight into the saved session).
+On Render's **free** plan there is no persistent disk, so that database file
+is wiped on every redeploy/restart -- the container's whole filesystem is
+ephemeral. To survive that without re-authenticating every time:
 
-`/admin/status` reports `session_persisted` and `can_persist_session`. If you prefer, run `scripts/create_session.py` locally and paste `TELEGRAM_SESSION` into Render yourself. The session string is never logged or exposed over HTTP.
+1. Create a Render API key (Account Settings → API Keys) and add it as the
+   `RENDER_API_KEY` secret. `RENDER_SERVICE_ID` is provided by Render
+   automatically.
+2. Every SQLite write now also fires a best-effort backup write to the
+   matching Render service environment variable (`TELEGRAM_SESSION`,
+   `APPROVED_CHAT_IDS`, `REPLY_ENABLED`, `SHADOW_MODEL_SELECTION`,
+   `SHADOW_CHAT_PROFILES`). On the next boot, if the SQLite database is
+   empty (e.g. after a wipe), Shadow seeds itself from those env vars once.
+
+This backup is a safety net, not the primary store -- every read goes to
+SQLite directly. If you're on a paid Render plan with a persistent disk
+attached, the SQLite file itself survives restarts and `RENDER_API_KEY` can
+be left unset entirely (persistence falls back to "memory for this process
+only" if neither a persistent disk nor the Render-API backup is available).
+
+`/admin/status` reports `session_persisted` and `can_persist_session` (the
+latter reflects whether the Render-API backup is configured, not whether
+SQLite itself is working -- SQLite is always available). If you prefer, run
+`scripts/create_session.py` locally and paste `TELEGRAM_SESSION` into Render
+yourself. The session string is never logged or exposed over HTTP.
 
 While running, a watchdog checks the connection every 60 seconds and reconnects if it dropped or failed at boot. Only a session revoked from Telegram (Settings → Devices → Terminate) needs a new login; this is reported as `session_revoked`.
 

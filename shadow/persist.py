@@ -5,57 +5,34 @@ import json
 import logging
 import os
 import urllib.request
-import tempfile
-import threading
-from pathlib import Path
 
-from .chat_memory import MAX_CHAT_PROFILE_BYTES, normalize_chat_profiles
+from . import db
+from .chat_memory import normalize_chat_profiles
 
 log = logging.getLogger("shadow.persist")
 
 RENDER_API = "https://api.render.com/v1"
 
 
-_local_lock = threading.Lock()
-_LOCAL_KEYS = {"TELEGRAM_SESSION", "APPROVED_CHAT_IDS", "REPLY_ENABLED", "SHADOW_MODEL_SELECTION", "SHADOW_CHAT_PROFILES"}
-
-
 def load_local_settings() -> dict[str, str]:
-    filename = os.getenv("SHADOW_STATE_FILE", "").strip()
-    if not filename:
-        return {}
-    path = Path(filename)
-    if not path.exists():
-        return {}
-    data = json.loads(path.read_text(encoding="utf-8"))
-    if not isinstance(data, dict) or any(
-        key not in _LOCAL_KEYS or not isinstance(value, str)
-        for key, value in data.items()
-    ):
-        raise ValueError("Invalid local Shadow state")
-    return data
+    """Seed values for Settings.from_env() from SQLite (authoritative once populated;
+    falls back to raw env vars inside Settings.from_env() itself when a key is absent)."""
+    result: dict[str, str] = {}
+    for key in db.LEGACY_ENV_KV_KEYS:
+        value = db.get_kv(key)
+        if value is not None:
+            result[key] = value
+    return result
 
 
-def _save_local(key: str, value: str) -> None:
-    with _local_lock:
-        path = Path(os.environ["SHADOW_STATE_FILE"]).resolve()
-        path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
-        data = load_local_settings()
-        data[key] = value
-        fd, temporary = tempfile.mkstemp(dir=path.parent, prefix=".shadow-")
-        try:
-            with os.fdopen(fd, "w", encoding="utf-8") as stream:
-                json.dump(data, stream)
-                stream.flush()
-                os.fsync(stream.fileno())
-            os.replace(temporary, path)
-        finally:
-            if os.path.exists(temporary):
-                os.unlink(temporary)
+def _backup_configured() -> bool:
+    return bool(os.getenv("RENDER_API_KEY", "").strip() and os.getenv("RENDER_SERVICE_ID", "").strip())
 
 
 def persistence_available() -> bool:
-    return bool(os.getenv("SHADOW_STATE_FILE", "").strip()) or bool(os.getenv("RENDER_API_KEY", "").strip() and os.getenv("RENDER_SERVICE_ID", "").strip())
+    """SQLite is always available as the primary store; this reports whether the
+    redundant Render-env-var backup/restore safety net is also configured."""
+    return _backup_configured()
 
 
 def _put_env_var(service_id: str, api_key: str, key: str, value: str) -> None:
@@ -73,60 +50,45 @@ def _put_env_var(service_id: str, api_key: str, key: str, value: str) -> None:
         response.read()
 
 
-async def save_session(session: str) -> bool:
-    """Store the Telegram session in Render's secret env vars so it survives restarts.
-
-    Returns False (without raising) when persistence is not configured or fails,
-    so a successful login is never lost just because saving failed.
-    """
-    if os.getenv("SHADOW_STATE_FILE", "").strip():
-        try:
-            await asyncio.to_thread(_save_local, "TELEGRAM_SESSION", session)
-            return True
-        except Exception as exc:
-            log.error("Could not save local state: %s", type(exc).__name__)
-            return False
-    if not persistence_available():
-        log.warning("RENDER_API_KEY is not set; the Telegram session will not survive a restart")
-        return False
+def _backup_kv(key: str, value: str) -> None:
+    """Best-effort write-through to the legacy Render env-var store. Never raises
+    past this function; a failure here does not affect the SQLite write's success."""
+    if not _backup_configured():
+        return
     try:
-        await asyncio.to_thread(
-            _put_env_var,
+        _put_env_var(
             os.environ["RENDER_SERVICE_ID"].strip(),
             os.environ["RENDER_API_KEY"].strip(),
-            "TELEGRAM_SESSION",
-            session,
+            key,
+            value,
         )
-    except Exception as exc:  # never log the session itself
-        log.error("Could not persist Telegram session: %s", type(exc).__name__)
+    except Exception as exc:  # never log secret values (e.g. the session string)
+        log.warning("SQLite save for %s succeeded but Render backup failed: %s", key, type(exc).__name__)
+
+
+async def _save_kv(key: str, value: str) -> bool:
+    """Returns False (without raising) only when the primary SQLite write fails,
+    so a successful save is never reported lost just because the optional
+    Render backup also failed."""
+    try:
+        await asyncio.to_thread(db.set_kv, key, value)
+    except Exception as exc:
+        log.error("Could not save %s to SQLite: %s", key, type(exc).__name__)
         return False
-    log.info("Telegram session saved to Render environment")
+    await asyncio.to_thread(_backup_kv, key, value)
     return True
+
+
+async def save_session(session: str) -> bool:
+    """Store the Telegram session. Primary copy lives in SQLite; also
+    write-through to Render env vars when configured, as a restore path after
+    a redeploy wipes the (free-plan, non-persistent) container disk."""
+    return await _save_kv("TELEGRAM_SESSION", session)
 
 
 async def save_approved_chats(value: str) -> bool:
-    """Persist the dashboard allowlist when Render persistence is configured."""
-    if os.getenv("SHADOW_STATE_FILE", "").strip():
-        try:
-            await asyncio.to_thread(_save_local, "APPROVED_CHAT_IDS", value)
-            return True
-        except Exception as exc:
-            log.error("Could not save local state: %s", type(exc).__name__)
-            return False
-    if not persistence_available():
-        return False
-    try:
-        await asyncio.to_thread(
-            _put_env_var,
-            os.environ["RENDER_SERVICE_ID"].strip(),
-            os.environ["RENDER_API_KEY"].strip(),
-            "APPROVED_CHAT_IDS",
-            value,
-        )
-    except Exception as exc:
-        log.warning("Could not persist chat permissions: %s", type(exc).__name__)
-        return False
-    return True
+    """Persist the dashboard allowlist."""
+    return await _save_kv("APPROVED_CHAT_IDS", value)
 
 
 async def save_model_selection(openai_model: str, complex_openai_model: str) -> bool:
@@ -135,95 +97,32 @@ async def save_model_selection(openai_model: str, complex_openai_model: str) -> 
         {"openai_model": openai_model, "complex_openai_model": complex_openai_model},
         separators=(",", ":"),
     )
-    if os.getenv("SHADOW_STATE_FILE", "").strip():
-        try:
-            await asyncio.to_thread(_save_local, "SHADOW_MODEL_SELECTION", value)
-            return True
-        except Exception as exc:
-            log.error("Could not save model selection locally: %s", type(exc).__name__)
-            return False
-    if not persistence_available():
-        return False
-    try:
-        await asyncio.to_thread(
-            _put_env_var,
-            os.environ["RENDER_SERVICE_ID"].strip(),
-            os.environ["RENDER_API_KEY"].strip(),
-            "SHADOW_MODEL_SELECTION",
-            value,
-        )
-    except Exception as exc:
-        log.warning("Could not persist model selection: %s", type(exc).__name__)
-        return False
-    return True
+    return await _save_kv("SHADOW_MODEL_SELECTION", value)
+
+
+async def save_reply_enabled(enabled: bool) -> bool:
+    """Persist the user's explicit reply switch choice."""
+    return await _save_kv("REPLY_ENABLED", "true" if enabled else "false")
 
 
 def load_chat_profiles() -> dict[str, dict[str, str]]:
     """Load owner-entered per-chat context without retaining message transcripts."""
-    raw = load_local_settings().get(
-        "SHADOW_CHAT_PROFILES",
-        os.getenv("SHADOW_CHAT_PROFILES", ""),
-    ).strip()
-    if not raw:
-        return {}
-    try:
-        return normalize_chat_profiles(json.loads(raw))
-    except (json.JSONDecodeError, ValueError) as exc:
-        raise ValueError("Saved chat profiles are invalid") from exc
+    return db.list_chat_profiles()
 
 
 async def save_chat_profiles(profiles: dict[str, dict[str, str]]) -> bool:
-    """Persist chat-scoped notes privately in local state or a Render service variable."""
+    """Persist chat-scoped notes. Caller always passes the complete set, which
+    is stored as one real table (no more 64KB JSON-blob size ceiling)."""
     try:
         normalized = normalize_chat_profiles(profiles)
-        value = json.dumps(normalized, ensure_ascii=False, separators=(",", ":"))
-        if len(value.encode("utf-8")) > MAX_CHAT_PROFILE_BYTES:
-            return False
     except ValueError:
         return False
-    if os.getenv("SHADOW_STATE_FILE", "").strip():
-        try:
-            await asyncio.to_thread(_save_local, "SHADOW_CHAT_PROFILES", value)
-            return True
-        except Exception as exc:
-            log.error("Could not save chat profiles locally: %s", type(exc).__name__)
-            return False
-    if not persistence_available():
-        return False
     try:
-        await asyncio.to_thread(
-            _put_env_var,
-            os.environ["RENDER_SERVICE_ID"].strip(),
-            os.environ["RENDER_API_KEY"].strip(),
-            "SHADOW_CHAT_PROFILES",
-            value,
-        )
+        await asyncio.to_thread(db.replace_all_chat_profiles, normalized)
     except Exception as exc:
-        log.warning("Could not persist chat profiles: %s", type(exc).__name__)
+        log.error("Could not save chat profiles to SQLite: %s", type(exc).__name__)
         return False
-    return True
-
-
-async def save_reply_enabled(enabled: bool) -> bool:
-    """Persist the user's explicit reply switch choice, when configured."""
-    if os.getenv("SHADOW_STATE_FILE", "").strip():
-        try:
-            await asyncio.to_thread(_save_local, "REPLY_ENABLED", "true" if enabled else "false")
-            return True
-        except Exception as exc:
-            log.error("Could not save local state: %s", type(exc).__name__)
-            return False
-    if not persistence_available():
-        return False
-    try:
-        await asyncio.to_thread(
-            _put_env_var,
-            os.environ["RENDER_SERVICE_ID"].strip(),
-            os.environ["RENDER_API_KEY"].strip(),
-            "REPLY_ENABLED",
-            "true" if enabled else "false",
-        )
-    except Exception as exc:
-        log.warning("Could not persist reply mode: %s", type(exc).__name__)
-        return False
+    if _backup_configured():
+        value = json.dumps(normalized, ensure_ascii=False, separators=(",", ":"))
+        await asyncio.to_thread(_backup_kv, "SHADOW_CHAT_PROFILES", value)
     return True
