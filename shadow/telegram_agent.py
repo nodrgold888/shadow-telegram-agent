@@ -118,9 +118,18 @@ class TelegramAgent:
         self.connected = False
 
     async def _activate_client(self, client: TelegramClient) -> None:
+        previous = self.client
+        if previous is not None and previous is not client:
+            # Switching accounts: stop the old account from receiving or answering messages.
+            previous.remove_event_handler(self._on_message)
+            try:
+                await previous.disconnect()
+            except Exception as exc:
+                log.warning("Could not disconnect previous account: %s", type(exc).__name__)
         if self.reply_enabled:
             self.assistant = ShadowAssistant(self.settings)
         self.client = client
+        self.session_revoked = False
         me = await client.get_me()
         self._me_id = me.id
         self.account_label = f"@{me.username}" if me.username else str(me.id)
@@ -134,7 +143,8 @@ class TelegramAgent:
         if not self.settings.telegram_api_ready:
             raise RuntimeError("Telegram API credentials are missing")
         async with self._setup_lock:
-            if self._login_client:
+            # Never drop the live account just because a new login was started.
+            if self._login_client and self._login_client is not self.client:
                 await self._login_client.disconnect()
             client = TelegramClient(
                 StringSession(),
