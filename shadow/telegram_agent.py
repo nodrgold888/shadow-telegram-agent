@@ -33,6 +33,7 @@ class TelegramAgent:
         self.connected = False
         self.reply_enabled = settings.reply_enabled
         self.account_label: str | None = None
+        self.account_id: int | None = None
         self.last_error: str | None = None
         self.last_reply_at: str | None = None
         self.last_reply_error: str | None = None
@@ -106,7 +107,11 @@ class TelegramAgent:
                 log.warning("Telegram reconnect attempt failed: %s", type(exc).__name__)
 
     async def _persist_login(self, client: TelegramClient) -> None:
-        self.session_persisted = await save_session(client.session.save())
+        session = client.session.save()
+        self.session_persisted = await save_session(session)
+        # The watchdog and later reconnects must use the account that was just
+        # authenticated, even before Render restarts the service with new env.
+        self.settings = replace(self.settings, telegram_session=session)
 
     async def stop(self) -> None:
         if self._watchdog_task:
@@ -118,26 +123,29 @@ class TelegramAgent:
         self.connected = False
 
     async def _activate_client(self, client: TelegramClient) -> None:
-        previous = self.client
-        if previous is not None and previous is not client:
-            # Switching accounts: stop the old account from receiving or answering messages.
+        me = await client.get_me()
+        previous = self.client if self.client is not client else None
+        # Authenticate the new account before detaching the working connection.
+        # Then remove its listener before switching to avoid duplicate replies.
+        if previous is not None:
             previous.remove_event_handler(self._on_message)
-            try:
-                await previous.disconnect()
-            except Exception as exc:
-                log.warning("Could not disconnect previous account: %s", type(exc).__name__)
         if self.reply_enabled:
             self.assistant = ShadowAssistant(self.settings)
         self.client = client
         self.session_revoked = False
-        me = await client.get_me()
         self._me_id = me.id
+        self.account_id = me.id
         self.account_label = f"@{me.username}" if me.username else str(me.id)
         if self.reply_enabled:
             client.add_event_handler(self._on_message, events.NewMessage(incoming=True))
         self.connected = True
         self.last_error = None
         log.info("Shadow connected to Telegram account %s", self.account_label)
+        if previous is not None:
+            try:
+                await previous.disconnect()
+            except Exception as exc:
+                log.warning("Could not disconnect previous account: %s", type(exc).__name__)
 
     async def request_login_code(self, phone: str) -> None:
         if not self.settings.telegram_api_ready:
@@ -146,6 +154,9 @@ class TelegramAgent:
             # Never drop the live account just because a new login was started.
             if self._login_client and self._login_client is not self.client:
                 await self._login_client.disconnect()
+            self._login_client = None
+            self._login_phone = None
+            self._login_hash = None
             client = TelegramClient(
                 StringSession(),
                 self.settings.telegram_api_id,
@@ -181,6 +192,14 @@ class TelegramAgent:
             await self._activate_client(self._login_client)
             await self._persist_login(self._login_client)
 
+    def setup_result(self) -> dict[str, object]:
+        """Return safe account and persistence details after private login."""
+        return {
+            "account": self.account_label,
+            "account_id": self.account_id,
+            "session_persisted": self.session_persisted,
+        }
+
     async def _is_reply_to_shadow(self, event: events.NewMessage.Event) -> bool:
         if not event.is_reply or self._me_id is None:
             return False
@@ -203,7 +222,10 @@ class TelegramAgent:
         return "\n".join(reversed(lines))[-9000:]
 
     async def _on_message(self, event: events.NewMessage.Event) -> None:
-        if not self.reply_enabled or not self.connected or not self.client or not self.assistant:
+        if (
+            not self.reply_enabled or not self.connected or not self.client or not self.assistant
+            or event.client is not self.client
+        ):
             return
         chat_id = event.chat_id
         if chat_id is None or not chat_is_approved(chat_id, self.settings.approved_chat_ids):
@@ -382,6 +404,7 @@ class TelegramAgent:
             "configured": self.settings.configured or self.connected,
             "connected": self.connected,
             "account": self.account_label,
+            "account_id": self.account_id,
             "approved_chat_count": "all" if approved == "*" else len(approved),
             "reply_enabled": self.reply_enabled,
             "openai_configured": bool(self.settings.openai_api_key),

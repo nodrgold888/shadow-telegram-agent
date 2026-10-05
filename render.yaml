@@ -11,6 +11,8 @@ services:
         sync: false
       - key: TELEGRAM_API_HASH
         sync: false
+      - key: TELEGRAM_SESSION
+        sync: false
       - key: SETUP_TOKEN
         sync: false
       - key: RENDER_API_KEY

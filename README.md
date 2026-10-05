@@ -128,7 +128,15 @@ The Telegram session created at `/setup/telegram` would normally live only in me
 1. Create a Render API key (Account Settings → API Keys) and add it as the `RENDER_API_KEY` secret. `RENDER_SERVICE_ID` is provided by Render automatically.
 2. Log in once at `/setup/telegram`. After a successful login Shadow writes the session into the service's `TELEGRAM_SESSION` secret (Render redeploys once, then boots straight into the saved session).
 
-`/admin/status` reports `session_persisted` and `can_persist_session`. If you prefer, run `scripts/create_session.py` locally and paste `TELEGRAM_SESSION` into Render yourself. The session string is never logged or exposed over HTTP.
+The authenticated dashboard and `/admin/status` report `session_persisted` and `can_persist_session`. Public `/healthz` only reports whether the service is up and Telegram is connected. If you prefer, run `scripts/create_session.py` locally and paste `TELEGRAM_SESSION` into Render yourself. The session string is never logged or exposed over HTTP.
+
+To switch to another Telegram account, open `/setup/telegram`, sign in with
+that account's phone number, and complete the code and optional two-step
+password there. The setup page confirms the connected username and numeric
+account ID, and says whether Render saved the new session. The authenticated
+dashboard shows the active account. A successful login replaces the active
+Telegram client and updates the watchdog's reconnect session; the prior client
+is disconnected so it cannot keep processing messages.
 
 While running, a watchdog checks the connection every 60 seconds and reconnects if it dropped or failed at boot. Only a session revoked from Telegram (Settings → Devices → Terminate) needs a new login; this is reported as `session_revoked`.
 
