@@ -5,6 +5,7 @@ import json
 import logging
 import os
 import urllib.request
+from urllib.error import HTTPError
 import tempfile
 import threading
 from pathlib import Path
@@ -59,17 +60,30 @@ def persistence_available() -> bool:
 
 
 def _put_env_var(service_id: str, api_key: str, key: str, value: str) -> None:
-    request = urllib.request.Request(
-        f"{RENDER_API}/services/{service_id}/env-vars/{key}",
-        data=json.dumps({"value": value}).encode(),
-        method="PUT",
-        headers={
-            "Authorization": f"Bearer {api_key}",
-            "Content-Type": "application/json",
-            "Accept": "application/json",
-        },
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+    }
+    url = f"{RENDER_API}/services/{service_id}/env-vars"
+    update = urllib.request.Request(
+        f"{url}/{key}", data=json.dumps({"value": value}).encode(),
+        method="PUT", headers=headers,
     )
-    with urllib.request.urlopen(request, timeout=20) as response:
+    try:
+        with urllib.request.urlopen(update, timeout=20) as response:
+            response.read()
+        return
+    except HTTPError as exc:
+        if exc.code != 404:
+            raise
+    # Older Render services may not have a key yet. Create it on first save,
+    # then subsequent writes use the update endpoint above.
+    create = urllib.request.Request(
+        url, data=json.dumps({"key": key, "value": value}).encode(),
+        method="POST", headers=headers,
+    )
+    with urllib.request.urlopen(create, timeout=20) as response:
         response.read()
 
 

@@ -1,6 +1,6 @@
 # Shadow
 
-Shadow is a private, always-on Telegram assistant for one personal account. It replies in Uzbek inside approved chats and groups, using the OpenAI Responses API.
+Shadow is a private Telegram assistant for one personal account. It can stay connected while its host is running and replies in Uzbek inside approved chats and groups, using the OpenAI Responses API.
 
 New deployments start in read-only connection mode with `REPLY_ENABLED=false`. In this mode Shadow connects to Telegram but does not register a message handler, mark messages read, show typing activity, or send replies.
 
@@ -77,7 +77,7 @@ Forward a message to a trusted ID helper or temporarily inspect Telethon logs lo
 
 ## Render deployment
 
-`render.yaml` defines a paid 512 MB web service in Frankfurt so Shadow remains available continuously. Create a Blueprint from this repository, add the required secret values, and deploy.
+`render.yaml` defines a free web service in Frankfurt. Free services can sleep, so the keep-alive checks below are best-effort and do not guarantee continuous 24/7 availability. Choose a paid Render instance in the Render dashboard if you need guaranteed always-on hosting. Create a Blueprint from this repository, add the required secret values, and deploy.
 
 Required secrets:
 
@@ -85,13 +85,13 @@ Required secrets:
 - `TELEGRAM_API_HASH`
 - `SETUP_TOKEN`
 
-For the free preview, open `/setup/telegram` and authenticate with the private setup token. The resulting Telegram session lives only in memory and is lost whenever the free service sleeps or restarts.
+Open `/setup/telegram` and authenticate with the private setup token. If `RENDER_API_KEY` is configured, the Telegram session is saved to Render and survives service restarts. Without persistence, a restart or free-tier sleep requires another Telegram login.
 
 When you are ready to allow replies, add `OPENAI_API_KEY` and `APPROVED_CHAT_IDS`, then explicitly set `REPLY_ENABLED=true`.
 
 The public `/healthz` route reports connection state without exposing secrets. `/admin/status` requires the generated `ADMIN_TOKEN` bearer token.
 
-The private `/dashboard` page is the Uzbek control panel. Sign in with `SETUP_TOKEN` or `ADMIN_TOKEN` to see Telegram connectivity, the connected account, and a read-only list of recent dialogs. Its reply switch starts off. Turning replies on requires an explicit confirmation and configured `OPENAI_API_KEY` plus `APPROVED_CHAT_IDS`; reply changes apply only to the running process and reset to the configured value after a restart.
+The private `/dashboard` page is the Uzbek control panel. Sign in with `SETUP_TOKEN` or `ADMIN_TOKEN` to see Telegram connectivity, the connected account, and a read-only list of recent dialogs. The browser sends its login token through a secure cookie and an in-memory authorization header, so the dashboard remains usable in mobile browsers that do not retain cookies. Its reply switch starts off. Turning replies on requires an explicit confirmation and configured `OPENAI_API_KEY` plus `APPROVED_CHAT_IDS`.
 
 ## Local development
 
@@ -105,7 +105,7 @@ Open <http://localhost:10000/healthz>.
 
 ## Keep-alive ping
 
-On Render's free plan the service sleeps after ~15 minutes without inbound traffic, which drops the in-memory Telegram session. Shadow therefore pings its own public `/healthz` every 10 minutes. It is enabled automatically when `RENDER_EXTERNAL_URL` is set (Render sets it for you); set `KEEPALIVE_URL` to override the target and `KEEPALIVE_INTERVAL_SECONDS` (minimum 60) to change the cadence. Leave both unset locally to disable it. The ping only calls `/healthz`; it never sends Telegram messages.
+On Render's free plan the service may sleep after a period without inbound traffic, interrupting the Telegram connection. Shadow pings its public `/healthz` every 10 minutes while running, and the GitHub Actions workflow can provide an outside ping. These checks may reduce idle time, but they cannot guarantee 24/7 uptime. A paid always-on instance is needed for continuous service. The ping only calls `/healthz`; it never sends Telegram messages.
 
 ### Second ping source (external, survives a crashed process)
 
@@ -125,8 +125,10 @@ a redundant second source, not a replacement for the internal ping.
 
 The Telegram session created at `/setup/telegram` would normally live only in memory. To keep it across restarts and redeploys:
 
-1. Create a Render API key (Account Settings → API Keys) and add it as the `RENDER_API_KEY` secret. `RENDER_SERVICE_ID` is provided by Render automatically.
-2. Log in once at `/setup/telegram`. After a successful login Shadow writes the session into the service's `TELEGRAM_SESSION` secret (Render redeploys once, then boots straight into the saved session).
+1. Create a Render API key (Account Settings → API Keys) and add it as the `RENDER_API_KEY` secret. `RENDER_SERVICE_ID` is provided by Render automatically. This is a service credential, not the dashboard login token.
+2. Log in once at `/setup/telegram`. After a successful login Shadow writes the session into the service's `TELEGRAM_SESSION` secret. The setup page confirms which account connected and whether the write succeeded.
+
+The blueprint declares every variable that Shadow updates through the Render API (`TELEGRAM_SESSION`, `APPROVED_CHAT_IDS`, `REPLY_ENABLED`, `SHADOW_MODEL_SELECTION`, and `SHADOW_CHAT_PROFILES`). Keep these variable names unchanged so saved dashboard changes target existing Render variables. Render may restart the service after an environment update; the Telegram session is saved before the restart and the dashboard keeps its login token in the open tab.
 
 The authenticated dashboard and `/admin/status` report `session_persisted` and `can_persist_session`. Public `/healthz` only reports whether the service is up and Telegram is connected. If you prefer, run `scripts/create_session.py` locally and paste `TELEGRAM_SESSION` into Render yourself. The session string is never logged or exposed over HTTP.
 

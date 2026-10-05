@@ -42,6 +42,7 @@ async def lifespan(_: FastAPI):
 app = FastAPI(title="Shadow", version="0.1.0", lifespan=lifespan)
 
 _DASHBOARD_FILE = Path(__file__).with_name("dashboard.html")
+_SETUP_FILE = Path(__file__).with_name("setup.html")
 
 
 def _secure_cookie(request: Request) -> bool:
@@ -51,11 +52,17 @@ def _secure_cookie(request: Request) -> bool:
     )
 
 
-def _dashboard_allowed(cookie: str | None) -> bool:
-    return bool(cookie and any(
-        expected and secrets.compare_digest(cookie, expected)
+def _dashboard_allowed(cookie: str | None, authorization: str | None = None) -> bool:
+    bearer = authorization or ""
+    if bearer[:7].lower() == "bearer ":
+        bearer = bearer[7:].strip()
+    else:
+        bearer = ""
+    return any(
+        supplied and expected and secrets.compare_digest(supplied, expected)
+        for supplied in (cookie, bearer)
         for expected in (settings.setup_token, settings.admin_token)
-    ))
+    )
 
 
 def _setup_allowed(cookie: str | None) -> bool:
@@ -98,15 +105,22 @@ async def dashboard_logout() -> JSONResponse:
 
 
 @app.get("/dashboard/api/status")
-async def dashboard_status(shadow_setup: str | None = Cookie(default=None)) -> dict[str, object]:
-    if not _dashboard_allowed(shadow_setup):
+async def dashboard_status(
+    shadow_setup: str | None = Cookie(default=None),
+    authorization: str | None = Header(default=None),
+) -> dict[str, object]:
+    if not _dashboard_allowed(shadow_setup, authorization):
         raise HTTPException(status_code=401, detail="Kirish kerak")
     return agent.status()
 
 
 @app.post("/dashboard/api/models")
-async def dashboard_models(request: Request, shadow_setup: str | None = Cookie(default=None)) -> dict[str, object]:
-    if not _dashboard_allowed(shadow_setup):
+async def dashboard_models(
+    request: Request,
+    shadow_setup: str | None = Cookie(default=None),
+    authorization: str | None = Header(default=None),
+) -> dict[str, object]:
+    if not _dashboard_allowed(shadow_setup, authorization):
         raise HTTPException(status_code=401, detail="Kirish kerak")
     body = await request.json()
     if not isinstance(body, dict):
@@ -132,16 +146,23 @@ async def dashboard_models(request: Request, shadow_setup: str | None = Cookie(d
 
 
 @app.get("/dashboard/api/chats")
-async def dashboard_chats(shadow_setup: str | None = Cookie(default=None)) -> dict[str, object]:
-    if not _dashboard_allowed(shadow_setup):
+async def dashboard_chats(
+    shadow_setup: str | None = Cookie(default=None),
+    authorization: str | None = Header(default=None),
+) -> dict[str, object]:
+    if not _dashboard_allowed(shadow_setup, authorization):
         raise HTTPException(status_code=401, detail="Kirish kerak")
     return {"chats": await agent.dialogs()}
 
 
 
 @app.get("/dashboard/api/chats/{chat_id}/profile")
-async def dashboard_chat_profile(chat_id: int, shadow_setup: str | None = Cookie(default=None)) -> dict[str, object]:
-    if not _dashboard_allowed(shadow_setup):
+async def dashboard_chat_profile(
+    chat_id: int,
+    shadow_setup: str | None = Cookie(default=None),
+    authorization: str | None = Header(default=None),
+) -> dict[str, object]:
+    if not _dashboard_allowed(shadow_setup, authorization):
         raise HTTPException(status_code=401, detail="Kirish kerak")
     try:
         return {"profile": agent.chat_profile_for(chat_id)}
@@ -152,8 +173,9 @@ async def dashboard_chat_profile(chat_id: int, shadow_setup: str | None = Cookie
 @app.put("/dashboard/api/chats/{chat_id}/profile")
 async def dashboard_update_chat_profile(
     chat_id: int, request: Request, shadow_setup: str | None = Cookie(default=None),
+    authorization: str | None = Header(default=None),
 ) -> dict[str, object]:
-    if not _dashboard_allowed(shadow_setup):
+    if not _dashboard_allowed(shadow_setup, authorization):
         raise HTTPException(status_code=401, detail="Kirish kerak")
     body = await request.json()
     if not isinstance(body, dict):
@@ -168,8 +190,9 @@ async def dashboard_update_chat_profile(
 @app.delete("/dashboard/api/chats/{chat_id}/profile")
 async def dashboard_clear_chat_profile(
     chat_id: int, shadow_setup: str | None = Cookie(default=None),
+    authorization: str | None = Header(default=None),
 ) -> dict[str, object]:
-    if not _dashboard_allowed(shadow_setup):
+    if not _dashboard_allowed(shadow_setup, authorization):
         raise HTTPException(status_code=401, detail="Kirish kerak")
     try:
         return await agent.clear_chat_profile(chat_id)
@@ -178,8 +201,12 @@ async def dashboard_clear_chat_profile(
 
 
 @app.post("/dashboard/api/chats/approval")
-async def dashboard_chat_approval(request: Request, shadow_setup: str | None = Cookie(default=None)) -> dict[str, object]:
-    if not _dashboard_allowed(shadow_setup):
+async def dashboard_chat_approval(
+    request: Request,
+    shadow_setup: str | None = Cookie(default=None),
+    authorization: str | None = Header(default=None),
+) -> dict[str, object]:
+    if not _dashboard_allowed(shadow_setup, authorization):
         raise HTTPException(status_code=401, detail="Kirish kerak")
     body = await request.json()
     if not isinstance(body, dict):
@@ -194,16 +221,23 @@ async def dashboard_chat_approval(request: Request, shadow_setup: str | None = C
 
 
 @app.post("/dashboard/api/chats/clear-approvals")
-async def dashboard_clear_chat_approvals(shadow_setup: str | None = Cookie(default=None)) -> dict[str, object]:
-    if not _dashboard_allowed(shadow_setup):
+async def dashboard_clear_chat_approvals(
+    shadow_setup: str | None = Cookie(default=None),
+    authorization: str | None = Header(default=None),
+) -> dict[str, object]:
+    if not _dashboard_allowed(shadow_setup, authorization):
         raise HTTPException(status_code=401, detail="Kirish kerak")
     result = await agent.clear_chat_approvals()
     return result
 
 
 @app.post("/dashboard/api/replies")
-async def dashboard_replies(request: Request, shadow_setup: str | None = Cookie(default=None)) -> dict[str, object]:
-    if not _dashboard_allowed(shadow_setup):
+async def dashboard_replies(
+    request: Request,
+    shadow_setup: str | None = Cookie(default=None),
+    authorization: str | None = Header(default=None),
+) -> dict[str, object]:
+    if not _dashboard_allowed(shadow_setup, authorization):
         raise HTTPException(status_code=401, detail="Kirish kerak")
     enabled = (await request.json()).get("enabled")
     if not isinstance(enabled, bool):
@@ -235,13 +269,12 @@ async def admin_status(authorization: str | None = Header(default=None)) -> dict
 
 @app.get("/setup/telegram", response_class=HTMLResponse)
 async def telegram_setup() -> str:
-    return """<!doctype html><html lang='uz'><head><meta name='viewport' content='width=device-width,initial-scale=1'><title>Shadow Telegram Setup</title><style>body{margin:0;min-height:100vh;display:grid;place-items:center;background:#080b12;color:#f5f7fb;font:16px system-ui}main{width:min(520px,calc(100% - 40px));padding:28px;border:1px solid #252d3d;border-radius:18px;background:#101520}input,button{box-sizing:border-box;width:100%;padding:13px;margin:7px 0;border-radius:10px;border:1px solid #344056;background:#090d15;color:#fff}button{background:#58c8bb;color:#07110f;font-weight:700}p{color:#aab3c4}.ok{color:#6ce5d8}.err{color:#ff8f8f}</style></head><body><main><h1>Shadow</h1><p>Telegram ulanishini xavfsiz sozlash</p><section id='auth'><input id='token' type='password' autocomplete='off' placeholder='Setup token'><button onclick='auth()'>Davom etish</button></section><section id='phone' hidden><input id='phoneValue' type='tel' autocomplete='tel' placeholder='+998...'><button onclick='sendCode()'>Kod yuborish</button></section><section id='code' hidden><input id='codeValue' type='text' autocomplete='one-time-code' placeholder='Telegram kodi'><button onclick='verify()'>Tasdiqlash</button></section><section id='password' hidden><input id='passwordValue' type='password' autocomplete='current-password' placeholder='Telegram 2FA paroli'><button onclick='verifyPassword()'>Kirish</button></section><p id='status'></p><script>const q=s=>document.querySelector(s), show=id=>{['auth','phone','code','password'].forEach(x=>q('#'+x).hidden=x!==id)}; async function call(url,body){const r=await fetch(url,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});const j=await r.json();if(!r.ok)throw Error(j.detail||'Xato');return j}async function auth(){try{await call('/setup/telegram/auth',{token:q('#token').value});show('phone');q('#status').textContent='Xavfsiz kirish tasdiqlandi'}catch(e){q('#status').textContent=e.message}}async function sendCode(){try{await call('/setup/telegram/code',{phone:q('#phoneValue').value});show('code');q('#status').textContent='Kod Telegram ilovasiga yuborildi'}catch(e){q('#status').textContent=e.message}}async function verify(){try{const j=await call('/setup/telegram/verify',{code:q('#codeValue').value});if(j.status==='password_required'){show('password');q('#status').textContent='2FA parolini kiriting'}else done(j)}catch(e){q('#status').textContent=e.message}}async function verifyPassword(){try{const j=await call('/setup/telegram/password',{password:q('#passwordValue').value});done(j)}catch(e){q('#status').textContent=e.message}}function done(result){['auth','phone','code','password'].forEach(x=>q('#'+x).hidden=true);q('#status').className='ok';const account=result.account?result.account+(result.account_id?' · ID: '+result.account_id:''):'Telegram akkaunti';q('#status').textContent=account+' ulandi. Xabar yuborish o‘chirilgan. '+(result.session_persisted?'Sessiya Render’da saqlandi.':'Sessiya faqat joriy ishga tushishda saqlandi; Render qayta ishga tushsa, qayta kirish kerak bo‘ladi.')}
-</script></main></body></html>"""
+    return _SETUP_FILE.read_text(encoding="utf-8")
 
 
 @app.post("/setup/telegram/auth")
 async def telegram_setup_auth(request: Request) -> JSONResponse:
-    token = str((await request.json()).get("token", ""))
+    token = str((await request.json()).get("token", "")).strip()
     if not settings.setup_token or not secrets.compare_digest(token, settings.setup_token):
         raise HTTPException(status_code=401, detail="Setup token noto‘g‘ri")
     response = JSONResponse({"ok": True})
