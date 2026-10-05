@@ -167,6 +167,10 @@ OpenAI's TTS voices are optimized for English, so natural Uzbek pronunciation ca
 be guaranteed. Transcription and speech generation use the configured OpenAI API key
 and may incur additional API usage.
 
+## Uzbekistan banking guidance
+
+Shadow includes an Uzbek-language reference guide covering loans, deposits, accounts and cards, transfers, currency exchange, utility and other payments, small-business services, consumer rights, and fraud prevention. It is general educational guidance, not a live catalog of every bank's products. Bank rates, tariffs, eligibility, and promotions change and differ by institution; Shadow must ask for the bank/product and rely on a current official source before stating exact terms. The guide was last checked on 2026-10-05 against the Central Bank, LexUZ, and the government portal. Shadow can explain and estimate but cannot make payments, move funds, apply for credit, or access a bank account. Never send card security details, passwords, or verification codes to Shadow.
+
 ## Mathematics, Excel and Word skills
 
 Shadow loads task guidance from `shadow/skills/math.md`, `excel.md` and `word.md`.
