@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import asyncio
 import logging
 import secrets
 from contextlib import asynccontextmanager
@@ -8,13 +7,13 @@ from dataclasses import replace
 from pathlib import Path
 
 from fastapi import Cookie, FastAPI, Header, HTTPException, Request
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse
 
 from .config import Settings
 from .persist import save_model_selection, save_reply_enabled
 from .config import SUPPORTED_OPENAI_MODELS
 from .chat_memory import normalize_chat_profile
-from .keepalive import keepalive_interval, keepalive_url, run_keepalive
+from .keepalive import build_keepalive
 from .telegram_agent import TelegramAgent
 
 logging.basicConfig(
@@ -24,18 +23,19 @@ logging.basicConfig(
 
 settings = Settings.from_env()
 agent = TelegramAgent(settings)
+keepalive = build_keepalive()
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     await agent.start()
-    url = keepalive_url()
-    ping_task = asyncio.create_task(run_keepalive(url, keepalive_interval())) if url else None
+    if keepalive:
+        keepalive.start()
     try:
         yield
     finally:
-        if ping_task:
-            ping_task.cancel()
+        if keepalive:
+            keepalive.stop()
         await agent.stop()
 
 
@@ -111,7 +111,7 @@ async def dashboard_status(
 ) -> dict[str, object]:
     if not _dashboard_allowed(shadow_setup, authorization):
         raise HTTPException(status_code=401, detail="Kirish kerak")
-    return agent.status()
+    return {**agent.status(), "keepalive": keepalive.status() if keepalive else {"enabled": False}}
 
 
 @app.post("/dashboard/api/models")
@@ -250,6 +250,12 @@ async def dashboard_replies(
     return {"reply_enabled": agent.reply_enabled, "persisted": persisted}
 
 
+@app.api_route("/ping", methods=["GET", "HEAD"])
+async def ping() -> PlainTextResponse:
+    # Minimal public liveness probe for keep-alive pingers: no agent or Telegram access.
+    return PlainTextResponse("ok", headers={"Cache-Control": "no-store"})
+
+
 @app.get("/healthz")
 async def health() -> dict[str, object]:
     # Render and keep-alive probes are public. Do not expose the connected
@@ -264,7 +270,7 @@ async def admin_status(authorization: str | None = Header(default=None)) -> dict
     supplied = (authorization or "").removeprefix("Bearer ").strip()
     if not secrets.compare_digest(supplied, settings.admin_token):
         raise HTTPException(status_code=401, detail="Unauthorized")
-    return agent.status()
+    return {**agent.status(), "keepalive": keepalive.status() if keepalive else {"enabled": False}}
 
 
 @app.get("/setup/telegram", response_class=HTMLResponse)
