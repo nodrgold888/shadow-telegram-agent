@@ -1,20 +1,39 @@
 name: Keep-alive ping (external)
 
+# Independent outside pinger. It can wake a service that is already asleep or
+# crashed, which the in-process ping cannot. Scheduled workflows are also
+# disabled by GitHub after 60 days without repository activity - re-enable
+# them in the Actions tab if that happens.
 on:
   schedule:
-    - cron: "*/10 * * * *"
+    - cron: "*/5 * * * *"
   workflow_dispatch: {}
+
+concurrency:
+  group: keepalive
+  cancel-in-progress: true
+
+permissions: {}
 
 jobs:
   ping:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
-      - name: Ping /healthz
+      - name: Ping /ping
         env:
-          HEALTHZ_URL: ${{ vars.HEALTHZ_URL }}
+          # Optional repository variable (Settings > Secrets and variables > Actions > Variables).
+          PING_URL: ${{ vars.PING_URL || vars.HEALTHZ_URL || 'https://shadow-telegram-agent.onrender.com' }}
         run: |
-          if [ -z "$HEALTHZ_URL" ]; then
-            echo "::error::HEALTHZ_URL repository variable is not set. Settings > Secrets and variables > Actions > Variables > New repository variable, pointing at https://<your-service>.onrender.com/healthz"
-            exit 1
-          fi
-          curl -fsS --max-time 15 "$HEALTHZ_URL" > /dev/null
+          # Accept either a bare base URL or a full /healthz or /ping URL.
+          base="${PING_URL%/}"
+          base="${base%/healthz}"
+          base="${base%/ping}"
+          # A sleeping free-tier service needs up to ~60s to cold start, so allow
+          # a long timeout and retry (including connection errors) before failing.
+          curl -fsS -o /dev/null \
+            --max-time 90 \
+            --retry 4 --retry-delay 15 --retry-all-errors \
+            -A "shadow-keepalive-gha/2" \
+            "$base/ping"
+          echo "Pinged $base/ping"

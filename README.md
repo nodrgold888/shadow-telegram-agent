@@ -105,21 +105,12 @@ Open <http://localhost:10000/healthz>.
 
 ## Keep-alive ping
 
-On Render's free plan the service may sleep after a period without inbound traffic, interrupting the Telegram connection. Shadow pings its public `/healthz` every 10 minutes while running, and the GitHub Actions workflow can provide an outside ping. These checks may reduce idle time, but they cannot guarantee 24/7 uptime. A paid always-on instance is needed for continuous service. The ping only calls `/healthz`; it never sends Telegram messages.
+On Render's free plan the service sleeps after about 15 minutes without inbound traffic, which interrupts the Telegram connection. Two independent pingers call the lightweight public `/ping` endpoint (it never touches Telegram or the agent):
 
-### Second ping source (external, survives a crashed process)
+1. **In-process ping** (`shadow/keepalive.py`). Every 5 minutes (with ±10% jitter) Shadow calls its own public URL. Each ping has a 60s timeout, to survive cold starts, and retries after 5s, 15s and 45s. It starts automatically when `RENDER_EXTERNAL_URL` is set (Render sets it). Override with `KEEPALIVE_URL` and `KEEPALIVE_INTERVAL_SECONDS` (minimum 60). Its counters and last error are in `/admin/status` under `keepalive`.
+2. **External ping** (`.github/workflows/keepalive.yml`). GitHub Actions calls `/ping` every 5 minutes from outside. Unlike the in-process ping, it can wake a service that is already asleep or crashed. It targets `https://shadow-telegram-agent.onrender.com` by default; set the optional repository variable `PING_URL` (Settings → Secrets and variables → Actions → Variables) if your service URL differs. It retries up to 4 times with a 90s timeout.
 
-The self-ping above only runs while Shadow's own process is alive — it cannot
-wake a service that has fully crashed or failed to boot. `.github/workflows/keepalive.yml`
-adds an independent ping from GitHub Actions on a 10-minute schedule, calling
-the same `/healthz` endpoint from outside the service entirely. Set it up:
-
-1. Repo Settings → Secrets and variables → Actions → **Variables** tab → New repository variable.
-2. Name: `HEALTHZ_URL`. Value: `https://<your-service>.onrender.com/healthz`.
-
-Like the internal ping, this only calls `/healthz` and never touches Telegram.
-GitHub's own scheduler can run a few minutes late under load, so treat this as
-a redundant second source, not a replacement for the internal ping.
+GitHub's scheduler can run a few minutes late, and GitHub disables scheduled workflows after 60 days without repository activity (re-enable in the Actions tab). These pingers reduce idle time but cannot guarantee 24/7 uptime; a paid always-on instance is the only guarantee.
 
 ## Surviving restarts (no re-login)
 
