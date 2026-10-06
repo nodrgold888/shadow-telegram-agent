@@ -26,4 +26,4 @@ def read_delay(rng: random.Random | None = None) -> float:
 
 def human_typing_delay(text: str, rng: random.Random | None = None) -> float:
     """Typing pause for one message: proportional to its length, with natural variation."""
-    return typing_delay(text) * (rng or random).uniform(0.85, 1.25)
+    return min(typing_delay(text) * (rng or random).uniform(0.85, 1.25), 4.5)
