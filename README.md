@@ -107,6 +107,12 @@ Open <http://localhost:10000/healthz>.
 
 `/dashboard` accepts either token (`ADMIN_TOKEN` or `SETUP_TOKEN`) or a **Telegram login code**: press "Telegram orqali kirish" and Shadow sends a 6-digit one-time code to the connected account's own Saved Messages (it never messages anyone else). The code is single use, expires after 5 minutes, allows 5 wrong guesses (then 15 minutes lockout) and can be requested once per minute. Sessions last 12 hours and live in memory, so a restart signs you out. This needs Telegram to be connected; use a token otherwise. The code is only sent when you press the button.
 
+## Always-online status
+
+By default Shadow keeps the connected Telegram account showing as **online** by refreshing its status every ~2 minutes (`shadow/presence.py`). It only changes the visible status; it never reads or sends messages. Turn it off with `ALWAYS_ONLINE=false`. Current state and counters are under `online_presence` in `/admin/status` and the dashboard status.
+
+Things to know: while one session is online, Telegram may stop sending push notifications to your other devices (phone, desktop), so you can miss message alerts. The account also looks online to everyone who can see your status, even when you are away. Staying online 24/7 also needs the service itself to be awake (see Keep-alive ping below; the free Render plan can still sleep).
+
 ## Keep-alive ping
 
 On Render's free plan the service sleeps after about 15 minutes without inbound traffic, which interrupts the Telegram connection. Two independent pingers call the lightweight public `/ping` endpoint (it never touches Telegram or the agent):
