@@ -4,7 +4,7 @@ import json
 import re
 from typing import Any
 
-from .agents import AGENT_IDS
+from .agents import AGENT_IDS, MAX_CHAT_AGENTS
 
 PROFILE_LIMITS = {
     "style": 400,
@@ -30,10 +30,27 @@ def normalize_chat_profile(value: Any) -> dict[str, str]:
         if len(text) > limit:
             raise ValueError(f"{field} {limit} belgidan oshmasin")
         profile[field] = text
-    agent = value.get("agent", "")
-    if not isinstance(agent, str) or agent.strip() not in AGENT_IDS:
+    raw = value.get("agents")
+    if raw is None:
+        raw = value.get("agent", "")
+    if isinstance(raw, str):
+        items = [item.strip() for item in raw.split(",")]
+    elif isinstance(raw, list) and all(isinstance(item, str) for item in raw):
+        items = [item.strip() for item in raw]
+    else:
         raise ValueError("Agent turi noto‘g‘ri")
-    profile["agent"] = agent.strip()
+    agents: list[str] = []
+    for item in items:
+        if not item:
+            continue
+        if item not in AGENT_IDS:
+            raise ValueError("Agent turi noto‘g‘ri")
+        if item not in agents:
+            agents.append(item)
+    if len(agents) > MAX_CHAT_AGENTS:
+        raise ValueError(f"Bir chatga {MAX_CHAT_AGENTS} tagacha tur tanlash mumkin")
+    profile["agent"] = agents[0] if agents else ""
+    profile["agents"] = ",".join(agents)
     return profile
 
 

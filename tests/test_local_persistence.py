@@ -35,7 +35,7 @@ class LocalPersistenceTests(unittest.IsolatedAsyncioTestCase):
                     json.loads(saved["SHADOW_CHAT_PROFILES"]),
                     {"101": {
                         "style": "do‘stona", "memory": "Futbolni yaxshi ko‘radi", "notes": "", "routines": "",
-                        "agent_instructions": "", "agent": "",
+                        "agent_instructions": "", "agent": "", "agents": "",
                     }},
                 )
                 current = Settings.from_env()

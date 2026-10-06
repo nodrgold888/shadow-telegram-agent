@@ -290,3 +290,5 @@ Off by default. In **Avtomatik javoblar** switch on **Notanish chatlarga ham vid
 ### Chat types and skills
 
 Per-chat types (Suhbatlar → "Maxsus xotira" → tur): Umumiy yordamchi, Do'stona suhbatdosh, Bank maslahatchisi, Tarjimon, O'qituvchi, Ish yordamchisi, Kod yordamchisi, Kontent yozuvchi, Taqdimot va hujjat, Savdo va mijozlar bilan. The built-in skills (`shadow/skills/*.md`: general, natural chat, math, Excel, Word, coding, learning, Davr Bank, video) are listed read-only in **Avtomatik javoblar → Suhbat turlari va skillar** (`GET /dashboard/api/agents`).
+
+Several chat types can be combined for one chat (up to 4): tick them in the chat profile dialog (Suhbatlar → "Tur tanlash" / "Turlar: N") or from **Avtomatik javoblar → Suhbat turlari va skillar → Chatlarga tayinlash**. The profile stores them as `agents` (comma-separated ids; the old single `agent` is still read and mirrors the first one).
