@@ -106,13 +106,31 @@ def agent_catalog() -> list[dict[str, str]]:
     return [{"id": a.id, "label": a.label, "description": a.description} for a in AGENTS]
 
 
+MAX_CHAT_AGENTS = 4
+
+
+def profile_agent_ids(profile: dict[str, str] | None) -> list[str]:
+    """Chat types selected for one chat (several can be combined); falls back to the old single `agent`."""
+    if not profile:
+        return []
+    raw = profile.get("agents") or profile.get("agent") or ""
+    ids: list[str] = []
+    for item in raw.split(","):
+        item = item.strip()
+        if item and item in _BY_ID and item not in ids:
+            ids.append(item)
+    return ids[:MAX_CHAT_AGENTS]
+
+
 def agent_role(profile: dict[str, str] | None) -> str:
     """System-prompt addendum for one chat, from its preset agent and its own instructions."""
     if not profile:
         return ""
-    preset = _BY_ID.get(profile.get("agent", ""))
+    presets = [_BY_ID[agent_id] for agent_id in profile_agent_ids(profile)]
     custom = (profile.get("agent_instructions") or "").strip()
-    parts = [preset.instructions] if preset and preset.instructions else []
+    parts = [preset.instructions for preset in presets if preset.instructions]
+    if len(parts) > 1:
+        parts.insert(0, "Bu chat uchun bir nechta rol birga qo‘llanadi; mavzuga qarab mosini tanlang va ularni uyg‘unlashtiring.")
     if custom:
         parts.append("Egasi shu chat uchun yozgan qo‘shimcha ko‘rsatma: " + custom)
     if not parts:

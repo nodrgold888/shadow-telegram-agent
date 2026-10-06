@@ -13,6 +13,7 @@ from telethon import TelegramClient, events
 from telethon.errors import SessionPasswordNeededError
 from telethon.sessions import StringSession
 
+from .agents import profile_agent_ids
 from .assistant import ShadowAssistant
 from .chat_memory import normalize_chat_profile
 from .office_files import OfficeFileError, MAX_UPLOAD_BYTES, inspect_office
@@ -705,7 +706,7 @@ class TelegramAgent:
         if not chat_is_approved(chat_id, self.settings.approved_chat_ids):
             raise ValueError("Chat avtojavob uchun ruxsat etilmagan")
         return dict(self.chat_profiles.get(str(chat_id), {
-            "style": "", "memory": "", "notes": "", "routines": "", "agent": "", "agent_instructions": "",
+            "style": "", "memory": "", "notes": "", "routines": "", "agent": "", "agents": "", "agent_instructions": "",
         }))
 
     async def update_chat_profile(self, chat_id: int, value: dict[str, object]) -> dict[str, object]:
@@ -803,6 +804,7 @@ class TelegramAgent:
                 "friend": dialog.id in self.friend_ids,
                 "friend_category": self.friend_ids.get(dialog.id, ""),
                 "has_profile": (approved == "*" or dialog.id in approved) and str(dialog.id) in self.chat_profiles,
+                "agents": profile_agent_ids(self.chat_profiles.get(str(dialog.id))) if (approved == "*" or dialog.id in approved) else [],
                 "unread_count": dialog.unread_count,
             })
         return result

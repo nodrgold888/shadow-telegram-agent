@@ -79,6 +79,41 @@ class NewAgentTests(unittest.TestCase):
         self.assertNotIn("# Learning assistant", assistant.PUBLIC_SKILL_PROMPT)
 
 
+class MultiAgentTests(unittest.TestCase):
+    def test_several_types_are_normalized_deduped_and_kept_in_order(self):
+        for raw in ("tutor,coder,tutor", ["tutor", "coder", "tutor"], " tutor , coder "):
+            profile = normalize_chat_profile({"agents": raw})
+            self.assertEqual(profile["agents"], "tutor,coder")
+            self.assertEqual(profile["agent"], "tutor")
+
+    def test_old_single_agent_profiles_still_work(self):
+        profile = normalize_chat_profile({"agent": "bank"})
+        self.assertEqual((profile["agent"], profile["agents"]), ("bank", "bank"))
+        self.assertEqual(normalize_chat_profile({})["agents"], "")
+        from shadow.agents import profile_agent_ids
+        self.assertEqual(profile_agent_ids({"agent": "bank"}), ["bank"])
+        self.assertEqual(profile_agent_ids({"agent": "bank", "agents": "tutor,coder"}), ["tutor", "coder"])
+        self.assertEqual(profile_agent_ids(None), [])
+
+    def test_unknown_or_too_many_types_are_rejected(self):
+        with self.assertRaises(ValueError):
+            normalize_chat_profile({"agents": "tutor,hacker"})
+        with self.assertRaises(ValueError):
+            normalize_chat_profile({"agents": ["tutor", 5]})
+        with self.assertRaises(ValueError):
+            normalize_chat_profile({"agents": "tutor,coder,bank,work,sales"})
+
+    def test_role_combines_every_selected_type_once(self):
+        role = agent_role({"agents": "translator,coder"})
+        self.assertIn("Rol: tarjimon", role)
+        self.assertIn("Rol: dasturlash yordamchisi", role)
+        self.assertIn("bir nechta rol birga", role)
+        self.assertEqual(role.count(CUSTOM_RULES), 1)
+        single = agent_role({"agents": "coder"})
+        self.assertNotIn("bir nechta rol birga", single)
+        self.assertNotIn("Rol: tarjimon", single)
+
+
 class SkillCatalogTests(unittest.TestCase):
     def test_every_skill_has_a_label_and_description_and_a_file(self):
         from pathlib import Path
