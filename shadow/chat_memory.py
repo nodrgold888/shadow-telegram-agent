@@ -4,11 +4,14 @@ import json
 import re
 from typing import Any
 
+from .agents import AGENT_IDS
+
 PROFILE_LIMITS = {
     "style": 400,
     "memory": 1400,
     "notes": 1400,
     "routines": 900,
+    "agent_instructions": 1200,
 }
 MAX_CHAT_PROFILES = 250
 MAX_CHAT_PROFILE_BYTES = 64 * 1024
@@ -27,6 +30,10 @@ def normalize_chat_profile(value: Any) -> dict[str, str]:
         if len(text) > limit:
             raise ValueError(f"{field} {limit} belgidan oshmasin")
         profile[field] = text
+    agent = value.get("agent", "")
+    if not isinstance(agent, str) or agent.strip() not in AGENT_IDS:
+        raise ValueError("Agent turi noto‘g‘ri")
+    profile["agent"] = agent.strip()
     return profile
 
 
