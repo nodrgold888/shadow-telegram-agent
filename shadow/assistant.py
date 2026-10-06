@@ -129,6 +129,19 @@ Qoidalar:
 WORK_TOOLS = [{"type":"function","name":"calculate","description":"Check numeric calculations. Operators + - * / % **; functions sqrt, sin, cos, tan, log, log10, exp, abs, round; pi/e. Trigonometry in radians.","parameters":{"type":"object","properties":{"expression":{"type":"string"}},"required":["expression"],"additionalProperties":False},"strict":True},{"type":"function","name":"create_excel","description":"Create and return a NEW styled .xlsx workbook when the user asks for an Excel file. At most 5 sheets, each up to 500 rows and 30 columns. First row is header. Formula support is limited to local A1 references and SUM, AVERAGE, MIN, MAX, COUNT, ROUND, ABS, IF. Formulas recalculate in Excel; server does not evaluate them.","parameters":{"type":"object","properties":{"sheets":{"type":"array","items":{"type":"object","properties":{"name":{"type":"string"},"rows":{"type":"array","items":{"type":"array","items":{"anyOf":[{"type":"string"},{"type":"number"},{"type":"boolean"},{"type":"null"}]}}}},"required":["name","rows"],"additionalProperties":False}}},"required":["sheets"],"additionalProperties":False},"strict":True},{"type":"function","name":"create_word","description":"Create and return a NEW professionally formatted .docx file when requested. Sections have headings, paragraphs, and an optional table (empty array if absent).","parameters":{"type":"object","properties":{"title":{"type":"string"},"sections":{"type":"array","items":{"type":"object","properties":{"heading":{"type":"string"},"paragraphs":{"type":"array","items":{"type":"string"}},"table":{"type":"array","items":{"type":"array","items":{"anyOf":[{"type":"string"},{"type":"number"},{"type":"boolean"},{"type":"null"}]}}}},"required":["heading","paragraphs","table"],"additionalProperties":False}}},"required":["title","sections"],"additionalProperties":False},"strict":True}]
 
 
+def _echo_tool_call(call) -> dict:
+    """A tool call as the assistant message that precedes its result.
+
+    Gemini 3 returns a thought signature in `extra_content` and rejects the follow-up request unless it
+    is sent back unchanged, so provider-specific extras are echoed as received."""
+    item = {"id": call.id, "type": "function",
+            "function": {"name": call.function.name, "arguments": call.function.arguments}}
+    extra = getattr(call, "extra_content", None)
+    if extra:
+        item["extra_content"] = extra
+    return item
+
+
 def _is_empty_reply(result) -> bool:
     """True for a blank text answer or a (text, files) answer with no text and no files."""
     if isinstance(result, tuple):
@@ -470,6 +483,18 @@ class ShadowAssistant:
                             messages=[{"role": "system", "content": base + COMPAT_NOTE}, {"role": "user", "content": prompt}],
                         )
                         return (plain.choices[0].message.content or "").strip(), []
+                    if turn > 0 and getattr(exc, "status_code", None) in (400, 404, 422):
+                        # The provider refused the tool-result round trip (e.g. a missing thought signature).
+                        # The tools already ran, so ask for the final answer as plain text with their results.
+                        log.warning("Backup provider %s rejected the tool result (%s); finishing as plain text", provider.name, type(exc).__name__)
+                        results = "\n".join(m["content"] for m in messages if m.get("role") == "tool")
+                        plain = await chat_create(
+                            client, model=provider.model, max_tokens=1500,
+                            messages=[{"role": "system", "content": base + COMPAT_NOTE},
+                                      {"role": "user", "content": f"{prompt}\n\nAsbob natijalari (JSON, ishonchli):\n{results}\nShu natijadan foydalanib javob bering."}],
+                        )
+                        answer = (plain.choices[0].message.content or "").strip()
+                        return answer or ("Fayl tayyor." if files else ""), files
                     raise
                 message = response.choices[0].message
                 calls = getattr(message, "tool_calls", None) or []
@@ -478,10 +503,7 @@ class ShadowAssistant:
                     return answer or ("Fayl tayyor." if files else ""), files
                 messages.append({
                     "role": "assistant", "content": message.content or "",
-                    "tool_calls": [
-                        {"id": c.id, "type": "function", "function": {"name": c.function.name, "arguments": c.function.arguments}}
-                        for c in calls
-                    ],
+                    "tool_calls": [_echo_tool_call(c) for c in calls],
                 })
                 for tool in calls:
                     result = await self._run_tool(tool.function.name, tool.function.arguments, directory, files)
