@@ -129,6 +129,10 @@ Off by default. Set `PUBLIC_BANK_REPLY=true` (Render → Environment) and keep t
 
 This does send messages from your personal account to people you have not approved, so enable it deliberately. Counters appear as `public_bank_reply` in `/admin/status`.
 
+## AI models
+
+The dashboard (Sozlamalar → AI modeli) lets you pick one model for everyday chat and one for complex tasks and files: `GPT-5 mini`, `GPT-6 Luna`, `GPT-5.6 Luna` (`gpt-5.6-luna`) and `GPT-Reserve` (`gpt-reserve`). The last two IDs were derived from the names shown in the OpenAI app and are **not confirmed** against the API: after choosing one, press "AI ni tekshirish"; a wrong ID shows up immediately as a model-not-found error and you can switch back. To offer another exact API model ID without a code change, set `EXTRA_OPENAI_MODELS` (comma separated, e.g. `gpt-x,gpt-y`). Model requests are billed to the OpenAI account of `OPENAI_API_KEY`; with no credits every reply fails with `insufficient_quota`.
+
 ## Always-online status
 
 By default Shadow keeps the connected Telegram account showing as **online** by refreshing its status every ~2 minutes (`shadow/presence.py`). It only changes the visible status; it never reads or sends messages. Turn it off with `ALWAYS_ONLINE=false`. Current state and counters are under `online_presence` in `/admin/status` and the dashboard status.
