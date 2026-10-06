@@ -24,3 +24,4 @@ jobs:
       - run: python -m unittest discover -s tests -p 'test_human_chat.py'
       - run: python -m unittest discover -s tests -p 'test_presence.py'
       - run: python -m unittest discover -s tests -p 'test_public_bank.py'
+      - run: python -m unittest discover -s tests -p 'test_diagnostics.py'
