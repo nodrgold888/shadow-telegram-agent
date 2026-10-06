@@ -293,3 +293,57 @@ class ChatTestTests(unittest.IsolatedAsyncioTestCase):
         result = await assistant.chat_test(budget=0.05)
         self.assertFalse(result["ok"])
         self.assertEqual(result["error"], "TimeoutError")
+
+
+class ToolRoundTripTests(unittest.IsolatedAsyncioTestCase):
+    def tool_response(self):
+        call = SimpleNamespace(
+            id="call-1", extra_content={"google": {"thought_signature": "SIG"}},
+            function=SimpleNamespace(name="calculate", arguments='{"expression": "36 * 110000"}'),
+        )
+        return SimpleNamespace(choices=[SimpleNamespace(message=SimpleNamespace(content="", tool_calls=[call]))])
+
+    async def ask(self, assistant):
+        return await assistant.reply_with_files(chat_title="C", history="", message="36 m2 110 mln", directory=Path("."))
+
+    def first_client(self, assistant):
+        return assistant.compat_clients[0][1]
+
+    async def test_thought_signature_is_echoed_with_the_tool_call(self):
+        assistant, _ = build(settings_with_two(), {"backup-model": "x", "model-2": "x"})
+        seen = []
+
+        async def create(**request):
+            seen.append(request)
+            if len(seen) == 1:
+                return self.tool_response()
+            echoed = [m for m in request["messages"] if m.get("tool_calls")][0]["tool_calls"][0]
+            if echoed.get("extra_content", {}).get("google", {}).get("thought_signature") != "SIG":
+                raise Rejected("Function call is missing a thought_signature")
+            return reply("Natija: 3 960 000 so‘m")
+        self.first_client(assistant).chat.completions.create = AsyncMock(side_effect=create)
+        answer, _ = await self.ask(assistant)
+        self.assertEqual(answer, "Natija: 3 960 000 so‘m")
+        self.assertEqual(len(seen), 2)
+
+    async def test_rejected_tool_result_still_ends_with_a_plain_text_answer(self):
+        assistant, _ = build(settings_with_two(), {"backup-model": "x", "model-2": "x"})
+        seen = []
+
+        async def create(**request):
+            seen.append(request)
+            if len(seen) == 1:
+                return self.tool_response()
+            if "tools" in request or any(m.get("role") == "tool" for m in request["messages"]):
+                raise Rejected("bad tool round trip")
+            return reply("3 960 000 so‘m bo‘ladi")
+        self.first_client(assistant).chat.completions.create = AsyncMock(side_effect=create)
+        answer, _ = await self.ask(assistant)
+        self.assertEqual(answer, "3 960 000 so‘m bo‘ladi")
+        last = seen[-1]["messages"][-1]["content"]
+        self.assertIn("3960000", last.replace(" ", "").replace("\u00a0", ""))
+        self.assertEqual(assistant.last_provider, "zaxira")
+
+
+class Rejected(Exception):
+    status_code = 400
