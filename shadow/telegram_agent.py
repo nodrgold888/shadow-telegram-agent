@@ -22,12 +22,12 @@ _WORK_SLOTS = asyncio.Semaphore(2)
 _VIDEO_SLOTS = asyncio.Semaphore(2)
 from .video_download import VideoDownloadError, downloaded_video, find_video_url
 from .config import AVAILABLE_MODELS, Settings
-from .persist import persistence_available, load_greet_unknown, save_greet_unknown, load_video_unknown, save_video_unknown, load_friend_chats, save_friend_chats, format_friend_chats, FRIEND_CATEGORIES, DEFAULT_FRIEND_CATEGORY, load_chat_profiles, save_chat_profiles, save_session, save_approved_chats, save_reply_enabled
+from .persist import persistence_available, load_greet_unknown, save_greet_unknown, load_video_unknown, save_video_unknown, load_stranger_flags, save_stranger_flag, load_friend_chats, save_friend_chats, format_friend_chats, FRIEND_CATEGORIES, DEFAULT_FRIEND_CATEGORY, load_chat_profiles, save_chat_profiles, save_session, save_approved_chats, save_reply_enabled
 from .diagnostics import safe_error_detail
 from .image_gen import ImageGenError, gemini_api_key, generate_image, parse_image_command
 from .humanize import human_typing_delay, read_delay, split_parts
 from .presence import OnlinePresence
-from .greeting import GreetingState
+from .greeting import GreetingState, NoteState
 from .public_bank import DISCLOSURE, PublicBankState, is_stop_request
 from .policy import chat_is_approved, group_message_needs_reply, split_telegram_message
 
@@ -66,6 +66,11 @@ class TelegramAgent:
         self.greeting = GreetingState()
         self.greet_unknown = load_greet_unknown()
         self.video_unknown = load_video_unknown()
+        _flags = load_stranger_flags()
+        self.voice_unknown = _flags["voice_unknown"]
+        self.notify_unknown = _flags["notify_unknown"]
+        self.voice_state = GreetingState(max_per_chat=5, global_per_hour=20)
+        self.notes = NoteState()
         self.session_revoked = False
 
     async def start(self) -> None:
@@ -282,7 +287,10 @@ class TelegramAgent:
         if chat_id is None or chat_id in self.friend_ids:
             return
         if not chat_is_approved(chat_id, self.settings.approved_chat_ids):
+            await self._notify_owner(event)
             if await self._maybe_unknown_video(event):
+                return
+            if await self._maybe_unknown_voice(event):
                 return
             if not await self._maybe_public_bank_reply(event):
                 await self._maybe_greet_unknown(event)
@@ -401,6 +409,97 @@ class TelegramAgent:
                 self.last_reply_error_detail = safe_error_detail(exc)
                 log.exception("Video for an unapproved chat failed in chat %s", chat_id)
         return True
+
+    async def _stranger_sender(self, event):
+        """The sender of a private message from an unapproved chat, or None for bots, deleted users and ourselves."""
+        sender = await event.get_sender()
+        if sender is None or getattr(sender, "bot", False) or getattr(sender, "deleted", False) or sender.id in {777000, self._me_id}:
+            return None
+        return sender
+
+    async def _notify_owner(self, event) -> None:
+        """Opt-in: tell the owner (Saved Messages) that someone not approved wrote, at most once per chat
+        every few minutes. Never raises."""
+        try:
+            if not self.notify_unknown or not event.is_private or not self.client:
+                return
+            sender = await self._stranger_sender(event)
+            if sender is None or not self.notes.allow(event.chat_id):
+                return
+            name = " ".join(part for part in (getattr(sender, "first_name", None), getattr(sender, "last_name", None)) if part) or "Noma’lum"
+            username = getattr(sender, "username", None)
+            text = (event.raw_text or "").strip()
+            if getattr(event.message, "voice", None):
+                body = "🎤 ovozli xabar"
+            elif text:
+                body = text[:400] + ("…" if len(text) > 400 else "")
+            else:
+                body = "📎 fayl yoki rasm"
+            who = f"{name} (@{username})" if username else name
+            await self.client.send_message(
+                "me", f"📩 Notanish yozdi\nKim: {who}\nChat ID: {event.chat_id}\nXabar: {body}")
+        except Exception as exc:
+            log.warning("Could not send the owner note (%s)", type(exc).__name__)
+
+    async def _maybe_unknown_voice(self, event) -> bool:
+        """Opt-in: transcribe a short voice message from an unapproved private chat and answer it briefly
+        (greeting-style: learn why they wrote). Daily per-chat and hourly overall limits. Returns True when
+        the message was a voice message handled or skipped here."""
+        if not self.voice_unknown or not event.is_private or not self.client or not self.assistant:
+            return False
+        voice = getattr(event.message, "voice", None)
+        if not voice:
+            return False
+        sender = await self._stranger_sender(event)
+        if sender is None:
+            return True
+        chat_id = event.chat_id
+        duration = getattr(voice, "duration", None)
+        size = getattr(getattr(event, "file", None), "size", None)
+        if (duration is not None and duration > 60) or (size is not None and size > 5 * 1024 * 1024):
+            return True
+        lock = self._locks.setdefault(chat_id, asyncio.Lock())
+        async with lock:
+            if not self.reply_enabled or not self.voice_unknown or not self.voice_state.allow(chat_id, "ovozli xabar"):
+                return True
+            try:
+                with TemporaryDirectory(prefix="shadow-voice-") as temporary:
+                    source = Path(temporary) / "voice.ogg"
+                    downloaded = await self.client.download_media(event.message, file=str(source))
+                    if not downloaded or not source.exists():
+                        return True
+                    transcript = await self.assistant.transcribe_audio(source)
+                if not transcript:
+                    return True
+                history = await self._history(chat_id)
+                async with self.client.action(chat_id, "typing"):
+                    answer = await self.assistant.reply_greeting(history=history, message=transcript)
+                    if answer:
+                        await asyncio.sleep(human_typing_delay(answer))
+                if not answer:
+                    return True
+                for number, part in enumerate(split_parts(answer)):
+                    if number > 0:
+                        async with self.client.action(chat_id, "typing"):
+                            await asyncio.sleep(human_typing_delay(part))
+                    for chunk in split_telegram_message(part, self.settings.max_reply_chars):
+                        await self.client.send_message(chat_id, chunk)
+                self.voice_state.reply_count += 1
+                self.reply_count += 1
+                self.last_reply_at = datetime.now(timezone.utc).isoformat()
+                self.last_reply_error = None
+                await self.client.send_read_acknowledge(chat_id)
+            except Exception as exc:
+                self.last_reply_error = type(exc).__name__
+                self.last_reply_error_detail = safe_error_detail(exc)
+                log.exception("Voice reply for an unapproved chat failed in chat %s", chat_id)
+        return True
+
+    async def set_stranger_flag(self, name: str, enabled: bool) -> dict[str, object]:
+        if name not in {"voice_unknown", "notify_unknown"}:
+            raise ValueError("Noma’lum sozlama")
+        setattr(self, name, enabled)
+        return {name: enabled, "persisted": await save_stranger_flag(name, enabled)}
 
     async def set_video_unknown(self, enabled: bool) -> dict[str, object]:
         self.video_unknown = enabled
@@ -680,6 +779,8 @@ class TelegramAgent:
             "can_persist_session": persistence_available(),
             "online_presence": self.presence.status(),
             "video_unknown": {"enabled": self.video_unknown},
+            "voice_unknown": {"enabled": self.voice_unknown, "replies": self.voice_state.reply_count},
+            "notify_unknown": {"enabled": self.notify_unknown, "notes": self.notes.note_count},
             "greet_unknown": {"enabled": self.greet_unknown, "replies": self.greeting.reply_count},
             "public_bank_reply": {"enabled": self.settings.public_bank_reply, "replies": self.public_bank.reply_count, "muted_chats": len(self.public_bank.muted)},
         }

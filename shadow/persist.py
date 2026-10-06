@@ -18,7 +18,7 @@ RENDER_API = "https://api.render.com/v1"
 
 
 _local_lock = threading.Lock()
-_LOCAL_KEYS = {"TELEGRAM_SESSION", "APPROVED_CHAT_IDS", "REPLY_ENABLED", "SHADOW_MODEL_SELECTION", "SHADOW_CHAT_PROFILES", "FRIEND_CHAT_IDS", "GREET_UNKNOWN", "VIDEO_UNKNOWN"}
+_LOCAL_KEYS = {"TELEGRAM_SESSION", "APPROVED_CHAT_IDS", "REPLY_ENABLED", "SHADOW_MODEL_SELECTION", "SHADOW_CHAT_PROFILES", "FRIEND_CHAT_IDS", "GREET_UNKNOWN", "VIDEO_UNKNOWN", "VOICE_UNKNOWN", "NOTIFY_UNKNOWN"}
 
 
 def load_local_settings() -> dict[str, str]:
@@ -323,6 +323,17 @@ def load_greet_unknown() -> bool:
 
 async def save_greet_unknown(enabled: bool) -> bool:
     return await _save_flag("GREET_UNKNOWN", enabled)
+
+
+STRANGER_FLAGS = {"voice_unknown": "VOICE_UNKNOWN", "notify_unknown": "NOTIFY_UNKNOWN"}
+
+
+def load_stranger_flags() -> dict[str, bool]:
+    return {name: _load_flag(key) for name, key in STRANGER_FLAGS.items()}
+
+
+async def save_stranger_flag(name: str, enabled: bool) -> bool:
+    return await _save_flag(STRANGER_FLAGS[name], enabled)
 
 
 def load_video_unknown() -> bool:

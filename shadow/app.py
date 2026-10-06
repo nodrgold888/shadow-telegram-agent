@@ -353,6 +353,26 @@ async def dashboard_video_unknown(
     return await agent.set_video_unknown(enabled)
 
 
+@app.post("/dashboard/api/stranger-flag")
+async def dashboard_stranger_flag(
+    request: Request,
+    shadow_setup: str | None = Cookie(default=None),
+    authorization: str | None = Header(default=None),
+) -> dict[str, object]:
+    if not _dashboard_allowed(shadow_setup, authorization):
+        raise HTTPException(status_code=401, detail="Kirish kerak")
+    body = await request.json()
+    if not isinstance(body, dict):
+        raise HTTPException(status_code=400, detail="So‘rov noto‘g‘ri")
+    name, enabled = body.get("name"), body.get("enabled")
+    if type(name) is not str or type(enabled) is not bool:
+        raise HTTPException(status_code=400, detail="name va enabled noto‘g‘ri")
+    try:
+        return await agent.set_stranger_flag(name, enabled)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
 @app.post("/dashboard/api/ai-providers")
 async def dashboard_add_ai_provider(
     request: Request,
