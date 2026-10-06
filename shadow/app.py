@@ -11,7 +11,7 @@ from fastapi import Cookie, FastAPI, Header, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse
 
 from .config import Settings
-from .ai_slots import apply_provider, free_slot, parse_provider, provider_env, remove_slot, slot_env_names
+from .ai_slots import apply_provider, free_slot, parse_provider, provider_env, remove_slot, set_first, slot_env_names
 from .persist import delete_env_vars, save_env_vars, save_model_selection, save_reply_enabled
 from .config import MAX_BACKUP_PROVIDERS, SUPPORTED_OPENAI_MODELS
 from .agents import agent_catalog, skill_catalog
@@ -394,6 +394,30 @@ async def dashboard_add_ai_provider(
     return {"ok": True, "slot": slot, "name": provider.name, "model": provider.model, "persisted": persisted}
 
 
+@app.post("/dashboard/api/ai-first")
+async def dashboard_ai_first(
+    request: Request,
+    shadow_setup: str | None = Cookie(default=None),
+    authorization: str | None = Header(default=None),
+) -> dict[str, object]:
+    if not _dashboard_allowed(shadow_setup, authorization):
+        raise HTTPException(status_code=401, detail="Kirish kerak")
+    body = await request.json()
+    slot = body.get("slot") if isinstance(body, dict) else None
+    if not isinstance(slot, int) or isinstance(slot, bool) or not 0 <= slot <= MAX_BACKUP_PROVIDERS:
+        raise HTTPException(status_code=400, detail="AI joyi noto‘g‘ri")
+    try:
+        updated, values = set_first(agent.settings, slot)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    persisted = await save_env_vars(values)
+    os.environ.update(values)
+    agent.settings = updated
+    if agent.assistant:
+        agent.assistant.update_settings(updated)
+    return {"ok": True, "slot": slot, "persisted": persisted}
+
+
 @app.delete("/dashboard/api/ai-providers/{slot}")
 async def dashboard_remove_ai_provider(
     slot: int,
@@ -404,7 +428,10 @@ async def dashboard_remove_ai_provider(
         raise HTTPException(status_code=401, detail="Kirish kerak")
     if not 1 <= slot <= MAX_BACKUP_PROVIDERS:
         raise HTTPException(status_code=404, detail="Bunday AI joyi yo‘q")
-    persisted = await delete_env_vars(list(slot_env_names(slot).values()))
+    keys = list(slot_env_names(slot).values())
+    if agent.settings.ai_first_slot == slot:
+        keys.append("AI_FIRST_SLOT")
+    persisted = await delete_env_vars(keys)
     updated = remove_slot(agent.settings, slot)
     agent.settings = updated
     if agent.assistant:

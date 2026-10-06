@@ -154,7 +154,7 @@ By default the backup is used automatically when OpenAI fails with no credits / 
 Settings -> "AI qo'shish" adds a backup provider (OpenRouter, Gemini or any OpenAI-compatible API) without opening Render:
 name, base URL (templates for OpenRouter and Gemini), model ID and API key. Shadow stores it in the first free `AI_*` slot
 (1..5) through the Render API (`RENDER_API_KEY` + `RENDER_SERVICE_ID` must be set; Render then restarts the service) and also
-applies it live. Each added provider is listed under the form with an "O'chirish" button that frees its slot (variables are removed from Render too). The key is never shown again or logged. Without Render persistence the provider only lives until the next restart.
+applies it live. The list shows the order (e.g. `Gemini Lite → OpenAI`); "Birinchi qilish" makes a provider the first AI tried (sets `AI_PRIMARY=true` and `AI_FIRST_SLOT=<slot>`), "OpenAI ni birinchi qilish" gives OpenAI the lead back. Each added provider is listed under the form with an "O'chirish" button that frees its slot (variables are removed from Render too). The key is never shown again or logged. Without Render persistence the provider only lives until the next restart.
 
 ## Voice messages
 
