@@ -14,6 +14,7 @@ from .persist import save_model_selection, save_reply_enabled
 from .config import SUPPORTED_OPENAI_MODELS
 from .chat_memory import normalize_chat_profile
 from .keepalive import build_keepalive
+from .panel_login import PanelLogin, LoginError
 from .telegram_agent import TelegramAgent
 
 logging.basicConfig(
@@ -24,6 +25,7 @@ logging.basicConfig(
 settings = Settings.from_env()
 agent = TelegramAgent(settings)
 keepalive = build_keepalive()
+panel_login = PanelLogin()
 
 
 @asynccontextmanager
@@ -53,6 +55,8 @@ def _secure_cookie(request: Request) -> bool:
 
 
 def _dashboard_allowed(cookie: str | None, authorization: str | None = None) -> bool:
+    if panel_login.session_valid(cookie):
+        return True
     bearer = authorization or ""
     if bearer[:7].lower() == "bearer ":
         bearer = bearer[7:].strip()
@@ -97,8 +101,40 @@ async def dashboard_auth(request: Request) -> JSONResponse:
     return response
 
 
+@app.post("/dashboard/auth/telegram/request")
+async def dashboard_telegram_request() -> dict[str, object]:
+    # Alternative login that needs no token: a one-time code goes to the owner's
+    # own Telegram Saved Messages, so only whoever controls that account can sign in.
+    if not agent.connected:
+        raise HTTPException(status_code=409, detail="Telegram ulanmagan. Token bilan kiring.")
+    try:
+        code = panel_login.issue_code()
+    except LoginError as exc:
+        raise HTTPException(status_code=exc.status, detail=exc.message) from exc
+    try:
+        await agent.send_to_self(
+            f"Shadow panelga kirish kodi: {code}\n5 daqiqa amal qiladi. Buni siz so‘ramagan bo‘lsangiz, hech kimga bermang."
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail="Kodni Telegramga yuborib bo‘lmadi.") from exc
+    return {"ok": True, "expires_in": 300}
+
+
+@app.post("/dashboard/auth/telegram/verify")
+async def dashboard_telegram_verify(request: Request) -> JSONResponse:
+    code = str((await request.json()).get("code", ""))
+    try:
+        token = panel_login.verify_code(code)
+    except LoginError as exc:
+        raise HTTPException(status_code=exc.status, detail=exc.message) from exc
+    response = JSONResponse({"ok": True})
+    response.set_cookie("shadow_setup", token, httponly=True, secure=_secure_cookie(request), samesite="lax", max_age=43200)
+    return response
+
+
 @app.post("/dashboard/logout")
-async def dashboard_logout() -> JSONResponse:
+async def dashboard_logout(shadow_setup: str | None = Cookie(default=None)) -> JSONResponse:
+    panel_login.end_session(shadow_setup)
     response = JSONResponse({"ok": True})
     response.delete_cookie("shadow_setup")
     return response

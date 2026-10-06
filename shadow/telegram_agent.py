@@ -398,6 +398,12 @@ class TelegramAgent:
                     return
                 await self.client.send_file(chat_id, str(path), reply_to=event.id, force_document=True)
 
+    async def send_to_self(self, text: str) -> None:
+        """Send a message to the connected account's own Saved Messages (never to other chats)."""
+        if not self.connected or not self.client:
+            raise RuntimeError("Telegram is not connected")
+        await self.client.send_message("me", text)
+
     def status(self) -> dict[str, object]:
         approved = self.settings.approved_chat_ids
         return {
