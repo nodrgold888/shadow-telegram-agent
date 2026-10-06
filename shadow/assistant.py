@@ -16,6 +16,8 @@ from .model_routing import needs_reasoning_model
 from .agents import agent_role
 from .config import Settings
 from .diagnostics import safe_error_detail
+from . import gemini_audio
+from .image_gen import gemini_api_key
 
 log = logging.getLogger("shadow.assistant")
 
@@ -198,6 +200,21 @@ class ShadowAssistant:
         return self.client
 
     async def transcribe_audio(self, path: Path) -> str:
+        """Voice message -> text. OpenAI first; Gemini when OpenAI is limited, cooling down or not set up."""
+        key = gemini_api_key(self.settings)
+        if self.client is not None and (not self._cooling("openai") or not key):
+            try:
+                return await self._transcribe_openai(path)
+            except Exception as exc:
+                self._start_cooldown("openai", exc)
+                if not (key and should_fall_back(exc)):
+                    raise
+                log.warning("OpenAI transcription failed (%s); using Gemini", type(exc).__name__)
+        if key:
+            return await gemini_audio.transcribe(key, gemini_audio.gemini_models(self.settings), path)
+        return await self._transcribe_openai(path)  # raises the "OpenAI key not set" error
+
+    async def _transcribe_openai(self, path: Path) -> str:
         with path.open("rb") as audio_file:
             result = await self._openai().audio.transcriptions.create(
                 model="gpt-transcribe",
