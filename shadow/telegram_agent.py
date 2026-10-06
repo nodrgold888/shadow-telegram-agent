@@ -21,9 +21,10 @@ from .video_download import VideoDownloadError, downloaded_video, find_video_url
 from .config import AVAILABLE_MODELS, Settings
 from .persist import persistence_available, load_chat_profiles, save_chat_profiles, save_session, save_approved_chats, save_reply_enabled
 from .diagnostics import safe_error_detail
+from .humanize import human_typing_delay, read_delay, split_parts
 from .presence import OnlinePresence
 from .public_bank import DISCLOSURE, PublicBankState, is_stop_request
-from .policy import chat_is_approved, group_message_needs_reply, split_telegram_message, typing_delay
+from .policy import chat_is_approved, group_message_needs_reply, split_telegram_message
 
 log = logging.getLogger("shadow.telegram")
 
@@ -354,13 +355,18 @@ class TelegramAgent:
                 async with self.client.action(chat_id, "typing"):
                     answer = await self.assistant.reply_public_bank(history=history, message=text)
                     if answer:
-                        await asyncio.sleep(typing_delay(answer))
+                        await asyncio.sleep(human_typing_delay(answer))
                 if not answer:
                     return
-                if state.needs_disclosure(chat_id):
-                    answer = DISCLOSURE + answer
-                for chunk in split_telegram_message(answer, self.settings.max_reply_chars):
-                    await self.client.send_message(chat_id, chunk)
+                parts = split_parts(answer)
+                if state.needs_disclosure(chat_id) and parts:
+                    parts[0] = DISCLOSURE + parts[0]
+                for number, part in enumerate(parts):
+                    if number > 0:
+                        async with self.client.action(chat_id, "typing"):
+                            await asyncio.sleep(human_typing_delay(part))
+                    for chunk in split_telegram_message(part, self.settings.max_reply_chars):
+                        await self.client.send_message(chat_id, chunk)
                 state.mark_replied(chat_id)
                 self.reply_count += 1
                 self.last_reply_at = datetime.now(timezone.utc).isoformat()
@@ -445,6 +451,8 @@ class TelegramAgent:
             if not self._can_reply(chat_id):
                 return
             history = await self._history(chat_id)
+            if not voice_reply:
+                await asyncio.sleep(read_delay())
             async with self.client.action(chat_id, "typing"):
                 answer, files = await self.assistant.reply_with_files(
                     chat_title=title, history=history, message=text,
@@ -453,9 +461,11 @@ class TelegramAgent:
                 )
                 if answer and not voice_reply:
                     # Keep "typing…" visible for a moment so replies arrive at a human pace.
-                    await asyncio.sleep(typing_delay(answer))
+                    await asyncio.sleep(human_typing_delay((split_parts(answer) or [answer])[0]))
             if not answer and not files:
                 raise RuntimeError("empty_ai_reply")
+            parts = split_parts(answer)
+            answer = " ".join(parts)  # voice, caption and length checks use the message without separators
             speech_path = None
             if voice_reply and answer and len(answer) <= 4000:
                 speech_path = directory / "reply.ogg"
@@ -471,13 +481,20 @@ class TelegramAgent:
                     reply_to=event.id, voice_note=True,
                 )
             else:
-                for index, chunk in enumerate(split_telegram_message(answer, self.settings.max_reply_chars)):
-                    if not self._can_reply(chat_id):
-                        return
-                    if event.is_private or index > 0:
-                        await self.client.send_message(chat_id, chunk)
-                    else:
-                        await event.reply(chunk)
+                sent = 0
+                for number, part in enumerate(parts):
+                    if number > 0:
+                        # Natural texting: the next message follows after a short typing pause.
+                        async with self.client.action(chat_id, "typing"):
+                            await asyncio.sleep(human_typing_delay(part))
+                    for chunk in split_telegram_message(part, self.settings.max_reply_chars):
+                        if not self._can_reply(chat_id):
+                            return
+                        if event.is_private or sent > 0:
+                            await self.client.send_message(chat_id, chunk)
+                        else:
+                            await event.reply(chunk)
+                        sent += 1
             for path in files:
                 if not self._can_reply(chat_id):
                     return

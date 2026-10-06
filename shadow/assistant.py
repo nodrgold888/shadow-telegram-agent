@@ -189,15 +189,14 @@ class ShadowAssistant:
         chat_profile: dict[str, str] | None = None,
     ) -> tuple[str, list[Path]]:
         prompt = self._build_prompt(chat_title, history, message, document_preview, chat_profile)
-        instructions = SYSTEM_PROMPT + "\n\n" + SKILL_PROMPT + COMPAT_NOTE
         if self._use_compat_first():
-            return await self._compat_text(prompt, instructions), []
+            return await self._compat_reply(prompt, directory)
         try:
             result = await self._openai_reply(prompt, message, directory, document_preview)
         except Exception as exc:
             if self.compat is not None and should_fall_back(exc):
                 log.warning("OpenAI failed (%s); using the backup AI provider", type(exc).__name__)
-                return await self._compat_text(prompt, instructions), []
+                return await self._compat_reply(prompt, directory)
             raise
         self.last_provider = "openai"
         return result
@@ -234,6 +233,66 @@ class ShadowAssistant:
                 )
         return prompt
 
+    async def _run_tool(self, name: str, arguments: str, directory: Path | None, files: list[Path]) -> str:
+        """Run one allow-listed work tool and return its JSON result. Shared by both providers."""
+        try:
+            data = json.loads(arguments)
+            if name == "calculate":
+                return await asyncio.to_thread(calculate, data["expression"])
+            if name in {"create_excel", "create_word"}:
+                if directory is None or len(files) >= 3:
+                    raise ValueError("At most 3 files per request")
+                creator = create_excel if name == "create_excel" else create_word
+                path = await asyncio.to_thread(creator, data, directory, len(files) + 1)
+                files.append(path)
+                return json.dumps({"created_file": path.name, "ready_to_send": True})
+            raise ValueError("Unknown tool")
+        except (ValueError, TypeError, KeyError, ArithmeticError, SyntaxError) as exc:
+            return json.dumps({"error": str(exc)[:300], "retry_with_valid_arguments": True})
+
+    async def _compat_reply(self, prompt: str, directory: Path | None) -> tuple[str, list[Path]]:
+        """Backup-provider reply with the same calculator/Word/Excel tools (function calling).
+
+        If the provider rejects tools, retry once as plain text so the owner still gets an answer.
+        """
+        assert self.compat is not None
+        base = SYSTEM_PROMPT + "\n\n" + SKILL_PROMPT
+        tools = [
+            {"type": "function", "function": {"name": t["name"], "description": t["description"], "parameters": t["parameters"]}}
+            for t in (WORK_TOOLS if directory is not None else WORK_TOOLS[:1])
+        ]
+        messages: list[dict] = [{"role": "system", "content": base}, {"role": "user", "content": prompt}]
+        files: list[Path] = []
+        for turn in range(6):
+            request = {"model": self.settings.ai_model, "messages": messages, "max_tokens": 4000}
+            if tools and turn < 5:
+                request["tools"] = tools
+            try:
+                response = await self.compat.chat.completions.create(**request)
+            except Exception as exc:
+                if tools and turn == 0 and getattr(exc, "status_code", None) in (400, 404, 422):
+                    log.warning("Backup provider rejected tool calling (%s); answering as plain text", type(exc).__name__)
+                    return await self._compat_text(prompt, base + COMPAT_NOTE), []
+                raise
+            self.last_model = self.settings.ai_model
+            self.last_provider = "compatible"
+            message = response.choices[0].message
+            calls = getattr(message, "tool_calls", None) or []
+            if not calls:
+                answer = (message.content or "").strip()
+                return answer or ("Fayl tayyor." if files else ""), files
+            messages.append({
+                "role": "assistant", "content": message.content or "",
+                "tool_calls": [
+                    {"id": c.id, "type": "function", "function": {"name": c.function.name, "arguments": c.function.arguments}}
+                    for c in calls
+                ],
+            })
+            for call in calls:
+                result = await self._run_tool(call.function.name, call.function.arguments, directory, files)
+                messages.append({"role": "tool", "tool_call_id": call.id, "content": result})
+        return "So‘rov juda murakkab bo‘ldi. Uni kichikroq qismlarga ajrating.", files
+
     async def _openai_reply(
         self, prompt: str, message: str, directory: Path | None, document_preview: str,
     ) -> tuple[str, list[Path]]:
@@ -264,20 +323,6 @@ class ShadowAssistant:
                 return answer or ("Fayl tayyor." if files else ""), files
             items.extend(response.output)
             for call in calls:
-                try:
-                    data = json.loads(call.arguments)
-                    if call.name == "calculate":
-                        result = await asyncio.to_thread(calculate, data["expression"])
-                    elif call.name in {"create_excel", "create_word"}:
-                        if directory is None or len(files) >= 3:
-                            raise ValueError("At most 3 files per request")
-                        creator = create_excel if call.name == "create_excel" else create_word
-                        path = await asyncio.to_thread(creator, data, directory, len(files) + 1)
-                        files.append(path)
-                        result = json.dumps({"created_file": path.name, "ready_to_send": True})
-                    else:
-                        raise ValueError("Unknown tool")
-                except (ValueError, TypeError, KeyError, ArithmeticError, SyntaxError) as exc:
-                    result = json.dumps({"error": str(exc)[:300], "retry_with_valid_arguments": True})
+                result = await self._run_tool(call.name, call.arguments, directory, files)
                 items.append({"type": "function_call_output", "call_id": call.call_id, "output": result})
         return "So‘rov juda murakkab bo‘ldi. Uni kichikroq qismlarga ajrating.", files

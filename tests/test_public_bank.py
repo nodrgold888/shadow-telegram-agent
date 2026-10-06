@@ -105,9 +105,10 @@ class AgentTests(unittest.TestCase):
         self.agent.reply_enabled = True
         self.agent.connected = True
         self.agent._me_id = 1
-        delay = mock.patch("shadow.telegram_agent.typing_delay", lambda answer: 0)
-        delay.start()
-        self.addCleanup(delay.stop)
+        for name, replacement in (("human_typing_delay", lambda text: 0), ("read_delay", lambda: 0)):
+            patcher = mock.patch(f"shadow.telegram_agent.{name}", replacement)
+            patcher.start()
+            self.addCleanup(patcher.stop)
 
     def run_event(self, event):
         asyncio.run(self.agent._maybe_public_bank_reply(event))
