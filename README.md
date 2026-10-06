@@ -131,7 +131,7 @@ This does send messages from your personal account to people you have not approv
 
 ## AI models
 
-The dashboard (Sozlamalar → AI modeli) lets you pick one model for everyday chat and one for complex tasks and files: `GPT-5 mini`, `GPT-6 Luna`, `GPT-5.6 Luna` (`gpt-5.6-luna`) and `GPT-Reserve` (`gpt-reserve`). The last two IDs were derived from the names shown in the OpenAI app and are **not confirmed** against the API: after choosing one, press "AI ni tekshirish"; a wrong ID shows up immediately as a model-not-found error and you can switch back. To offer another exact API model ID without a code change, set `EXTRA_OPENAI_MODELS` (comma separated, e.g. `gpt-x,gpt-y`). Model requests are billed to the OpenAI account of `OPENAI_API_KEY`; with no credits every reply fails with `insufficient_quota`.
+The dashboard (Sozlamalar → AI modeli) lets you pick one model for everyday chat and one for complex tasks and files: `GPT-5 mini`, `GPT-6 Luna`, `GPT-5.6 Luna` (`gpt-5.6-luna`). The `GPT-5.6 Luna` ID was derived from the name shown in the OpenAI app and is **not confirmed** (it can answer with a quota error on accounts without credits); `gpt-reserve` was tried and the API answers 404, so it is not offered. After choosing a model, press "AI ni tekshirish"; a wrong ID shows up immediately as a model-not-found error and you can switch back. To offer another exact API model ID without a code change, set `EXTRA_OPENAI_MODELS` (comma separated, e.g. `gpt-x,gpt-y`). Model requests are billed to the OpenAI account of `OPENAI_API_KEY`; with no credits every reply fails with `insufficient_quota`.
 
 ## Backup AI provider (when OpenAI has no credits)
 
@@ -142,6 +142,8 @@ OpenAI API credits are prepaid and separate from a ChatGPT/Codex plan's usage li
 - `AI_MODEL`: the exact model ID from that provider's docs
 
 **More than one backup provider.** Add up to four more by repeating the three values with a numeric suffix: `AI_BASE_URL_2`, `AI_API_KEY_2`, `AI_MODEL_2` (and `_3`, `_4`, `_5`). Optionally name any slot with `AI_NAME` / `AI_NAME_2` ... (shown in the dashboard). Providers are tried in order (slot 1, then 2, 3, ...); the first that answers wins and a failing one is skipped for that message. A slot with only some of its three values is ignored. "AI ni tekshirish" tests every provider separately and `/admin/status` lists them under `ai_backup.providers`.
+
+**Free providers via FreeLLMAPI.** [FreeLLMAPI](https://github.com/tashfeenahmed/freellmapi) aggregates many free LLM tiers behind one OpenAI-compatible endpoint and works as a backup provider with no code change (`AI_MODEL=auto`). A hardened start script and the security notes (it needs Docker and a persistent disk, so it cannot run on Render's free plan, and must only be exposed over HTTPS) are in [`integrations/freellmapi/`](integrations/freellmapi/README.md).
 
 By default the backup is used automatically when OpenAI fails with no credits / rate limit (429), a bad key (401/402/403), a server error or a connection error; other errors (e.g. 400) are shown, not hidden. Set `AI_PRIMARY=true` to use the backup first, and if `OPENAI_API_KEY` is empty it is used on its own. The backup supports the calculator and Word/Excel creation through function calling; if a provider rejects tools, Shadow retries as plain text. Voice-message transcription and speech replies still need OpenAI. Chat text sent to the AI goes to the provider you configure, so choose one you trust with that content. The dashboard's "AI ni tekshirish" button tests OpenAI and the backup separately.
 

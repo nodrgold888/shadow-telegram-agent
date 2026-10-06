@@ -75,7 +75,8 @@ WORK_TOOLS = [{"type":"function","name":"calculate","description":"Check numeric
 class ShadowAssistant:
     def __init__(self, settings: Settings) -> None:
         self.settings = settings
-        self.client = AsyncOpenAI(api_key=settings.openai_api_key)
+        # Without OPENAI_API_KEY (backup-only setups) the OpenAI SDK would refuse to build a client.
+        self.client = AsyncOpenAI(api_key=settings.openai_api_key) if settings.openai_api_key else None
         # Backup providers in the order they are tried: slot 1, then 2..5.
         self.compat_clients = [
             (provider, AsyncOpenAI(base_url=provider.base_url, api_key=provider.api_key))
@@ -84,9 +85,14 @@ class ShadowAssistant:
         self.last_model: str | None = None
         self.last_provider: str | None = None
 
+    def _openai(self) -> AsyncOpenAI:
+        if self.client is None:
+            raise RuntimeError("OPENAI_API_KEY o‘rnatilmagan: bu imkoniyat uchun OpenAI kerak")
+        return self.client
+
     async def transcribe_audio(self, path: Path) -> str:
         with path.open("rb") as audio_file:
-            result = await self.client.audio.transcriptions.create(
+            result = await self._openai().audio.transcriptions.create(
                 model="gpt-transcribe",
                 file=audio_file,
                 prompt=(
@@ -105,7 +111,7 @@ class ShadowAssistant:
         text = text.strip()
         if not text or len(text) > 4000:
             raise ValueError("Voice reply must contain between 1 and 4000 characters")
-        async with self.client.audio.speech.with_streaming_response.create(
+        async with self._openai().audio.speech.with_streaming_response.create(
             model="gpt-4o-mini-tts",
             voice="marin",
             input=text,
@@ -199,7 +205,7 @@ class ShadowAssistant:
         try:
             selected_model = self.settings.openai_model
             self.last_model = selected_model
-            response = await self.client.responses.create(
+            response = await self._openai().responses.create(
                 model=selected_model, instructions=instructions,
                 input=[{"role": "user", "content": prompt}], store=False, max_output_tokens=900,
             )
@@ -348,7 +354,7 @@ class ShadowAssistant:
             }
             if use_reasoning_model:
                 request["reasoning"] = {"effort": "medium"}
-            response = await self.client.responses.create(**request)
+            response = await self._openai().responses.create(**request)
             calls = [item for item in response.output if item.type == "function_call"]
             if not calls:
                 answer = response.output_text.strip()
