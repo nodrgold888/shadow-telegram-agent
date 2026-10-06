@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import io
 import logging
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -21,6 +22,7 @@ from .video_download import VideoDownloadError, downloaded_video, find_video_url
 from .config import AVAILABLE_MODELS, Settings
 from .persist import persistence_available, load_chat_profiles, save_chat_profiles, save_session, save_approved_chats, save_reply_enabled
 from .diagnostics import safe_error_detail
+from .image_gen import ImageGenError, gemini_api_key, generate_image, parse_image_command
 from .humanize import human_typing_delay, read_delay, split_parts
 from .presence import OnlinePresence
 from .public_bank import DISCLOSURE, PublicBankState, is_stop_request
@@ -45,6 +47,7 @@ class TelegramAgent:
         self.reply_count = 0
         self._locks: dict[int, asyncio.Lock] = {}
         self._me_id: int | None = None
+        self._image_lock = asyncio.Lock()
         self._login_client: TelegramClient | None = None
         self._login_phone: str | None = None
         self._login_hash: str | None = None
@@ -137,6 +140,7 @@ class TelegramAgent:
         # Then remove its listener before switching to avoid duplicate replies.
         if previous is not None:
             previous.remove_event_handler(self._on_message)
+            previous.remove_event_handler(self._on_owner_command)
         if self.reply_enabled:
             self.assistant = ShadowAssistant(self.settings)
         self.client = client
@@ -146,6 +150,8 @@ class TelegramAgent:
         self.account_label = f"@{me.username}" if me.username else str(me.id)
         if self.reply_enabled:
             client.add_event_handler(self._on_message, events.NewMessage(incoming=True))
+        # Owner commands (/rasm) work whether or not auto-replies are on.
+        client.add_event_handler(self._on_owner_command, events.NewMessage(outgoing=True))
         self.connected = True
         self.last_error = None
         log.info("Shadow connected to Telegram account %s", self.account_label)
@@ -208,6 +214,35 @@ class TelegramAgent:
             "account_id": self.account_id,
             "session_persisted": self.session_persisted,
         }
+
+    async def _on_owner_command(self, event: events.NewMessage.Event) -> None:
+        """'/rasm <tavsif>' written by the owner in Saved Messages: generate an image and send it back.
+
+        Only the owner can write to their own Saved Messages, so nobody else can trigger (or pay for) it."""
+        if self._me_id is None or event.chat_id != self._me_id or not self.client:
+            return
+        if getattr(event.message, "media", None):
+            return  # Shadow's own image (its caption is the prompt) must never re-trigger the command
+        prompt = parse_image_command(event.raw_text or "")
+        if prompt is None:
+            return
+        chat_id = event.chat_id
+        if self._image_lock.locked():
+            await self.client.send_message(chat_id, "Oldingi rasm hali tayyorlanmoqda, biroz kuting.")
+            return
+        async with self._image_lock:
+            try:
+                api_key = gemini_api_key(self.settings)
+                async with self.client.action(chat_id, "photo"):
+                    data, mime = await generate_image(api_key, prompt)
+                buffer = io.BytesIO(data)
+                buffer.name = "shadow.jpg" if "jpeg" in mime or "jpg" in mime else "shadow.png"
+                await self.client.send_file(chat_id, buffer, caption=prompt[:200], reply_to=event.id)
+            except ImageGenError as exc:
+                await self.client.send_message(chat_id, str(exc))
+            except Exception as exc:
+                log.warning("Image command failed (%s)", type(exc).__name__)
+                await self.client.send_message(chat_id, f"Rasm yuborilmadi ({type(exc).__name__}).")
 
     async def _is_reply_to_shadow(self, event: events.NewMessage.Event) -> bool:
         if not event.is_reply or self._me_id is None:

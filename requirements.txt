@@ -6,3 +6,4 @@ yt-dlp==2026.08.19
 openpyxl==3.1.5
 python-docx==1.2.0
 defusedxml==0.7.1
+google-genai==2.28.0
