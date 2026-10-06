@@ -21,6 +21,7 @@ from .video_download import VideoDownloadError, downloaded_video, find_video_url
 from .config import Settings
 from .persist import persistence_available, load_chat_profiles, save_chat_profiles, save_session, save_approved_chats, save_reply_enabled
 from .presence import OnlinePresence
+from .public_bank import DISCLOSURE, PublicBankState, is_stop_request
 from .policy import chat_is_approved, group_message_needs_reply, split_telegram_message, typing_delay
 
 log = logging.getLogger("shadow.telegram")
@@ -51,6 +52,7 @@ class TelegramAgent:
         self.session_persisted = bool(settings.telegram_session)
         self._watchdog_task: asyncio.Task | None = None
         self.presence = OnlinePresence(settings.always_online)
+        self.public_bank = PublicBankState()
         self.session_revoked = False
 
     async def start(self) -> None:
@@ -232,7 +234,10 @@ class TelegramAgent:
         ):
             return
         chat_id = event.chat_id
-        if chat_id is None or not chat_is_approved(chat_id, self.settings.approved_chat_ids):
+        if chat_id is None:
+            return
+        if not chat_is_approved(chat_id, self.settings.approved_chat_ids):
+            await self._maybe_public_bank_reply(event)
             return
         text = (event.raw_text or "").strip()
         is_voice = bool(getattr(event.message, "voice", None))
@@ -311,6 +316,56 @@ class TelegramAgent:
                 elif str(exc) == "empty_ai_reply":
                     self.last_reply_error = "empty_ai_reply"
                 log.exception("Failed to reply in chat %s", chat_id)
+
+    async def _maybe_public_bank_reply(self, event) -> None:
+        """Opt-in (PUBLIC_BANK_REPLY): answer bank questions from people in private chats
+        that are not approved. Private chats only, text only, bank topics only, rate limited,
+        and the first reply says it is an AI. Never runs for groups, channels, bots or files."""
+        if not self.settings.public_bank_reply or not event.is_private or not self.assistant:
+            return
+        chat_id = event.chat_id
+        text = (event.raw_text or "").strip()
+        if not text or getattr(event.message, "media", None):
+            return
+        sender = await event.get_sender()
+        if sender is None or getattr(sender, "bot", False) or getattr(sender, "deleted", False) or sender.id in {777000, self._me_id}:
+            return
+        state = self.public_bank
+        if chat_id in state.muted:
+            return
+        lock = self._locks.setdefault(chat_id, asyncio.Lock())
+        async with lock:
+            if not self.reply_enabled or not self.client or not self.assistant:
+                return
+            if is_stop_request(text):
+                # Only acknowledge a stop inside a conversation we started answering.
+                if state.in_session(chat_id):
+                    state.mute(chat_id)
+                    await self.client.send_message(chat_id, "Xo‘p, boshqa yozmayman.")
+                return
+            if not state.should_answer(chat_id, text) or not state.allow(chat_id):
+                return
+            try:
+                history = await self._history(chat_id)
+                async with self.client.action(chat_id, "typing"):
+                    answer = await self.assistant.reply_public_bank(history=history, message=text)
+                    if answer:
+                        await asyncio.sleep(typing_delay(answer))
+                if not answer:
+                    return
+                if state.needs_disclosure(chat_id):
+                    answer = DISCLOSURE + answer
+                for chunk in split_telegram_message(answer, self.settings.max_reply_chars):
+                    await self.client.send_message(chat_id, chunk)
+                state.mark_replied(chat_id)
+                self.reply_count += 1
+                self.last_reply_at = datetime.now(timezone.utc).isoformat()
+                self.last_reply_error = None
+                await self.client.send_read_acknowledge(chat_id)
+                log.info("Answered a public bank question in chat %s", chat_id)
+            except Exception as exc:
+                self.last_reply_error = type(exc).__name__
+                log.exception("Public bank reply failed in chat %s", chat_id)
 
     def _can_reply(self, chat_id: int) -> bool:
         return bool(self.reply_enabled and chat_is_approved(chat_id, self.settings.approved_chat_ids))
@@ -435,6 +490,7 @@ class TelegramAgent:
             "session_revoked": self.session_revoked,
             "can_persist_session": persistence_available(),
             "online_presence": self.presence.status(),
+            "public_bank_reply": {"enabled": self.settings.public_bank_reply, "replies": self.public_bank.reply_count, "muted_chats": len(self.public_bank.muted)},
         }
 
     def set_reply_enabled(self, enabled: bool) -> None:

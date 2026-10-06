@@ -117,6 +117,18 @@ Replies are written like a real person texting (short, in the other person's reg
 
 In an approved chat, a public Instagram (reel, post, IGTV, also `instagram.com/<user>/reel/...`) or TikTok link is downloaded and sent back as a video, even in groups and without a mention. Limits: public videos only (no private accounts, stories or photo posts), up to 50 MB. Private or login-protected links get a specific message (`shadow/skills/video_download.md`).
 
+## Answering bank questions from people who are not approved (optional)
+
+Off by default. Set `PUBLIC_BANK_REPLY=true` (Render → Environment) and keep the dashboard reply switch on to let Shadow answer bank and payment questions from people who message the account privately but are **not** in the approved list. Guard rails (`shadow/public_bank.py`):
+
+- Private chats only, plain text only; never groups, channels, bots, media or Telegram's service account.
+- Only bank/payment topics (keyword gate, plus follow-ups for 30 minutes after an answer). Other messages get no reply at all.
+- The first answer to each person says it is Shadow AI, the owner's automatic assistant, not a human, and how to stop it. Writing "stop" mutes that chat until the next restart.
+- Rate limits: 6 answers per chat per hour and 60 per hour overall.
+- Answers use no tools and no private chat memory, never reveal anything about the owner, never ask for PIN/CVV/SMS codes and never invent rates; the model is told to point to the bank's official channels for exact terms.
+
+This does send messages from your personal account to people you have not approved, so enable it deliberately. Counters appear as `public_bank_reply` in `/admin/status`.
+
 ## Always-online status
 
 By default Shadow keeps the connected Telegram account showing as **online** by refreshing its status every ~2 minutes (`shadow/presence.py`). It only changes the visible status; it never reads or sends messages. Turn it off with `ALWAYS_ONLINE=false`. Current state and counters are under `online_presence` in `/admin/status` and the dashboard status.

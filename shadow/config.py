@@ -58,6 +58,7 @@ class Settings:
     setup_token: str
     complex_openai_model: str = "gpt-6-luna"
     always_online: bool = True
+    public_bank_reply: bool = False
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -91,6 +92,7 @@ class Settings:
             admin_token=os.getenv("ADMIN_TOKEN", "").strip(),
             setup_token=os.getenv("SETUP_TOKEN", "").strip(),
             always_online=_boolean("ALWAYS_ONLINE", True, local.get("ALWAYS_ONLINE")),
+            public_bank_reply=_boolean("PUBLIC_BANK_REPLY", False, local.get("PUBLIC_BANK_REPLY")),
         )
 
     @property
