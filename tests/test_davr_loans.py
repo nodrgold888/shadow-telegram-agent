@@ -80,6 +80,13 @@ class DavrLoansSkillTests(unittest.TestCase):
             self.assertIn(price, self.skill)
         self.assertIn("107 975 680", self.skill)
 
+    def test_professional_consultation_flow(self):
+        self.assertIn("Professional consultation standard", self.skill)
+        for part in ("Discover", "Recommend", "Quote in a fixed order", "Handle objections", "Close with the next step"):
+            self.assertIn(part, self.skill)
+        self.assertIn("Never ask for passport, card, PINFL", self.skill)
+        self.assertIn("never guarantee approval", self.skill)
+
 
 if __name__ == "__main__":
     unittest.main()
