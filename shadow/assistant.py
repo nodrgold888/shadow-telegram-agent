@@ -46,6 +46,17 @@ def should_fall_back(exc: BaseException) -> bool:
     return type(exc).__name__ in {"APIConnectionError", "APITimeoutError"}
 
 
+RETRY_DELAY = 2.0
+
+
+def is_transient(exc: BaseException) -> bool:
+    """Short-lived provider trouble (overload, gateway error, dropped connection) worth one retry."""
+    status = getattr(exc, "status_code", None)
+    if status in (500, 502, 503, 504):
+        return True
+    return type(exc).__name__ in {"APIConnectionError", "APITimeoutError"}
+
+
 DEFAULT_COOLDOWN = 300.0
 MAX_COOLDOWN = 3600.0
 
@@ -130,6 +141,17 @@ class ShadowAssistant:
         self.last_provider: str | None = None
         # provider key -> time.monotonic() until which a rate-limited provider is skipped
         self._cooldowns: dict[str, float] = {}
+
+    async def _retry_once(self, call):
+        """Run call(); on a transient provider error wait briefly and try the same provider once more."""
+        try:
+            return await call()
+        except Exception as exc:
+            if not is_transient(exc):
+                raise
+            log.warning("Transient AI error (%s); retrying once", type(exc).__name__)
+            await asyncio.sleep(RETRY_DELAY)
+            return await call()
 
     def _cooling(self, key: str) -> bool:
         return self._cooldowns.get(key, 0.0) > time.monotonic()
@@ -236,7 +258,7 @@ class ShadowAssistant:
         ordered = sorted(self.compat_clients, key=lambda pc: self._cooling(f"{pc[0].slot}:{pc[0].name}"))
         for provider, client in ordered:
             try:
-                result = await call(provider, client)
+                result = await self._retry_once(lambda: call(provider, client))
             except Exception as exc:
                 last = exc
                 self._start_cooldown(f"{provider.slot}:{provider.name}", exc)
@@ -287,10 +309,10 @@ class ShadowAssistant:
         try:
             selected_model = self.settings.openai_model
             self.last_model = selected_model
-            response = await self._openai().responses.create(
+            response = await self._retry_once(lambda: self._openai().responses.create(
                 model=selected_model, instructions=instructions,
                 input=[{"role": "user", "content": prompt}], store=False, max_output_tokens=900,
-            )
+            ))
             self.last_provider = "openai"
             self._cooldowns.pop("openai", None)
             return (response.output_text or "").strip()
@@ -316,7 +338,9 @@ class ShadowAssistant:
             except Exception as exc:  # the backups failed too: still try OpenAI below
                 log.warning("Backup AI providers failed while OpenAI is cooling down (%s)", type(exc).__name__)
         try:
-            result = await self._openai_reply(prompt, message, directory, document_preview, role)
+            result = await self._retry_once(
+                lambda: self._openai_reply(prompt, message, directory, document_preview, role)
+            )
         except Exception as exc:
             self._start_cooldown("openai", exc)
             if self.compat_clients and should_fall_back(exc):
