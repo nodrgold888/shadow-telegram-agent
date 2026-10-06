@@ -18,7 +18,7 @@ RENDER_API = "https://api.render.com/v1"
 
 
 _local_lock = threading.Lock()
-_LOCAL_KEYS = {"TELEGRAM_SESSION", "APPROVED_CHAT_IDS", "REPLY_ENABLED", "SHADOW_MODEL_SELECTION", "SHADOW_CHAT_PROFILES", "FRIEND_CHAT_IDS", "GREET_UNKNOWN"}
+_LOCAL_KEYS = {"TELEGRAM_SESSION", "APPROVED_CHAT_IDS", "REPLY_ENABLED", "SHADOW_MODEL_SELECTION", "SHADOW_CHAT_PROFILES", "FRIEND_CHAT_IDS", "GREET_UNKNOWN", "VIDEO_UNKNOWN"}
 
 
 def load_local_settings() -> dict[str, str]:
@@ -293,16 +293,15 @@ async def save_reply_enabled(enabled: bool) -> bool:
     return True
 
 
-def load_greet_unknown() -> bool:
-    raw = load_local_settings().get("GREET_UNKNOWN", os.getenv("GREET_UNKNOWN", ""))
-    return raw.strip().lower() in {"1", "true", "yes", "on"}
+def _load_flag(key: str) -> bool:
+    return load_local_settings().get(key, os.getenv(key, "")).strip().lower() in {"1", "true", "yes", "on"}
 
 
-async def save_greet_unknown(enabled: bool) -> bool:
+async def _save_flag(key: str, enabled: bool) -> bool:
     value = "true" if enabled else "false"
     if os.getenv("SHADOW_STATE_FILE", "").strip():
         try:
-            await asyncio.to_thread(_save_local, "GREET_UNKNOWN", value)
+            await asyncio.to_thread(_save_local, key, value)
             return True
         except Exception as exc:
             log.error("Could not save local state: %s", type(exc).__name__)
@@ -311,12 +310,27 @@ async def save_greet_unknown(enabled: bool) -> bool:
         return False
     try:
         await asyncio.to_thread(
-            _put_env_var, os.environ["RENDER_SERVICE_ID"].strip(), os.environ["RENDER_API_KEY"].strip(),
-            "GREET_UNKNOWN", value)
+            _put_env_var, os.environ["RENDER_SERVICE_ID"].strip(), os.environ["RENDER_API_KEY"].strip(), key, value)
     except Exception as exc:
-        log.warning("Could not persist greeting switch: %s", type(exc).__name__)
+        log.warning("Could not persist %s: %s", key, type(exc).__name__)
         return False
     return True
+
+
+def load_greet_unknown() -> bool:
+    return _load_flag("GREET_UNKNOWN")
+
+
+async def save_greet_unknown(enabled: bool) -> bool:
+    return await _save_flag("GREET_UNKNOWN", enabled)
+
+
+def load_video_unknown() -> bool:
+    return _load_flag("VIDEO_UNKNOWN")
+
+
+async def save_video_unknown(enabled: bool) -> bool:
+    return await _save_flag("VIDEO_UNKNOWN", enabled)
 
 
 async def save_env_vars(values: dict[str, str]) -> bool:

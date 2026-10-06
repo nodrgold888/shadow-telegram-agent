@@ -282,3 +282,7 @@ The dashboard's **Suhbatlar** page lets you add a separate response style, owner
 ### Greeting people who are not approved
 
 Off by default. In the dashboard open **Avtomatik javoblar** and switch on **Notanish chatlar bilan salomlashish** (the reply switch must be on too). Shadow then sends a short greeting to a text message from an unapproved private chat and asks why the person wrote. Guard rails (`shadow/greeting.py`): private chats only, text only, no bots, at most 3 replies per chat per day and 30 per hour overall, "stop" mutes the chat, chats on the friend list are never answered, a bank question goes to the bank answers instead, and Shadow never claims to be a human or the account owner (it says it is Shadow AI when sincerely asked).
+
+### Videos for people who are not approved
+
+Off by default. In **Avtomatik javoblar** switch on **Notanish chatlarga ham video**. A public Instagram or TikTok link from an unapproved private chat is then downloaded and sent back like in approved chats. There is no hourly limit, only two downloads at a time; friend chats, groups and bots are never served, and the reply switch must be on.
