@@ -13,6 +13,8 @@ from shadow import video_download as videos
     "https://vm.tiktok.com/ZAbc123/",
     "https://vt.tiktok.com/ZAbc123/",
     "https://www.tiktok.com/t/ZAbc123/",
+    "https://www.instagram.com/some.user_1/reel/AbC_123/",
+    "https://www.instagram.com/some.user_1/p/AbC-123/?igsh=abc",
 ])
 def test_supported_video_links(url):
     assert videos.find_video_url("Video: " + url) == url
@@ -72,3 +74,29 @@ def test_success_file_exists_only_inside_context(monkeypatch):
             assert path.is_file()
         assert not path.exists()
     asyncio.run(run())
+
+
+def _run_failing_download(monkeypatch, code):
+    class Process:
+        returncode = code
+        async def wait(self):
+            return code
+
+    async def spawn(*args, **kwargs):
+        return Process()
+    monkeypatch.setattr(videos.asyncio, "create_subprocess_exec", spawn)
+
+    async def run():
+        async with videos.downloaded_video("https://www.instagram.com/reel/ABC/"):
+            pytest.fail("Failed downloads must not be uploaded")
+    with pytest.raises(videos.VideoDownloadError) as caught:
+        asyncio.run(run())
+    return str(caught.value)
+
+
+def test_private_video_gets_specific_message(monkeypatch):
+    assert "yopiq" in _run_failing_download(monkeypatch, videos.EXIT_LOGIN_REQUIRED)
+
+
+def test_too_large_video_gets_specific_message(monkeypatch):
+    assert "50 MB" in _run_failing_download(monkeypatch, videos.EXIT_TOO_LARGE)

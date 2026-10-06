@@ -37,3 +37,8 @@ def split_telegram_message(text: str, limit: int = 3800) -> list[str]:
     if cleaned:
         chunks.append(cleaned)
     return chunks
+
+
+def typing_delay(answer: str) -> float:
+    """Seconds to keep the typing indicator on after the answer is ready (0.4-3.5s)."""
+    return max(0.4, min(len(answer) * 0.02, 3.5))
