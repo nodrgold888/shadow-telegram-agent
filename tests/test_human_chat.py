@@ -58,6 +58,11 @@ class HumanChatTests(unittest.TestCase):
         self.assertIn("ask one short question that names the options", skill)
         self.assertIn("Clarifying questions: name the options", assistant.PUBLIC_SKILL_PROMPT)
 
+    def test_named_model_is_not_asked_for_again(self):
+        self.assertIn("Never ask for a detail the user already gave", assistant.SKILL_PROMPT)
+        self.assertIn("Tracker", assistant.SKILL_PROMPT)
+        self.assertIn("the make is already known", assistant.SKILL_PROMPT)
+
     def test_honesty_rules_survive_the_style_change(self):
         self.assertIn("rost ayting", assistant.SYSTEM_PROMPT)
         self.assertIn("inson yoki akkaunt egasining o‘zi deb da’vo qilmang", assistant.SYSTEM_PROMPT)
