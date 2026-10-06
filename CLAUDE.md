@@ -29,7 +29,8 @@ deployed on Render. The owner speaks Uzbek: user-facing strings are Uzbek, code 
   natural as possible (`shadow/skills/human_chat.md`) but this rule is not negotiable.
 - Replies need: Telegram connected, reply switch on, an AI configured, and the chat approved. Own messages never
   trigger replies. Unapproved chats only get the opt-in bank answers (`PUBLIC_BANK_REPLY`) and the opt-in short greeting
-  (dashboard switch `GREET_UNKNOWN`, `shadow/greeting.py`); chats on the friend list (`FRIEND_CHAT_IDS`) get nothing at all.
+  (dashboard switch `GREET_UNKNOWN`, `shadow/greeting.py`), opt-in video links (`VIDEO_UNKNOWN`), opt-in short voice replies
+  (`VOICE_UNKNOWN`) and opt-in notes to Saved Messages (`NOTIFY_UNKNOWN`), all off by default; chats on the friend list (`FRIEND_CHAT_IDS`) get nothing at all.
 - OpenAI API credits are separate from ChatGPT plan limits (`insufficient_quota` = no API credits).
   `gpt-reserve` is not an API model (404); `gpt-5.6-luna` needs credits; `gpt-6-luna` worked on the owner's key.
 - A saved but no-longer-offered model in `SHADOW_MODEL_SELECTION` is ignored at boot, never fatal.

@@ -39,3 +39,4 @@ jobs:
       - run: python -m unittest discover -s tests -p 'test_greeting.py'
       - run: python -m unittest discover -s tests -p 'test_video_unknown.py'
       - run: python -m unittest discover -s tests -p 'test_davr_loans.py'
+      - run: python -m unittest discover -s tests -p 'test_stranger_features.py'

@@ -296,3 +296,7 @@ Several chat types can be combined for one chat (up to 4): tick them in the chat
 ### 2D / 3D look
 
 The dashboard header has a **2D | 3D** switch. 2D is the flat design; 3D adds depth (raised keys and buttons, extruded cards, a 3D orb in the banner and a slight pointer tilt on cards; the tilt and the orb animation are off when the system asks for reduced motion). The choice is remembered per browser (`localStorage` key `shadow-style`).
+
+### More for people who are not approved
+
+Two more switches in **Avtomatik javoblar → Notanish chatlar** (both off by default, friends are never touched): **Notanishlarning ovozli xabariga javob** transcribes a voice message of up to one minute and answers it briefly like the greeting (5 per chat per day, 20 per hour overall), and **Notanish yozsa menga xabar yuborish** puts a short note in your Saved Messages (who wrote, chat ID and the text; one per chat every 10 minutes, 20 per hour overall). Stored as `VOICE_UNKNOWN` and `NOTIFY_UNKNOWN`.
