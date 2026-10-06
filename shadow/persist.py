@@ -256,3 +256,31 @@ async def save_env_vars(values: dict[str, str]) -> bool:
         log.warning("Could not persist AI provider: %s", type(exc).__name__)
         return False
     return True
+
+
+def _delete_env_var(service_id: str, api_key: str, key: str) -> None:
+    request = urllib.request.Request(
+        f"{RENDER_API}/services/{service_id}/env-vars/{key}", method="DELETE",
+        headers={"Authorization": f"Bearer {api_key}", "Accept": "application/json"},
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=20) as response:
+            response.read()
+    except HTTPError as exc:
+        if exc.code != 404:  # already gone is fine
+            raise
+
+
+async def delete_env_vars(keys: list[str]) -> bool:
+    """Remove variables from the Render service (a restart follows)."""
+    if os.getenv("SHADOW_STATE_FILE", "").strip() or not persistence_available():
+        return False
+    service_id = os.environ["RENDER_SERVICE_ID"].strip()
+    api_key = os.environ["RENDER_API_KEY"].strip()
+    try:
+        for key in keys:
+            await asyncio.to_thread(_delete_env_var, service_id, api_key, key)
+    except Exception as exc:
+        log.warning("Could not remove AI provider: %s", type(exc).__name__)
+        return False
+    return True

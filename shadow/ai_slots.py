@@ -58,7 +58,7 @@ def apply_provider(settings: Settings, slot: int, provider: AIProvider) -> Setti
             ai_model=provider.model,
             ai_name=provider.name,
         )
-    return replace(settings, ai_extra_providers=settings.ai_extra_providers + (provider,))
+    return replace(settings, ai_extra_providers=settings.ai_extra_providers + (replace(provider, slot=slot),))
 
 
 def provider_env(slot: int, provider: AIProvider) -> dict[str, str]:
@@ -69,3 +69,13 @@ def provider_env(slot: int, provider: AIProvider) -> dict[str, str]:
         names["MODEL"]: provider.model,
         names["NAME"]: provider.name,
     }
+
+
+def remove_slot(settings: Settings, slot: int, env: dict[str, str] | None = None) -> Settings:
+    """Drop one provider slot from the env mapping (default: os.environ) and from the settings."""
+    env = os.environ if env is None else env
+    for name in slot_env_names(slot).values():
+        env.pop(name, None)
+    if slot == 1:
+        return replace(settings, ai_base_url="", ai_api_key="", ai_model="", ai_name="zaxira")
+    return replace(settings, ai_extra_providers=tuple(p for p in settings.ai_extra_providers if p.slot != slot))

@@ -11,9 +11,9 @@ from fastapi import Cookie, FastAPI, Header, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse
 
 from .config import Settings
-from .ai_slots import apply_provider, free_slot, parse_provider, provider_env
-from .persist import save_env_vars, save_model_selection, save_reply_enabled
-from .config import SUPPORTED_OPENAI_MODELS
+from .ai_slots import apply_provider, free_slot, parse_provider, provider_env, remove_slot, slot_env_names
+from .persist import delete_env_vars, save_env_vars, save_model_selection, save_reply_enabled
+from .config import MAX_BACKUP_PROVIDERS, SUPPORTED_OPENAI_MODELS
 from .agents import agent_catalog
 from .chat_memory import normalize_chat_profile
 from .keepalive import build_keepalive
@@ -312,6 +312,24 @@ async def dashboard_add_ai_provider(
     if agent.assistant:
         agent.assistant.update_settings(updated)
     return {"ok": True, "slot": slot, "name": provider.name, "model": provider.model, "persisted": persisted}
+
+
+@app.delete("/dashboard/api/ai-providers/{slot}")
+async def dashboard_remove_ai_provider(
+    slot: int,
+    shadow_setup: str | None = Cookie(default=None),
+    authorization: str | None = Header(default=None),
+) -> dict[str, object]:
+    if not _dashboard_allowed(shadow_setup, authorization):
+        raise HTTPException(status_code=401, detail="Kirish kerak")
+    if not 1 <= slot <= MAX_BACKUP_PROVIDERS:
+        raise HTTPException(status_code=404, detail="Bunday AI joyi yo‘q")
+    persisted = await delete_env_vars(list(slot_env_names(slot).values()))
+    updated = remove_slot(agent.settings, slot)
+    agent.settings = updated
+    if agent.assistant:
+        agent.assistant.update_settings(updated)
+    return {"ok": True, "slot": slot, "persisted": persisted}
 
 
 @app.post("/dashboard/api/ai-check")
