@@ -22,6 +22,20 @@ COMPAT_NOTE = (
 )
 
 
+async def chat_create(client, **request):
+    """chat.completions.create that tolerates providers which reject max_tokens.
+
+    Some OpenAI-compatible providers answer 400 for the parameter (they want another name or none);
+    retrying once without it keeps the provider usable, at the cost of an unbounded answer length."""
+    try:
+        return await client.chat.completions.create(**request)
+    except Exception as exc:
+        if getattr(exc, "status_code", None) == 400 and "max_tokens" in request and "max_tokens" in str(exc).lower():
+            request = {key: value for key, value in request.items() if key != "max_tokens"}
+            return await client.chat.completions.create(**request)
+        raise
+
+
 def should_fall_back(exc: BaseException) -> bool:
     """Errors where trying the second provider can help: no credits/rate limit, bad key, outage."""
     status = getattr(exc, "status_code", None)
@@ -151,8 +165,8 @@ class ShadowAssistant:
                 await attempt(model, ask)
         for provider, client in self.compat_clients:
             async def ask_backup(provider=provider, client=client):
-                response = await client.chat.completions.create(
-                    model=provider.model,
+                response = await chat_create(
+                    client, model=provider.model,
                     messages=[{"role": "system", "content": "Qisqa javob bering."},
                               {"role": "user", "content": "Salom, bitta so‘z bilan javob bering."}],
                     max_tokens=32,
@@ -181,8 +195,8 @@ class ShadowAssistant:
 
     async def _compat_text(self, prompt: str, instructions: str, *, max_tokens: int = 1500) -> str:
         async def call(provider, client):
-            response = await client.chat.completions.create(
-                model=provider.model,
+            response = await chat_create(
+                client, model=provider.model,
                 messages=[{"role": "system", "content": instructions}, {"role": "user", "content": prompt}],
                 max_tokens=max_tokens,
             )
@@ -304,12 +318,12 @@ class ShadowAssistant:
                 if tools and turn < 5:
                     request["tools"] = tools
                 try:
-                    response = await client.chat.completions.create(**request)
+                    response = await chat_create(client, **request)
                 except Exception as exc:
                     if tools and turn == 0 and getattr(exc, "status_code", None) in (400, 404, 422):
                         log.warning("Backup provider %s rejected tool calling (%s); answering as plain text", provider.name, type(exc).__name__)
-                        plain = await client.chat.completions.create(
-                            model=provider.model, max_tokens=1500,
+                        plain = await chat_create(
+                            client, model=provider.model, max_tokens=1500,
                             messages=[{"role": "system", "content": base + COMPAT_NOTE}, {"role": "user", "content": prompt}],
                         )
                         return (plain.choices[0].message.content or "").strip(), []
