@@ -52,7 +52,7 @@ class FallbackTests(unittest.IsolatedAsyncioTestCase):
         assistant, openai_client, compat = build(make_settings(), openai_error=QuotaError())
         answer, files = await self.ask(assistant)
         self.assertEqual((answer, files), ("Zaxira javobi", []))
-        self.assertEqual(assistant.last_provider, "compatible")
+        self.assertEqual(assistant.last_provider, "zaxira")
         self.assertEqual(compat.chat.completions.create.call_args.kwargs["model"], "backup-model")
 
     async def test_healthy_openai_is_used_first(self):

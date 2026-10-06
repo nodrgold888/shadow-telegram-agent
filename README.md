@@ -141,6 +141,8 @@ OpenAI API credits are prepaid and separate from a ChatGPT/Codex plan's usage li
 - `AI_API_KEY`: an API key from that provider
 - `AI_MODEL`: the exact model ID from that provider's docs
 
+**More than one backup provider.** Add up to four more by repeating the three values with a numeric suffix: `AI_BASE_URL_2`, `AI_API_KEY_2`, `AI_MODEL_2` (and `_3`, `_4`, `_5`). Optionally name any slot with `AI_NAME` / `AI_NAME_2` ... (shown in the dashboard). Providers are tried in order (slot 1, then 2, 3, ...); the first that answers wins and a failing one is skipped for that message. A slot with only some of its three values is ignored. "AI ni tekshirish" tests every provider separately and `/admin/status` lists them under `ai_backup.providers`.
+
 By default the backup is used automatically when OpenAI fails with no credits / rate limit (429), a bad key (401/402/403), a server error or a connection error; other errors (e.g. 400) are shown, not hidden. Set `AI_PRIMARY=true` to use the backup first, and if `OPENAI_API_KEY` is empty it is used on its own. The backup supports the calculator and Word/Excel creation through function calling; if a provider rejects tools, Shadow retries as plain text. Voice-message transcription and speech replies still need OpenAI. Chat text sent to the AI goes to the provider you configure, so choose one you trust with that content. The dashboard's "AI ni tekshirish" button tests OpenAI and the backup separately.
 
 ## Always-online status

@@ -76,10 +76,11 @@ class ShadowAssistant:
     def __init__(self, settings: Settings) -> None:
         self.settings = settings
         self.client = AsyncOpenAI(api_key=settings.openai_api_key)
-        self.compat = (
-            AsyncOpenAI(base_url=settings.ai_base_url, api_key=settings.ai_api_key)
-            if settings.compat_ai_ready else None
-        )
+        # Backup providers in the order they are tried: slot 1, then 2..5.
+        self.compat_clients = [
+            (provider, AsyncOpenAI(base_url=provider.base_url, api_key=provider.api_key))
+            for provider in settings.backup_providers
+        ]
         self.last_model: str | None = None
         self.last_provider: str | None = None
 
@@ -141,26 +142,53 @@ class ShadowAssistant:
                     )
                     return (response.output_text or "").strip()
                 await attempt(model, ask)
-        if self.compat is not None:
-            await attempt(
-                f"{self.settings.ai_model} (zaxira)",
-                lambda: self._compat_text("Salom, bitta so‘z bilan javob bering.", "Qisqa javob bering.", max_tokens=32),
-            )
+        for provider, client in self.compat_clients:
+            async def ask_backup(provider=provider, client=client):
+                response = await client.chat.completions.create(
+                    model=provider.model,
+                    messages=[{"role": "system", "content": "Qisqa javob bering."},
+                              {"role": "user", "content": "Salom, bitta so‘z bilan javob bering."}],
+                    max_tokens=32,
+                )
+                return (response.choices[0].message.content or "").strip()
+            await attempt(f"{provider.model} ({provider.name})", ask_backup)
         return {"models": checked}
 
+    async def _try_providers(self, call):
+        """Run call(provider, client) on each backup provider in order; the first success wins.
+
+        Every provider's failure is logged by class only; if all fail, the last error is raised."""
+        last: Exception | None = None
+        for provider, client in self.compat_clients:
+            try:
+                result = await call(provider, client)
+            except Exception as exc:
+                last = exc
+                log.warning("Backup AI provider %s failed (%s)", provider.name, type(exc).__name__)
+                continue
+            self.last_model = provider.model
+            self.last_provider = provider.name
+            return result
+        assert last is not None, "no backup AI provider configured"
+        raise last
+
     async def _compat_text(self, prompt: str, instructions: str, *, max_tokens: int = 1500) -> str:
-        assert self.compat is not None
-        response = await self.compat.chat.completions.create(
-            model=self.settings.ai_model,
-            messages=[{"role": "system", "content": instructions}, {"role": "user", "content": prompt}],
-            max_tokens=max_tokens,
-        )
-        self.last_model = self.settings.ai_model
-        self.last_provider = "compatible"
-        return (response.choices[0].message.content or "").strip()
+        async def call(provider, client):
+            response = await client.chat.completions.create(
+                model=provider.model,
+                messages=[{"role": "system", "content": instructions}, {"role": "user", "content": prompt}],
+                max_tokens=max_tokens,
+            )
+            return (response.choices[0].message.content or "").strip()
+        return await self._try_providers(call)
+
+    @property
+    def compat(self):
+        """First backup client (None when no backup provider is configured)."""
+        return self.compat_clients[0][1] if self.compat_clients else None
 
     def _use_compat_first(self) -> bool:
-        return self.compat is not None and (self.settings.ai_primary or not self.settings.openai_api_key)
+        return bool(self.compat_clients) and (self.settings.ai_primary or not self.settings.openai_api_key)
 
     async def reply_public_bank(self, *, history: str, message: str) -> str:
         """Short, tool-free banking answer for people who are not approved chats."""
@@ -178,7 +206,7 @@ class ShadowAssistant:
             self.last_provider = "openai"
             return (response.output_text or "").strip()
         except Exception as exc:
-            if self.compat is not None and should_fall_back(exc):
+            if self.compat_clients and should_fall_back(exc):
                 log.warning("OpenAI failed (%s); using the backup AI provider", type(exc).__name__)
                 return await self._compat_text(prompt, instructions, max_tokens=900)
             raise
@@ -194,7 +222,7 @@ class ShadowAssistant:
         try:
             result = await self._openai_reply(prompt, message, directory, document_preview)
         except Exception as exc:
-            if self.compat is not None and should_fall_back(exc):
+            if self.compat_clients and should_fall_back(exc):
                 log.warning("OpenAI failed (%s); using the backup AI provider", type(exc).__name__)
                 return await self._compat_reply(prompt, directory)
             raise
@@ -253,45 +281,49 @@ class ShadowAssistant:
     async def _compat_reply(self, prompt: str, directory: Path | None) -> tuple[str, list[Path]]:
         """Backup-provider reply with the same calculator/Word/Excel tools (function calling).
 
-        If the provider rejects tools, retry once as plain text so the owner still gets an answer.
-        """
-        assert self.compat is not None
+        Providers are tried in order. A provider that rejects tools is retried once as plain text."""
         base = SYSTEM_PROMPT + "\n\n" + SKILL_PROMPT
         tools = [
             {"type": "function", "function": {"name": t["name"], "description": t["description"], "parameters": t["parameters"]}}
             for t in (WORK_TOOLS if directory is not None else WORK_TOOLS[:1])
         ]
-        messages: list[dict] = [{"role": "system", "content": base}, {"role": "user", "content": prompt}]
-        files: list[Path] = []
-        for turn in range(6):
-            request = {"model": self.settings.ai_model, "messages": messages, "max_tokens": 4000}
-            if tools and turn < 5:
-                request["tools"] = tools
-            try:
-                response = await self.compat.chat.completions.create(**request)
-            except Exception as exc:
-                if tools and turn == 0 and getattr(exc, "status_code", None) in (400, 404, 422):
-                    log.warning("Backup provider rejected tool calling (%s); answering as plain text", type(exc).__name__)
-                    return await self._compat_text(prompt, base + COMPAT_NOTE), []
-                raise
-            self.last_model = self.settings.ai_model
-            self.last_provider = "compatible"
-            message = response.choices[0].message
-            calls = getattr(message, "tool_calls", None) or []
-            if not calls:
-                answer = (message.content or "").strip()
-                return answer or ("Fayl tayyor." if files else ""), files
-            messages.append({
-                "role": "assistant", "content": message.content or "",
-                "tool_calls": [
-                    {"id": c.id, "type": "function", "function": {"name": c.function.name, "arguments": c.function.arguments}}
-                    for c in calls
-                ],
-            })
-            for call in calls:
-                result = await self._run_tool(call.function.name, call.function.arguments, directory, files)
-                messages.append({"role": "tool", "tool_call_id": call.id, "content": result})
-        return "So‘rov juda murakkab bo‘ldi. Uni kichikroq qismlarga ajrating.", files
+
+        async def call(provider, client):
+            messages: list[dict] = [{"role": "system", "content": base}, {"role": "user", "content": prompt}]
+            files: list[Path] = []
+            for turn in range(6):
+                request = {"model": provider.model, "messages": messages, "max_tokens": 4000}
+                if tools and turn < 5:
+                    request["tools"] = tools
+                try:
+                    response = await client.chat.completions.create(**request)
+                except Exception as exc:
+                    if tools and turn == 0 and getattr(exc, "status_code", None) in (400, 404, 422):
+                        log.warning("Backup provider %s rejected tool calling (%s); answering as plain text", provider.name, type(exc).__name__)
+                        plain = await client.chat.completions.create(
+                            model=provider.model, max_tokens=1500,
+                            messages=[{"role": "system", "content": base + COMPAT_NOTE}, {"role": "user", "content": prompt}],
+                        )
+                        return (plain.choices[0].message.content or "").strip(), []
+                    raise
+                message = response.choices[0].message
+                calls = getattr(message, "tool_calls", None) or []
+                if not calls:
+                    answer = (message.content or "").strip()
+                    return answer or ("Fayl tayyor." if files else ""), files
+                messages.append({
+                    "role": "assistant", "content": message.content or "",
+                    "tool_calls": [
+                        {"id": c.id, "type": "function", "function": {"name": c.function.name, "arguments": c.function.arguments}}
+                        for c in calls
+                    ],
+                })
+                for tool in calls:
+                    result = await self._run_tool(tool.function.name, tool.function.arguments, directory, files)
+                    messages.append({"role": "tool", "tool_call_id": tool.id, "content": result})
+            return "So‘rov juda murakkab bo‘ldi. Uni kichikroq qismlarga ajrating.", files
+
+        return await self._try_providers(call)
 
     async def _openai_reply(
         self, prompt: str, message: str, directory: Path | None, document_preview: str,

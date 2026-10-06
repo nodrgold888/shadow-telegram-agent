@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import os
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from .persist import load_local_settings
 
@@ -79,6 +79,36 @@ def _ai_base_url(raw: str) -> str:
     raise ValueError("AI_BASE_URL must start with https://")
 
 
+MAX_BACKUP_PROVIDERS = 5
+
+
+@dataclass(frozen=True)
+class AIProvider:
+    """One OpenAI-compatible (Chat Completions) backup provider."""
+
+    name: str
+    base_url: str
+    api_key: str = field(repr=False)
+    model: str
+
+
+def _extra_providers() -> tuple[AIProvider, ...]:
+    """Backup providers 2..5 from AI_BASE_URL_n / AI_API_KEY_n / AI_MODEL_n (+ optional AI_NAME_n).
+
+    A slot with only some of its three values set is ignored, so a half-filled slot cannot
+    break startup; an invalid URL still fails loudly like slot 1."""
+    providers = []
+    for number in range(2, MAX_BACKUP_PROVIDERS + 1):
+        base = os.getenv(f"AI_BASE_URL_{number}", "").strip()
+        key = os.getenv(f"AI_API_KEY_{number}", "").strip()
+        model = os.getenv(f"AI_MODEL_{number}", "").strip()
+        if not (base and key and model):
+            continue
+        name = re.sub(r"[^A-Za-z0-9 ._-]", "", os.getenv(f"AI_NAME_{number}", "")).strip()[:30]
+        providers.append(AIProvider(name or f"zaxira {number}", _ai_base_url(base), key, model))
+    return tuple(providers)
+
+
 @dataclass(frozen=True)
 class Settings:
     telegram_api_id: int | None
@@ -100,6 +130,8 @@ class Settings:
     ai_api_key: str = ""
     ai_model: str = ""
     ai_primary: bool = False
+    ai_name: str = "zaxira"
+    ai_extra_providers: tuple["AIProvider", ...] = ()
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -138,12 +170,23 @@ class Settings:
             ai_api_key=os.getenv("AI_API_KEY", "").strip(),
             ai_model=os.getenv("AI_MODEL", "").strip(),
             ai_primary=_boolean("AI_PRIMARY", False, local.get("AI_PRIMARY")),
+            ai_name=re.sub(r"[^A-Za-z0-9 ._-]", "", os.getenv("AI_NAME", "")).strip()[:30] or "zaxira",
+            ai_extra_providers=_extra_providers(),
         )
 
     @property
+    def backup_providers(self) -> tuple[AIProvider, ...]:
+        """Configured backup providers in the order they are tried (slot 1 first)."""
+        first = (
+            (AIProvider(self.ai_name, self.ai_base_url, self.ai_api_key, self.ai_model),)
+            if self.ai_base_url and self.ai_api_key and self.ai_model else ()
+        )
+        return first + self.ai_extra_providers
+
+    @property
     def compat_ai_ready(self) -> bool:
-        """A second, OpenAI-compatible (Chat Completions) provider is fully configured."""
-        return bool(self.ai_base_url and self.ai_api_key and self.ai_model)
+        """At least one OpenAI-compatible (Chat Completions) backup provider is fully configured."""
+        return bool(self.backup_providers)
 
     @property
     def ai_ready(self) -> bool:
