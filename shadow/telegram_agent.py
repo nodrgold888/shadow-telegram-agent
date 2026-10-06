@@ -557,7 +557,7 @@ class TelegramAgent:
         if not chat_is_approved(chat_id, self.settings.approved_chat_ids):
             raise ValueError("Chat avtojavob uchun ruxsat etilmagan")
         return dict(self.chat_profiles.get(str(chat_id), {
-            "style": "", "memory": "", "notes": "", "routines": "",
+            "style": "", "memory": "", "notes": "", "routines": "", "agent": "", "agent_instructions": "",
         }))
 
     async def update_chat_profile(self, chat_id: int, value: dict[str, object]) -> dict[str, object]:

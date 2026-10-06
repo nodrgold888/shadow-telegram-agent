@@ -12,6 +12,7 @@ from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse
 from .config import Settings
 from .persist import save_model_selection, save_reply_enabled
 from .config import SUPPORTED_OPENAI_MODELS
+from .agents import agent_catalog
 from .chat_memory import normalize_chat_profile
 from .keepalive import build_keepalive
 from .panel_login import PanelLogin, LoginError
@@ -201,7 +202,7 @@ async def dashboard_chat_profile(
     if not _dashboard_allowed(shadow_setup, authorization):
         raise HTTPException(status_code=401, detail="Kirish kerak")
     try:
-        return {"profile": agent.chat_profile_for(chat_id)}
+        return {"profile": agent.chat_profile_for(chat_id), "agents": agent_catalog()}
     except ValueError as exc:
         raise HTTPException(status_code=403, detail=str(exc)) from exc
 
