@@ -100,6 +100,14 @@ class ShadowAssistant:
         self.last_model: str | None = None
         self.last_provider: str | None = None
 
+    def update_settings(self, settings: Settings) -> None:
+        """Swap settings and rebuild the backup clients (dashboard added a provider)."""
+        self.settings = settings
+        self.compat_clients = [
+            (provider, AsyncOpenAI(base_url=provider.base_url, api_key=provider.api_key))
+            for provider in settings.backup_providers
+        ]
+
     def _openai(self) -> AsyncOpenAI:
         if self.client is None:
             raise RuntimeError("OPENAI_API_KEY o‘rnatilmagan: bu imkoniyat uchun OpenAI kerak")
