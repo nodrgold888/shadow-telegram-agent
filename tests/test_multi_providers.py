@@ -4,7 +4,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
-from shadow.assistant import CHECK_MAX_TOKENS, ShadowAssistant, cooldown_seconds, is_transient
+from shadow.assistant import BACKUP_TIMEOUT, CHECK_MAX_TOKENS, OPENAI_TIMEOUT, ShadowAssistant, cooldown_seconds, is_transient
 from shadow.config import AIProvider, Settings
 from tests.test_ai_fallback import QuotaError, make_settings
 
@@ -226,3 +226,34 @@ class RetryTests(unittest.IsolatedAsyncioTestCase):
             await self.ask(assistant)
         first = next(c for url, c in clients.items() if "second" not in url)
         self.assertEqual(first.chat.completions.create.await_count, 1)
+
+
+class ClientLimitTests(unittest.TestCase):
+    def build_kwargs(self, settings):
+        seen = []
+
+        def factory(**kwargs):
+            seen.append(kwargs)
+            return SimpleNamespace()
+        with patch("shadow.assistant.AsyncOpenAI", side_effect=factory):
+            ShadowAssistant(settings)
+        return seen
+
+    def test_backups_fail_fast_without_hidden_sdk_retries(self):
+        seen = self.build_kwargs(settings_with_two())
+        backups = [k for k in seen if "base_url" in k]
+        self.assertEqual(len(backups), 2)
+        for kwargs in backups:
+            self.assertEqual((kwargs["timeout"], kwargs["max_retries"]), (BACKUP_TIMEOUT, 0))
+
+    def test_openai_gets_a_short_timeout_only_when_a_backup_exists(self):
+        with_backup = [k for k in self.build_kwargs(settings_with_two(openai_api_key="sk-test")) if "base_url" not in k]
+        self.assertEqual((with_backup[0]["timeout"], with_backup[0]["max_retries"]), (OPENAI_TIMEOUT, 0))
+        alone = [k for k in self.build_kwargs(make_settings(openai_api_key="sk-test", ai_base_url="", ai_api_key="", ai_model="")) if "base_url" not in k]
+        self.assertNotIn("timeout", alone[0])
+        self.assertNotIn("max_retries", alone[0])
+
+    def test_timeouts_are_not_retried(self):
+        class APITimeoutError(Exception):
+            pass
+        self.assertFalse(is_transient(APITimeoutError()))

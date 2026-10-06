@@ -47,17 +47,22 @@ def should_fall_back(exc: BaseException) -> bool:
 
 
 RETRY_DELAY = 2.0
+# Per-request limits. The SDK default is 10 minutes and 2 hidden retries per provider, which made
+# a chat sit on "typing" until the 180 s reply limit when several providers were busy.
+BACKUP_TIMEOUT = 40.0
+OPENAI_TIMEOUT = 60.0
 # Reasoning models (Gemini 3.x, free routers) spend part of the budget on hidden thinking, so a tiny
 # limit makes them answer with nothing; the AI check needs room for the visible word as well.
 CHECK_MAX_TOKENS = 512
 
 
 def is_transient(exc: BaseException) -> bool:
-    """Short-lived provider trouble (overload, gateway error, dropped connection) worth one retry."""
+    """Short-lived provider trouble (overload, gateway error, dropped connection) worth one quick retry."""
     status = getattr(exc, "status_code", None)
     if status in (500, 502, 503, 504):
         return True
-    return type(exc).__name__ in {"APIConnectionError", "APITimeoutError"}
+    # A timeout is not retried: the provider is already slow, so waiting again only delays the chain.
+    return type(exc).__name__ == "APIConnectionError"
 
 
 DEFAULT_COOLDOWN = 300.0
@@ -134,16 +139,31 @@ class ShadowAssistant:
     def __init__(self, settings: Settings) -> None:
         self.settings = settings
         # Without OPENAI_API_KEY (backup-only setups) the OpenAI SDK would refuse to build a client.
-        self.client = AsyncOpenAI(api_key=settings.openai_api_key) if settings.openai_api_key else None
+        self.client = self._openai_client(settings)
         # Backup providers in the order they are tried: slot 1, then 2..5.
-        self.compat_clients = [
-            (provider, AsyncOpenAI(base_url=provider.base_url, api_key=provider.api_key))
-            for provider in settings.backup_providers
-        ]
+        self.compat_clients = self._backup_clients(settings)
         self.last_model: str | None = None
         self.last_provider: str | None = None
         # provider key -> time.monotonic() until which a rate-limited provider is skipped
         self._cooldowns: dict[str, float] = {}
+
+    @staticmethod
+    def _openai_client(settings: Settings):
+        if not settings.openai_api_key:
+            return None
+        if settings.backup_providers:
+            # A backup exists: fail fast and let the chain take over instead of waiting on OpenAI.
+            return AsyncOpenAI(api_key=settings.openai_api_key, timeout=OPENAI_TIMEOUT, max_retries=0)
+        return AsyncOpenAI(api_key=settings.openai_api_key)
+
+    @staticmethod
+    def _backup_clients(settings: Settings):
+        # max_retries=0: the chain (and _retry_once) decide when to retry or move on.
+        return [
+            (provider, AsyncOpenAI(base_url=provider.base_url, api_key=provider.api_key,
+                                   timeout=BACKUP_TIMEOUT, max_retries=0))
+            for provider in settings.backup_providers
+        ]
 
     async def _retry_once(self, call):
         """Run call(); on a transient provider error wait briefly and try the same provider once more."""
@@ -168,10 +188,8 @@ class ShadowAssistant:
     def update_settings(self, settings: Settings) -> None:
         """Swap settings and rebuild the backup clients (dashboard added a provider)."""
         self.settings = settings
-        self.compat_clients = [
-            (provider, AsyncOpenAI(base_url=provider.base_url, api_key=provider.api_key))
-            for provider in settings.backup_providers
-        ]
+        self.client = self._openai_client(settings)
+        self.compat_clients = self._backup_clients(settings)
 
     def _openai(self) -> AsyncOpenAI:
         if self.client is None:
