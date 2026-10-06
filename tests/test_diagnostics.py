@@ -57,10 +57,14 @@ class AiCheckTests(unittest.TestCase):
         class Fine:
             async def check(self):
                 return {"models": [{"model": "gpt-5-mini", "replied": True}]}
+
+            async def chat_test(self):
+                return {"ok": True, "seconds": 1.2, "provider": "openai", "preview": "Salom"}
         agent.assistant = Fine()
         result = asyncio.run(agent.ai_check())
         self.assertTrue(result["ok"])
         self.assertEqual(result["models"][0]["model"], "gpt-5-mini")
+        self.assertEqual(result["chat_test"]["seconds"], 1.2)
 
 
 if __name__ == "__main__":

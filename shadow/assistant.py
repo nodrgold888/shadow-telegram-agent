@@ -5,6 +5,7 @@ import json
 import logging
 import re
 import time
+from tempfile import TemporaryDirectory
 from pathlib import Path
 
 from openai import AsyncOpenAI
@@ -265,6 +266,27 @@ class ShadowAssistant:
                 return (response.choices[0].message.content or "").strip()
             await attempt(f"{provider.model} ({provider.name})", ask_backup)
         return {"models": checked}
+
+    async def chat_test(self, budget: float = 120.0) -> dict[str, object]:
+        """Run a real chat reply (same path and tools as a Telegram message) and report how it went.
+
+        Never raises. Used by the dashboard check to explain a chat that stays on "typing"."""
+        started = time.monotonic()
+        try:
+            async with asyncio.timeout(budget):
+                with TemporaryDirectory() as tmp:
+                    answer, _files = await self.reply_with_files(
+                        chat_title="Sinov", history="", message="Ассалому алейкум", directory=Path(tmp),
+                    )
+        except Exception as exc:
+            return {"ok": False, "seconds": round(time.monotonic() - started, 1),
+                    "error": type(exc).__name__, "detail": safe_error_detail(exc)}
+        seconds = round(time.monotonic() - started, 1)
+        text = (answer or "").strip()
+        if not text:
+            return {"ok": False, "seconds": seconds, "error": "empty_ai_reply", "detail": "Javob bo‘sh qaytdi"}
+        return {"ok": True, "seconds": seconds, "provider": self.last_provider, "model": self.last_model,
+                "preview": text[:60]}
 
     async def _try_providers(self, call):
         """Run call(provider, client) on each backup provider in order; the first success wins.

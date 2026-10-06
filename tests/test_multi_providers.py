@@ -257,3 +257,39 @@ class ClientLimitTests(unittest.TestCase):
         class APITimeoutError(Exception):
             pass
         self.assertFalse(is_transient(APITimeoutError()))
+
+
+class ChatTestTests(unittest.IsolatedAsyncioTestCase):
+    async def test_success_reports_provider_time_and_preview(self):
+        assistant, _ = build(settings_with_two(), {"backup-model": "Va alaykum assalom! Qalaysiz?", "model-2": "x"})
+        result = await assistant.chat_test()
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["provider"], "zaxira")
+        self.assertTrue(result["preview"].startswith("Va alaykum"))
+        self.assertIn("seconds", result)
+
+    async def test_failure_reports_the_error_without_raising(self):
+        class Last(Exception):
+            status_code = 500
+        assistant, _ = build(settings_with_two(), {"backup-model": Last("boom"), "model-2": Last("boom")})
+        with patch("shadow.assistant.RETRY_DELAY", 0):
+            result = await assistant.chat_test()
+        self.assertFalse(result["ok"])
+        self.assertEqual(result["error"], "Last")
+
+    async def test_empty_answer_is_reported(self):
+        assistant, _ = build(settings_with_two(), {"backup-model": "", "model-2": ""})
+        result = await assistant.chat_test()
+        self.assertEqual((result["ok"], result["error"]), (False, "empty_ai_reply"))
+
+    async def test_slow_providers_hit_the_budget(self):
+        import asyncio
+        assistant, clients = build(settings_with_two(), {"backup-model": "x", "model-2": "x"})
+
+        async def slow(**request):
+            await asyncio.sleep(5)
+        for client in clients.values():
+            client.chat.completions.create = AsyncMock(side_effect=slow)
+        result = await assistant.chat_test(budget=0.05)
+        self.assertFalse(result["ok"])
+        self.assertEqual(result["error"], "TimeoutError")
