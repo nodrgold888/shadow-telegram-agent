@@ -18,6 +18,16 @@ class HumanChatTests(unittest.TestCase):
         self.assertIn("say plainly that you are Shadow AI", assistant.SKILL_PROMPT)
         self.assertIn("Never claim to be a human", assistant.SKILL_PROMPT)
 
+    def test_prompt_no_longer_pushes_a_question_and_emoji_on_every_reply(self):
+        self.assertNotIn("O‘rinli bo‘lsa savol bilan suhbatni davom ettiring", assistant.SYSTEM_PROMPT)
+        self.assertIn("Har javobni savol bilan tugatmang", assistant.SYSTEM_PROMPT)
+        self.assertIn("What makes a reply sound like a bot", assistant.SKILL_PROMPT)
+        self.assertIn("Small talk examples", assistant.SKILL_PROMPT)
+
+    def test_honesty_rules_survive_the_style_change(self):
+        self.assertIn("rost ayting", assistant.SYSTEM_PROMPT)
+        self.assertIn("inson yoki akkaunt egasining o‘zi deb da’vo qilmang", assistant.SYSTEM_PROMPT)
+
 
 if __name__ == "__main__":
     unittest.main()
