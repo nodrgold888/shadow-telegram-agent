@@ -47,6 +47,9 @@ def should_fall_back(exc: BaseException) -> bool:
 
 
 RETRY_DELAY = 2.0
+# Reasoning models (Gemini 3.x, free routers) spend part of the budget on hidden thinking, so a tiny
+# limit makes them answer with nothing; the AI check needs room for the visible word as well.
+CHECK_MAX_TOKENS = 512
 
 
 def is_transient(exc: BaseException) -> bool:
@@ -239,7 +242,7 @@ class ShadowAssistant:
                     client, model=provider.model,
                     messages=[{"role": "system", "content": "Qisqa javob bering."},
                               {"role": "user", "content": "Salom, bitta so‘z bilan javob bering."}],
-                    max_tokens=32,
+                    max_tokens=CHECK_MAX_TOKENS,
                 )
                 return (response.choices[0].message.content or "").strip()
             await attempt(f"{provider.model} ({provider.name})", ask_backup)

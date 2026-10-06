@@ -4,7 +4,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
-from shadow.assistant import ShadowAssistant, cooldown_seconds, is_transient
+from shadow.assistant import CHECK_MAX_TOKENS, ShadowAssistant, cooldown_seconds, is_transient
 from shadow.config import AIProvider, Settings
 from tests.test_ai_fallback import QuotaError, make_settings
 
@@ -94,6 +94,14 @@ class ProviderChainTests(unittest.IsolatedAsyncioTestCase):
         by_model = {m["model"]: m for m in result["models"]}
         self.assertFalse(by_model["backup-model (zaxira)"]["replied"])
         self.assertTrue(by_model["model-2 (ikkinchi)"]["replied"])
+
+    async def test_check_leaves_room_for_reasoning_models(self):
+        assistant, clients = build(settings_with_two(), {"backup-model": "salom", "model-2": "salom"})
+        await assistant.check()
+        for client in clients.values():
+            request = client.chat.completions.create.await_args.kwargs
+            self.assertEqual(request["max_tokens"], CHECK_MAX_TOKENS)
+        self.assertGreaterEqual(CHECK_MAX_TOKENS, 256)
 
     async def test_public_bank_reply_uses_the_chain(self):
         assistant, _ = build(settings_with_two(), {"backup-model": QuotaError(), "model-2": "Bank javobi"})
