@@ -68,7 +68,7 @@ class AgentPromptTests(unittest.IsolatedAsyncioTestCase):
                 await assistant.reply_with_files(
                     chat_title="C", history="", message="Salom", directory=Path("."), chat_profile=profile)
         bank, translator, default = (call.kwargs["instructions"] for call in create.call_args_list)
-        self.assertIn("bank va shaxsiy moliya maslahatchisi", bank)
+        self.assertIn("Davr Bank bo‘yicha maslahatchi", bank)
         self.assertNotIn("tarjimon", bank.split("Rol:")[-1])
         self.assertIn("Rol: tarjimon", translator)
         self.assertNotIn("Rol: ", default)
