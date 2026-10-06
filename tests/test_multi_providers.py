@@ -4,7 +4,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
-from shadow.assistant import ShadowAssistant
+from shadow.assistant import ShadowAssistant, cooldown_seconds
 from shadow.config import AIProvider, Settings
 from tests.test_ai_fallback import QuotaError, make_settings
 
@@ -121,3 +121,43 @@ class ProviderConfigTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class RateLimited(Exception):
+    status_code = 429
+
+
+class CooldownTests(unittest.IsolatedAsyncioTestCase):
+    async def ask(self, assistant):
+        return await assistant.reply_with_files(chat_title="C", history="", message="Salom", directory=Path("."))
+
+    def test_cooldown_parses_the_providers_hint(self):
+        self.assertEqual(cooldown_seconds(Exception("Please try again in 28m48s.")), 28 * 60 + 48)
+        self.assertEqual(cooldown_seconds(Exception("try again in 2m")), 120)
+        self.assertEqual(cooldown_seconds(Exception("try again in 6s")), 30)
+        self.assertEqual(cooldown_seconds(Exception("try again in 5000h")), 3600)
+        self.assertEqual(cooldown_seconds(Exception("no hint")), 300)
+
+    async def test_rate_limited_provider_is_tried_last_next_time(self):
+        assistant, clients = build(settings_with_two(), {"backup-model": RateLimited("try again in 10m"), "model-2": "Ikkinchi"})
+        answer, _ = await self.ask(assistant)
+        self.assertEqual(answer, "Ikkinchi")
+        first = next(c for url, c in clients.items() if "second" not in url)
+        calls_before = first.chat.completions.create.await_count
+        answer, _ = await self.ask(assistant)
+        self.assertEqual(answer, "Ikkinchi")
+        self.assertEqual(first.chat.completions.create.await_count, calls_before)
+
+    async def test_all_cooling_still_tries_the_providers(self):
+        assistant, _ = build(settings_with_two(), {"backup-model": RateLimited("x"), "model-2": RateLimited("y")})
+        with self.assertRaises(RateLimited):
+            await self.ask(assistant)
+        with self.assertRaises(RateLimited):
+            await self.ask(assistant)
+
+    async def test_other_errors_do_not_start_a_cooldown(self):
+        class Boom(Exception):
+            status_code = 500
+        assistant, _ = build(settings_with_two(), {"backup-model": Boom(), "model-2": "Ikkinchi"})
+        await self.ask(assistant)
+        self.assertEqual(assistant._cooldowns, {})

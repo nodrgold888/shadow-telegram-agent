@@ -3,6 +3,8 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import re
+import time
 from pathlib import Path
 
 from openai import AsyncOpenAI
@@ -42,6 +44,26 @@ def should_fall_back(exc: BaseException) -> bool:
     if status in (401, 402, 403, 429) or (isinstance(status, int) and status >= 500):
         return True
     return type(exc).__name__ in {"APIConnectionError", "APITimeoutError"}
+
+
+DEFAULT_COOLDOWN = 300.0
+MAX_COOLDOWN = 3600.0
+
+
+def is_rate_limit(exc: BaseException) -> bool:
+    """429: out of credits or over a usage limit (the provider will keep refusing for a while)."""
+    return getattr(exc, "status_code", None) == 429
+
+
+def cooldown_seconds(exc: BaseException) -> float:
+    """How long to skip a rate-limited provider: its own 'try again in 28m48s' hint, else 5 minutes."""
+    match = re.search(r"try again in (?:(\d+)h)?(?:(\d+)m(?!s))?(?:(\d+(?:\.\d+)?)(?:s|ms)?)?", str(exc))
+    if match and any(match.groups()):
+        hours, minutes, seconds = (float(g) if g else 0.0 for g in match.groups())
+        wait = hours * 3600 + minutes * 60 + seconds
+        if wait > 0:
+            return min(max(wait, 30.0), MAX_COOLDOWN)
+    return DEFAULT_COOLDOWN
 
 
 SYSTEM_PROMPT = """Siz Shadow nomli shaxsiy AI yordamchisiz.
@@ -106,6 +128,17 @@ class ShadowAssistant:
         ]
         self.last_model: str | None = None
         self.last_provider: str | None = None
+        # provider key -> time.monotonic() until which a rate-limited provider is skipped
+        self._cooldowns: dict[str, float] = {}
+
+    def _cooling(self, key: str) -> bool:
+        return self._cooldowns.get(key, 0.0) > time.monotonic()
+
+    def _start_cooldown(self, key: str, exc: BaseException) -> None:
+        if is_rate_limit(exc):
+            wait = cooldown_seconds(exc)
+            self._cooldowns[key] = time.monotonic() + wait
+            log.warning("%s hit a usage limit; skipping it for %d s", key, int(wait))
 
     def update_settings(self, settings: Settings) -> None:
         """Swap settings and rebuild the backup clients (dashboard added a provider)."""
@@ -199,11 +232,14 @@ class ShadowAssistant:
         is empty the empty result is returned, like before."""
         last: Exception | None = None
         empty = None
-        for provider, client in self.compat_clients:
+        # Providers that recently hit a usage limit go last, so the others answer first.
+        ordered = sorted(self.compat_clients, key=lambda pc: self._cooling(f"{pc[0].slot}:{pc[0].name}"))
+        for provider, client in ordered:
             try:
                 result = await call(provider, client)
             except Exception as exc:
                 last = exc
+                self._start_cooldown(f"{provider.slot}:{provider.name}", exc)
                 log.warning("Backup AI provider %s failed (%s)", provider.name, type(exc).__name__)
                 continue
             if _is_empty_reply(result):
@@ -243,6 +279,11 @@ class ShadowAssistant:
         instructions = PUBLIC_BANK_PROMPT + "\n\n" + PUBLIC_SKILL_PROMPT
         if self._use_compat_first():
             return await self._compat_text(prompt, instructions, max_tokens=900)
+        if self.compat_clients and self._cooling("openai"):
+            try:
+                return await self._compat_text(prompt, instructions, max_tokens=900)
+            except Exception as exc:  # the backups failed too: still try OpenAI below
+                log.warning("Backup AI providers failed while OpenAI is cooling down (%s)", type(exc).__name__)
         try:
             selected_model = self.settings.openai_model
             self.last_model = selected_model
@@ -251,8 +292,10 @@ class ShadowAssistant:
                 input=[{"role": "user", "content": prompt}], store=False, max_output_tokens=900,
             )
             self.last_provider = "openai"
+            self._cooldowns.pop("openai", None)
             return (response.output_text or "").strip()
         except Exception as exc:
+            self._start_cooldown("openai", exc)
             if self.compat_clients and should_fall_back(exc):
                 log.warning("OpenAI failed (%s); using the backup AI provider", type(exc).__name__)
                 return await self._compat_text(prompt, instructions, max_tokens=900)
@@ -267,14 +310,21 @@ class ShadowAssistant:
         role = agent_role(chat_profile)
         if self._use_compat_first():
             return await self._compat_reply(prompt, directory, role)
+        if self.compat_clients and self._cooling("openai"):
+            try:
+                return await self._compat_reply(prompt, directory, role)
+            except Exception as exc:  # the backups failed too: still try OpenAI below
+                log.warning("Backup AI providers failed while OpenAI is cooling down (%s)", type(exc).__name__)
         try:
             result = await self._openai_reply(prompt, message, directory, document_preview, role)
         except Exception as exc:
+            self._start_cooldown("openai", exc)
             if self.compat_clients and should_fall_back(exc):
                 log.warning("OpenAI failed (%s); using the backup AI provider", type(exc).__name__)
                 return await self._compat_reply(prompt, directory, role)
             raise
         self.last_provider = "openai"
+        self._cooldowns.pop("openai", None)
         return result
 
     @staticmethod
