@@ -69,6 +69,16 @@ def _boolean(name: str, default: bool = False, value: str | None = None) -> bool
     raise ValueError(f"{name} must be true or false")
 
 
+def _ai_base_url(raw: str) -> str:
+    """Base URL of an OpenAI-compatible API. https only (plain http just for localhost)."""
+    value = raw.strip().rstrip("/")
+    if not value:
+        return ""
+    if value.startswith("https://") or re.match(r"^http://(localhost|127\.0\.0\.1)(:\d+)?(/|$)", value):
+        return value
+    raise ValueError("AI_BASE_URL must start with https://")
+
+
 @dataclass(frozen=True)
 class Settings:
     telegram_api_id: int | None
@@ -86,6 +96,10 @@ class Settings:
     complex_openai_model: str = "gpt-6-luna"
     always_online: bool = True
     public_bank_reply: bool = False
+    ai_base_url: str = ""
+    ai_api_key: str = ""
+    ai_model: str = ""
+    ai_primary: bool = False
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -120,7 +134,20 @@ class Settings:
             setup_token=os.getenv("SETUP_TOKEN", "").strip(),
             always_online=_boolean("ALWAYS_ONLINE", True, local.get("ALWAYS_ONLINE")),
             public_bank_reply=_boolean("PUBLIC_BANK_REPLY", False, local.get("PUBLIC_BANK_REPLY")),
+            ai_base_url=_ai_base_url(os.getenv("AI_BASE_URL", "")),
+            ai_api_key=os.getenv("AI_API_KEY", "").strip(),
+            ai_model=os.getenv("AI_MODEL", "").strip(),
+            ai_primary=_boolean("AI_PRIMARY", False, local.get("AI_PRIMARY")),
         )
+
+    @property
+    def compat_ai_ready(self) -> bool:
+        """A second, OpenAI-compatible (Chat Completions) provider is fully configured."""
+        return bool(self.ai_base_url and self.ai_api_key and self.ai_model)
+
+    @property
+    def ai_ready(self) -> bool:
+        return bool(self.openai_api_key or self.compat_ai_ready)
 
     @property
     def telegram_api_ready(self) -> bool:
@@ -129,5 +156,5 @@ class Settings:
     @property
     def configured(self) -> bool:
         telegram_ready = bool(self.telegram_api_ready and self.telegram_session)
-        reply_ready = bool(self.openai_api_key and self.approved_chat_ids)
+        reply_ready = bool(self.ai_ready and self.approved_chat_ids)
         return bool(telegram_ready and (not self.reply_enabled or reply_ready))

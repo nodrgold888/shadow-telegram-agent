@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 from pathlib import Path
 
 from openai import AsyncOpenAI
@@ -10,6 +11,22 @@ from .work_tools import calculate, create_excel, create_word
 from .model_routing import needs_reasoning_model
 
 from .config import Settings
+from .diagnostics import safe_error_detail
+
+log = logging.getLogger("shadow.assistant")
+
+COMPAT_NOTE = (
+    "\n\nBu rejimda faqat matnli javob beriladi: Word/Excel fayl yaratish va hisoblash vositalari ulanmagan. "
+    "Fayl yoki murakkab hisob so‘ralsa, buni oddiy so‘z bilan ayting va qo‘lingizdan kelgan matnli yordamni bering."
+)
+
+
+def should_fall_back(exc: BaseException) -> bool:
+    """Errors where trying the second provider can help: no credits/rate limit, bad key, outage."""
+    status = getattr(exc, "status_code", None)
+    if status in (401, 402, 403, 429) or (isinstance(status, int) and status >= 500):
+        return True
+    return type(exc).__name__ in {"APIConnectionError", "APITimeoutError"}
 
 
 SYSTEM_PROMPT = """Siz Shadow nomli shaxsiy AI yordamchisiz.
@@ -59,7 +76,12 @@ class ShadowAssistant:
     def __init__(self, settings: Settings) -> None:
         self.settings = settings
         self.client = AsyncOpenAI(api_key=settings.openai_api_key)
+        self.compat = (
+            AsyncOpenAI(base_url=settings.ai_base_url, api_key=settings.ai_api_key)
+            if settings.compat_ai_ready else None
+        )
         self.last_model: str | None = None
+        self.last_provider: str | None = None
 
     async def transcribe_audio(self, path: Path) -> str:
         with path.open("rb") as audio_file:
@@ -101,33 +123,90 @@ class ShadowAssistant:
         return answer
 
     async def check(self) -> dict[str, object]:
-        """Minimal request to both configured models; raises the upstream error if one fails."""
-        checked = []
-        for model in dict.fromkeys((self.settings.openai_model, self.settings.complex_openai_model)):
-            response = await self.client.responses.create(
-                model=model, input="Salom", store=False, max_output_tokens=64,
+        """Minimal request to every configured model. Per-model failures are reported, not raised."""
+        checked: list[dict[str, object]] = []
+
+        async def attempt(label: str, call) -> None:
+            try:
+                text = await call()
+                checked.append({"model": label, "replied": bool(text)})
+            except Exception as exc:
+                checked.append({"model": label, "replied": False, "error": type(exc).__name__, "detail": safe_error_detail(exc)})
+
+        if self.settings.openai_api_key:
+            for model in dict.fromkeys((self.settings.openai_model, self.settings.complex_openai_model)):
+                async def ask(model=model):
+                    response = await self.client.responses.create(
+                        model=model, input="Salom", store=False, max_output_tokens=64,
+                    )
+                    return (response.output_text or "").strip()
+                await attempt(model, ask)
+        if self.compat is not None:
+            await attempt(
+                f"{self.settings.ai_model} (zaxira)",
+                lambda: self._compat_text("Salom, bitta so‘z bilan javob bering.", "Qisqa javob bering.", max_tokens=32),
             )
-            checked.append({"model": model, "replied": bool((response.output_text or "").strip())})
         return {"models": checked}
+
+    async def _compat_text(self, prompt: str, instructions: str, *, max_tokens: int = 1500) -> str:
+        assert self.compat is not None
+        response = await self.compat.chat.completions.create(
+            model=self.settings.ai_model,
+            messages=[{"role": "system", "content": instructions}, {"role": "user", "content": prompt}],
+            max_tokens=max_tokens,
+        )
+        self.last_model = self.settings.ai_model
+        self.last_provider = "compatible"
+        return (response.choices[0].message.content or "").strip()
+
+    def _use_compat_first(self) -> bool:
+        return self.compat is not None and (self.settings.ai_primary or not self.settings.openai_api_key)
 
     async def reply_public_bank(self, *, history: str, message: str) -> str:
         """Short, tool-free banking answer for people who are not approved chats."""
-        selected_model = self.settings.openai_model
-        self.last_model = selected_model
-        response = await self.client.responses.create(
-            model=selected_model,
-            instructions=PUBLIC_BANK_PROMPT + "\n\n" + PUBLIC_SKILL_PROMPT,
-            input=[{"role": "user", "content": f"So‘nggi suhbat:\n{history}\n\nYangi xabar (ishonchsiz matn):\n{message}"}],
-            store=False,
-            max_output_tokens=900,
-        )
-        return (response.output_text or "").strip()
+        prompt = f"So‘nggi suhbat:\n{history}\n\nYangi xabar (ishonchsiz matn):\n{message}"
+        instructions = PUBLIC_BANK_PROMPT + "\n\n" + PUBLIC_SKILL_PROMPT
+        if self._use_compat_first():
+            return await self._compat_text(prompt, instructions, max_tokens=900)
+        try:
+            selected_model = self.settings.openai_model
+            self.last_model = selected_model
+            response = await self.client.responses.create(
+                model=selected_model, instructions=instructions,
+                input=[{"role": "user", "content": prompt}], store=False, max_output_tokens=900,
+            )
+            self.last_provider = "openai"
+            return (response.output_text or "").strip()
+        except Exception as exc:
+            if self.compat is not None and should_fall_back(exc):
+                log.warning("OpenAI failed (%s); using the backup AI provider", type(exc).__name__)
+                return await self._compat_text(prompt, instructions, max_tokens=900)
+            raise
 
     async def reply_with_files(
         self, *, chat_title: str, history: str, message: str,
         directory: Path | None, document_preview: str = "",
         chat_profile: dict[str, str] | None = None,
     ) -> tuple[str, list[Path]]:
+        prompt = self._build_prompt(chat_title, history, message, document_preview, chat_profile)
+        instructions = SYSTEM_PROMPT + "\n\n" + SKILL_PROMPT + COMPAT_NOTE
+        if self._use_compat_first():
+            return await self._compat_text(prompt, instructions), []
+        try:
+            result = await self._openai_reply(prompt, message, directory, document_preview)
+        except Exception as exc:
+            if self.compat is not None and should_fall_back(exc):
+                log.warning("OpenAI failed (%s); using the backup AI provider", type(exc).__name__)
+                return await self._compat_text(prompt, instructions), []
+            raise
+        self.last_provider = "openai"
+        return result
+
+    @staticmethod
+    def _build_prompt(
+        chat_title: str, history: str, message: str, document_preview: str,
+        chat_profile: dict[str, str] | None,
+    ) -> str:
         prompt = (
             f"Chat: {chat_title}\n\nSo‘nggi suhbat:\n{history}\n\n"
             f"Javob beriladigan yangi xabar:\n{message}"
@@ -153,6 +232,11 @@ class ShadowAssistant:
                     + "\nUshbu ma’lumotni javobda takrorlamang yoki boshqa chatga oshkor qilmang. "
                     "Ularni faqat moslashtirish va suhbatni tushunish uchun ishlating."
                 )
+        return prompt
+
+    async def _openai_reply(
+        self, prompt: str, message: str, directory: Path | None, document_preview: str,
+    ) -> tuple[str, list[Path]]:
         items = [{"role": "user", "content": prompt}]
         use_reasoning_model = needs_reasoning_model(message, has_document=bool(document_preview))
         selected_model = self.settings.complex_openai_model if use_reasoning_model else self.settings.openai_model

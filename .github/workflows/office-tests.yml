@@ -26,3 +26,4 @@ jobs:
       - run: python -m unittest discover -s tests -p 'test_public_bank.py'
       - run: python -m unittest discover -s tests -p 'test_diagnostics.py'
       - run: python -m unittest discover -s tests -p 'test_model_catalog.py'
+      - run: python -m unittest discover -s tests -p 'test_ai_fallback.py'

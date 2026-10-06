@@ -133,6 +133,16 @@ This does send messages from your personal account to people you have not approv
 
 The dashboard (Sozlamalar → AI modeli) lets you pick one model for everyday chat and one for complex tasks and files: `GPT-5 mini`, `GPT-6 Luna`, `GPT-5.6 Luna` (`gpt-5.6-luna`) and `GPT-Reserve` (`gpt-reserve`). The last two IDs were derived from the names shown in the OpenAI app and are **not confirmed** against the API: after choosing one, press "AI ni tekshirish"; a wrong ID shows up immediately as a model-not-found error and you can switch back. To offer another exact API model ID without a code change, set `EXTRA_OPENAI_MODELS` (comma separated, e.g. `gpt-x,gpt-y`). Model requests are billed to the OpenAI account of `OPENAI_API_KEY`; with no credits every reply fails with `insufficient_quota`.
 
+## Backup AI provider (when OpenAI has no credits)
+
+OpenAI API credits are prepaid and separate from a ChatGPT/Codex plan's usage limits; with no API credits every reply fails with `insufficient_quota`. Shadow can use a second provider that speaks the OpenAI-compatible **Chat Completions** protocol (for example Groq, Google Gemini's OpenAI-compatible endpoint, OpenRouter, DeepSeek, or a self-hosted router). Set all three in Render → Environment:
+
+- `AI_BASE_URL`: the provider's base URL (https only), e.g. `https://openrouter.ai/api/v1`
+- `AI_API_KEY`: an API key from that provider
+- `AI_MODEL`: the exact model ID from that provider's docs
+
+By default the backup is used automatically when OpenAI fails with no credits / rate limit (429), a bad key (401/402/403), a server error or a connection error; other errors (e.g. 400) are shown, not hidden. Set `AI_PRIMARY=true` to use the backup first, and if `OPENAI_API_KEY` is empty it is used on its own. Backup mode is text-only: Word/Excel creation and the calculator tool are not available, and voice-message transcription and speech replies still need OpenAI. Chat text sent to the AI goes to the provider you configure, so choose one you trust with that content. The dashboard's "AI ni tekshirish" button tests OpenAI and the backup separately.
+
 ## Always-online status
 
 By default Shadow keeps the connected Telegram account showing as **online** by refreshing its status every ~2 minutes (`shadow/presence.py`). It only changes the visible status; it never reads or sends messages. Turn it off with `ALWAYS_ONLINE=false`. Current state and counters are under `online_presence` in `/admin/status` and the dashboard status.

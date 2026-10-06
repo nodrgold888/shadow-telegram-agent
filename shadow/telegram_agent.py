@@ -374,14 +374,20 @@ class TelegramAgent:
 
     async def ai_check(self) -> dict[str, object]:
         """One tiny OpenAI request so the owner can see why replies fail. Never raises."""
-        if not self.settings.openai_api_key:
+        if not self.settings.ai_ready:
             return {"ok": False, "error": "openai_key_missing", "detail": "OPENAI_API_KEY o‘rnatilmagan"}
         assistant = self.assistant or ShadowAssistant(self.settings)
         try:
-            return {"ok": True, **await assistant.check()}
+            result = await assistant.check()
         except Exception as exc:
             return {"ok": False, "error": type(exc).__name__, "detail": safe_error_detail(exc),
                     "model": self.settings.openai_model}
+        models = result["models"]
+        if any(m["replied"] for m in models):
+            return {"ok": True, "models": models}
+        first = next((m for m in models if m.get("error")), {})
+        return {"ok": False, "error": first.get("error", "empty_reply"), "detail": first.get("detail", "Bo‘sh javob"),
+                "models": models}
 
     def _can_reply(self, chat_id: int) -> bool:
         return bool(self.reply_enabled and chat_is_approved(chat_id, self.settings.approved_chat_ids))
@@ -492,11 +498,12 @@ class TelegramAgent:
             "account_id": self.account_id,
             "approved_chat_count": "all" if approved == "*" else len(approved),
             "reply_enabled": self.reply_enabled,
-            "openai_configured": bool(self.settings.openai_api_key),
-            "reply_ready": bool(self.connected and self.client and self.settings.openai_api_key and approved),
+            "openai_configured": self.settings.ai_ready,
+            "reply_ready": bool(self.connected and self.client and self.settings.ai_ready and approved),
             "group_reply_mode": self.settings.group_reply_mode,
             "last_ai_model": self.assistant.last_model if self.assistant else None,
             "openai_model": self.settings.openai_model,
+            "ai_backup": {"configured": self.settings.compat_ai_ready, "model": self.settings.ai_model or None, "primary": self.settings.ai_primary, "last_provider": self.assistant.last_provider if self.assistant else None},
             "supported_models": [{"id": model_id, "label": label} for model_id, label in AVAILABLE_MODELS],
             "complex_openai_model": self.settings.complex_openai_model,
             "last_error": self.last_error,
@@ -512,7 +519,7 @@ class TelegramAgent:
         }
 
     def set_reply_enabled(self, enabled: bool) -> None:
-        if enabled and not (self.settings.openai_api_key and self.settings.approved_chat_ids):
+        if enabled and not (self.settings.ai_ready and self.settings.approved_chat_ids):
             raise ValueError("Avtomatik javobni yoqish uchun OpenAI kaliti va ruxsatli chat ID kerak")
         if enabled and (not self.connected or not self.client):
             raise ValueError("Avtomatik javobni yoqish uchun Telegram ulangan bo‘lishi kerak")
