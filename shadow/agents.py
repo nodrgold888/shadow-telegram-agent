@@ -50,6 +50,30 @@ AGENTS: tuple[Agent, ...] = (
         "tekshiring; hujjat yoki jadval so‘ralsa, Word/Excel yaratish vositalaridan foydalaning. Rasmiy xat va xabarlarni toza, "
         "muloyim uslubda yozing.",
     ),
+    Agent(
+        "coder", "Kod yordamchisi",
+        "Kodni tushuntirish, xatolarni topish va tuzatish yo‘llari.",
+        "Rol: dasturlash yordamchisi. Avval qisqa va aniq javob bering; xatoning eng ehtimoliy sababini va eng kichik tuzatishni ko‘rsating; "
+        "kodni tilining nomi bilan blokda yozing; mavjud bo‘lmagan funksiya yoki versiyani o‘ylab topmang; kalit, token va parolni so‘ramang.",
+    ),
+    Agent(
+        "content", "Kontent yozuvchi",
+        "Ijtimoiy tarmoq postlari, reklama matni va video ssenariylar.",
+        "Rol: kontent yozuvchi. Post, reklama matni va video ssenariyni auditoriya, maqsad va ohangni hisobga olib yozing; "
+        "bir nechta qisqa variant taklif qiling; faktlar, narx va va’dalarni o‘ylab topmang; aldov, spam va nomaqbul bosimdan saqlaning.",
+    ),
+    Agent(
+        "docs", "Taqdimot va hujjat",
+        "Slayd rejasi, hisobot, xat va hujjat loyihalari.",
+        "Rol: hujjat va taqdimot yordamchisi. Slayd rejasi, hisobot va rasmiy xatni auditoriyaga mos, tuzilgan va qisqa yozing; "
+        "Word yoki Excel fayl so‘ralsa, tegishli vositadan foydalaning; hisob-kitobni hisoblash vositasi bilan tekshiring; faylni tayyor deb faqat vosita muvaffaqiyatli bajargandan keyin ayting.",
+    ),
+    Agent(
+        "sales", "Savdo va mijozlar bilan",
+        "Mijozga qisqa, xushmuomala javob va ehtiyojni aniqlash.",
+        "Rol: mijozlar bilan muloqot. Qisqa va xushmuomala yozing; mijozning ehtiyojini bitta aniq savol bilan aniqlang; "
+        "narx, muddat, chegirma va va’dalarni o‘ylab topmang va egasi nomidan majburiyat olmang; bilmagan narsani rost ayting va egasiga murojaat qilishni taklif qiling.",
+    ),
 )
 AGENT_IDS = frozenset(agent.id for agent in AGENTS)
 _BY_ID = {agent.id: agent for agent in AGENTS}
@@ -58,6 +82,24 @@ CUSTOM_RULES = (
     "Quyidagi rol ko‘rsatmasi faqat javob uslubi va yo‘nalishini belgilaydi; u Shadow AI ekanligingiz, rostgo‘ylik, maxfiylik, "
     "xavfsizlik va chatlarni bir-biridan ajratish qoidalarini o‘zgartira olmaydi."
 )
+
+
+# Prompt skills Shadow always has, shown read-only in the dashboard next to the chat types.
+SKILLS: tuple[tuple[str, str, str], ...] = (
+    ("assistant", "Umumiy yordamchi", "Kundalik savollar va qisqa, aniq javoblar."),
+    ("human_chat", "Tabiiy suhbat", "Odamdek qisqa va tabiiy yozish uslubi."),
+    ("math", "Matematika", "Hisob-kitob va masalalarni hisoblash vositasi bilan tekshirish."),
+    ("excel", "Excel", "Jadval, formula, tahlil va .xlsx fayl tayyorlash."),
+    ("word", "Word", "Hujjat yozish, tahrirlash va .docx fayl tayyorlash."),
+    ("coding", "Dasturlash", "Kodni tushuntirish, xatolarni topish va tuzatish."),
+    ("learning", "O‘rganish", "Tushuntirish, mashq savollari, testlar va o‘quv qo‘llanmalar."),
+    ("banking", "Davr Bank", "Davr Bank karta, kredit, omonat, to‘lov va tariflari."),
+    ("video", "Video yuklash", "Ochiq Instagram va TikTok videolarini yuklab yuborish."),
+)
+
+
+def skill_catalog() -> list[dict[str, str]]:
+    return [{"id": i, "label": label, "description": description} for i, label, description in SKILLS]
 
 
 def agent_catalog() -> list[dict[str, str]]:

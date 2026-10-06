@@ -256,6 +256,99 @@
 .cap-note{margin:16px 0 0;padding:11px 13px;border-radius:10px;background:var(--mint-bg);color:var(--ink);font-size:12px}
 @media(max-width:680px){.cap-grid{grid-template-columns:1fr}.cap-skills{grid-template-columns:1fr}.cap-tabs{flex-wrap:nowrap;overflow-x:auto;padding-bottom:4px}.cap-tab{flex:none}}
 @media(prefers-reduced-motion:reduce){.cap-card{transition:none}button.cap-card:hover{transform:none}}
+
+/* Design v3: one consistent system (tokens, sidebar, header, cards, tables, view tabs) */
+:root[data-theme="dark"]{--v-bg:#0a0f15;--v-side:#080c11;--v-surface:#101821;--v-surface2:#141f2a;--v-line:#1e2b38;--v-line2:#2a3b4b;--v-ink:#e9f1f5;--v-muted:#93a6b3;--v-accent:#4fd8bf;--v-accent2:#2bb39b;--v-soft:#12332f;--v-warn:#f2c27b;--v-warn-soft:#2b2416;--v-danger:#f08a78;--v-shadow:0 1px 0 #ffffff06 inset,0 12px 32px #0006}
+:root[data-theme="light"]{--v-bg:#f3f6f9;--v-side:#ffffff;--v-surface:#ffffff;--v-surface2:#f6f9fb;--v-line:#dfe7ee;--v-line2:#c8d5df;--v-ink:#14222e;--v-muted:#5b6f7e;--v-accent:#0a7f73;--v-accent2:#0a6f65;--v-soft:#e3f4f0;--v-warn:#7a5212;--v-warn-soft:#fff4de;--v-danger:#b4513f;--v-shadow:0 1px 2px #14324a10,0 8px 24px #14324a0c}
+:root[data-theme] body{background:var(--v-bg);color:var(--v-ink)}
+:root[data-theme] .shell{grid-template-columns:248px minmax(0,1fr);background:linear-gradient(90deg,var(--v-side) 0 248px,var(--v-bg) 248px)}
+:root[data-theme] .side{padding:22px 14px;background:var(--v-side);border-right:1px solid var(--v-line);color:var(--v-ink)}
+:root[data-theme] .side .brand{padding:2px 8px 26px}.side .brand strong{letter-spacing:.14em}
+:root[data-theme] .side .brand small,:root[data-theme] .side-note{color:var(--v-muted)}
+:root[data-theme] .secure{color:var(--v-ink)}
+:root[data-theme] .nav-label{padding:0 10px;color:var(--v-muted);font-size:10px;letter-spacing:.16em}
+:root[data-theme] .workspace-nav{display:grid;gap:3px;margin-top:6px}
+:root[data-theme] .workspace-nav .nav{display:flex;align-items:center;gap:11px;width:100%;margin:0;padding:10px 12px;border:1px solid transparent;border-radius:11px;background:transparent;color:var(--v-muted);box-shadow:none;font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+:root[data-theme] .workspace-nav .nav b{display:grid;place-items:center;width:26px;height:26px;border-radius:8px;background:var(--v-surface2);color:var(--v-accent);font-size:13px}
+:root[data-theme] .workspace-nav .nav:hover{background:var(--v-surface2);color:var(--v-ink);box-shadow:none}
+:root[data-theme] .workspace-nav .nav.active{border-color:var(--v-line2);background:var(--v-soft);color:var(--v-ink);box-shadow:none}
+:root[data-theme] .workspace-nav .nav.active b{background:var(--v-accent);color:var(--v-bg)}
+:root[data-theme] .content{width:min(1240px,100%);padding:26px clamp(18px,3.4vw,48px) 56px}
+:root[data-theme] .top{align-items:flex-start;flex-wrap:wrap;gap:14px 20px;margin-bottom:22px;padding-bottom:20px;border-bottom:1px solid var(--v-line)}
+:root[data-theme] .top h1{margin:6px 0 4px;font-size:clamp(24px,2.6vw,31px);letter-spacing:-.03em;color:var(--v-ink)}
+:root[data-theme] .top p{margin:0;color:var(--v-muted)}
+:root[data-theme] .eyebrow{color:var(--v-accent)}
+:root[data-theme] .top-actions{width:100%;display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-start;gap:8px}
+.tool-group{display:flex;align-items:center;gap:4px;padding:4px;border:1px solid var(--v-line);border-radius:12px;background:var(--v-surface)}
+:root[data-theme] .tool-group .account-action{width:auto}
+:root[data-theme] .tool-group .btn,:root[data-theme] .tool-group .language,:root[data-theme] .tool-group .theme-toggle{border-color:transparent;background:transparent;box-shadow:none;color:var(--v-muted);border-radius:8px}
+:root[data-theme] .tool-group .btn:hover,:root[data-theme] .tool-group .theme-toggle:hover{background:var(--v-surface2);color:var(--v-ink);border-color:transparent}
+:root[data-theme] .tool-group .theme-toggle{min-width:32px;height:32px;font-size:15px}
+:root[data-theme] .quick-pause{border-color:var(--v-warn)!important;background:var(--v-warn-soft)!important;color:var(--v-warn)!important;border-radius:10px}
+:root[data-theme] .hud-hero{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:22px;margin-bottom:20px;padding:22px 26px;border:1px solid var(--v-line);border-radius:18px;background:linear-gradient(135deg,var(--v-surface),var(--v-soft));box-shadow:var(--v-shadow)}
+:root[data-theme] .hud-hero .hero-copy h2{margin:6px 0 8px;font-size:clamp(22px,2.4vw,30px);line-height:1.12;letter-spacing:-.03em;color:var(--v-ink)}
+:root[data-theme] .hud-hero .hero-copy h2 span{color:var(--v-accent)}
+:root[data-theme] .hud-hero .hero-copy p{max-width:520px;margin:0 0 12px;color:var(--v-muted)}
+:root[data-theme] .hero-kicker{color:var(--v-accent)}
+:root[data-theme] .hero-tags span{border-color:var(--v-line2);background:transparent;color:var(--v-muted)}
+:root[data-theme] .core-orb{display:none}
+:root[data-theme] .hero-console{display:block;width:auto}
+:root[data-theme] .console-readouts{display:grid;gap:8px;min-width:230px}
+:root[data-theme] .console-readouts>div{padding:9px 12px;border:1px solid var(--v-line);border-radius:11px;background:var(--v-surface)}
+:root[data-theme] .console-readouts small{color:var(--v-muted)}.console-readouts strong{color:var(--v-ink)}
+:root[data-theme] .section-kicker{margin:22px 0 10px;color:var(--v-muted);font-size:11px;letter-spacing:.14em;text-transform:uppercase}
+:root[data-theme] .grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+:root[data-theme] .card,:root[data-theme] .detail-panel,:root[data-theme] .table,:root[data-theme] .warning{border:1px solid var(--v-line);border-radius:15px;background:var(--v-surface);box-shadow:var(--v-shadow)}
+:root[data-theme] .card{padding:16px 18px}
+:root[data-theme] .card-label,:root[data-theme] .sub{color:var(--v-muted)}
+:root[data-theme] .value{color:var(--v-ink)}
+:root[data-theme] .card-icon{border:1px solid var(--v-line);background:var(--v-soft);color:var(--v-accent)}
+:root[data-theme] .warning{margin:18px 0 22px;padding:14px 18px}
+:root[data-theme] .warning.reply-on{border-color:var(--v-accent2);background:linear-gradient(135deg,var(--v-surface),var(--v-soft))}
+:root[data-theme] .warning strong,:root[data-theme] .reply-control{color:var(--v-warn)}
+:root[data-theme] .warning.reply-on strong,:root[data-theme] .warning.reply-on .reply-control{color:var(--v-accent)}
+:root[data-theme] .warning p,:root[data-theme] .reply-label small{color:var(--v-muted)}
+:root[data-theme] .warn-icon{background:var(--v-surface2);color:var(--v-warn)}
+:root[data-theme] .warning.reply-on .warn-icon{color:var(--v-accent)}
+:root[data-theme] .section-head h2,:root[data-theme] .detail-panel h2{color:var(--v-ink);letter-spacing:-.01em}
+:root[data-theme] .section-head p,:root[data-theme] .detail-panel p,:root[data-theme] dt,:root[data-theme] .setting-row small{color:var(--v-muted)}
+:root[data-theme] .count{border-color:var(--v-line);background:var(--v-surface);color:var(--v-muted)}
+:root[data-theme] .detail-panel{padding:20px 22px}
+:root[data-theme] .detail-panel dl>div,:root[data-theme] .setting-row,:root[data-theme] .reply-check{border-color:var(--v-line)}
+:root[data-theme] .info-note{background:var(--v-soft);color:var(--v-accent)}
+:root[data-theme] .cap-card,:root[data-theme] .cap-tab,:root[data-theme] .cap-toggle,:root[data-theme] .cap-skills section{border-color:var(--v-line);background:var(--v-surface);color:var(--v-ink)}
+:root[data-theme] .cap-tab{color:var(--v-muted)}
+:root[data-theme] .cap-tab[aria-selected="true"]{border-color:var(--v-accent2);background:var(--v-soft);color:var(--v-accent)}
+:root[data-theme] .cap-icon{background:var(--v-soft);color:var(--v-accent)}
+:root[data-theme] .cap-card p,:root[data-theme] .cap-tag{color:var(--v-muted)}
+:root[data-theme] .cap-dialog{background:var(--v-surface);border-color:var(--v-line2)}
+:root[data-theme] .cap-more,:root[data-theme] .cap-skills h3{color:var(--v-accent)}
+/* chat table */
+:root[data-theme] .table{overflow:hidden}
+:root[data-theme] .thead{background:var(--v-surface2);color:var(--v-muted);border-bottom:1px solid var(--v-line)}
+:root[data-theme] .row{grid-template-columns:minmax(0,1.1fr) 104px minmax(250px,1.5fr) 74px;padding:12px 16px;border-color:var(--v-line);align-items:center}
+:root[data-theme] .row:hover{background:var(--v-surface2)}
+:root[data-theme] .approval-cell{flex-direction:row;flex-wrap:wrap;align-items:center;gap:6px}
+:root[data-theme] .approval-btn,:root[data-theme] .profile-btn,:root[data-theme] .friend-select{min-height:28px;padding:4px 10px;border:1px solid var(--v-line2);border-radius:999px;background:var(--v-surface2);color:var(--v-accent);font-size:11px}
+:root[data-theme] .approval-btn.remove{color:var(--v-danger)}
+:root[data-theme] .badge{background:var(--v-soft);color:var(--v-accent)}
+:root[data-theme] .badge.off{background:var(--v-surface2);color:var(--v-muted)}
+:root[data-theme] .avatar{background:var(--v-soft);color:var(--v-accent)}
+:root[data-theme] .chat-tools input,:root[data-theme] .chat-tools select{border-color:var(--v-line);background:var(--v-surface);color:var(--v-ink)}
+:root[data-theme] .chat-kind,:root[data-theme] .unread,:root[data-theme] .foot{color:var(--v-muted)}
+/* view tabs inside Avtomatik javoblar */
+.view-tabs{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 16px;padding:4px;border:1px solid var(--v-line);border-radius:13px;background:var(--v-surface);width:fit-content;max-width:100%}
+.view-tab{padding:8px 15px;border:0;border-radius:9px;background:transparent;color:var(--v-muted);font-size:13px;font-weight:650}
+.view-tab:hover{color:var(--v-ink)}.view-tab[aria-selected="true"]{background:var(--v-soft);color:var(--v-accent)}
+.view-tab small{margin-left:6px;color:var(--v-muted);font-weight:600}
+/* chat types and skills */
+.type-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px;margin-top:12px}
+.type-card{padding:13px 14px;border:1px solid var(--v-line);border-radius:12px;background:var(--v-surface2)}
+.type-card strong{display:block;margin-bottom:3px;font-size:13.5px;color:var(--v-ink)}.type-card span{color:var(--v-muted);font-size:12.5px}
+.type-card.default{border-color:var(--v-accent2)}
+.type-note{margin-top:14px;padding:10px 12px;border-radius:10px;background:var(--v-soft);color:var(--v-ink);font-size:12.5px}
+@media(max-width:900px){:root[data-theme] .shell{grid-template-columns:200px minmax(0,1fr);background:var(--v-bg)}:root[data-theme] .grid{grid-template-columns:repeat(2,minmax(0,1fr))}:root[data-theme] .hud-hero{grid-template-columns:1fr}:root[data-theme] .console-readouts{min-width:0}}
+@media(max-width:680px){:root[data-theme] .shell{display:block;background:var(--v-bg)}:root[data-theme] .side{position:static;height:auto;flex-direction:row;flex-wrap:wrap;gap:10px;padding:12px 14px;border-right:0;border-bottom:1px solid var(--v-line)}:root[data-theme] .side .brand{padding:0}:root[data-theme] .workspace-nav{display:flex!important;overflow-x:auto;flex-basis:100%;gap:6px;padding-bottom:2px}:root[data-theme] .workspace-nav .nav{flex:0 0 auto;width:auto;white-space:nowrap}:root[data-theme] .workspace-nav .nav-label,:root[data-theme] .side-note{display:none}:root[data-theme] .content{padding:18px 14px 40px}:root[data-theme] .top-actions{margin-left:0;justify-content:flex-start}:root[data-theme] .grid{grid-template-columns:1fr}:root[data-theme] .hud-hero{padding:18px}:root[data-theme] .row{grid-template-columns:1fr;gap:8px}.view-tabs{width:100%;overflow-x:auto;flex-wrap:nowrap}.view-tab{flex:none}.type-grid{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
@@ -357,8 +450,25 @@ $('#greetSwitch').addEventListener('click',async()=>{const on=$('#greetSwitch').
 
 function syncModelInputs(s){for(const [id,key] of [['#openaiModel','openai_model'],['#complexModel','complex_openai_model']]){const select=$(id);if(document.activeElement===select)continue;const value=s[key];if(!value)continue;if(Array.isArray(s.supported_models)&&s.supported_models.length&&select.options.length!==s.supported_models.length){select.replaceChildren(...s.supported_models.map(m=>Object.assign(document.createElement('option'),{value:m.id,textContent:m.label})))}if(!Array.from(select.options).some(option=>option.value===value)){const option=document.createElement('option');option.value=value;option.textContent='Amaldagi: '+value;select.append(option)}select.value=value}}
 async function saveModels(){const button=$('#saveModels'),notice=$('#modelsNotice');button.disabled=true;notice.textContent='Model tanlovi saqlanmoqda…';try{const result=await api('/dashboard/api/models',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({openai_model:$('#openaiModel').value,complex_openai_model:$('#complexModel').value})});notice.textContent=result.persisted?'Model tanlovi saqlandi va darhol faol.':'Model tanlovi hozirgi ishga tushishda faol, lekin doimiy saqlanmadi. Render’da RENDER_API_KEY sozlamasini tekshiring.';await load()}catch(error){notice.textContent=error.message==='auth'?'Panel sessiyasi tugadi. Qayta kiring.':error.message}finally{button.disabled=false}}
-function switchView(view){if(!views[view])view='overview';currentView=view;$('.top h1').textContent=views[view][0];$('.top p').textContent=views[view][1];overview.hidden=view!=='overview';$('#replyPanel').hidden=!['overview','replies'].includes(view);chats.hidden=!['overview','chats','groups'].includes(view);$('#replyDetails').hidden=view!=='replies';$('#settingsPanel').hidden=view!=='settings';navigation.querySelectorAll('[data-view]').forEach(b=>{b.classList.toggle('active',b.dataset.view===view);if(b.dataset.view===view)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current')});filterChats()}
+function switchView(view){if(!views[view])view='overview';currentView=view;$('.top h1').textContent=views[view][0];$('.top p').textContent=views[view][1];overview.hidden=view!=='overview';$('#replyPanel').hidden=!['overview','replies'].includes(view);chats.hidden=!['overview','chats','groups'].includes(view);$('#replyDetails').hidden=view!=='replies';viewTabs.hidden=view!=='replies';if(view==='replies'&&replyTab==='types')loadTypes();$('#settingsPanel').hidden=view!=='settings';navigation.querySelectorAll('[data-view]').forEach(b=>{b.classList.toggle('active',b.dataset.view===view);if(b.dataset.view===view)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current')});filterChats()}
 function filterChats(){const query=$('#chatSearch').value.trim().toLocaleLowerCase('uz'),filter=$('#chatFilter').value;let visible=0;const rows=$('#chats').querySelectorAll('.row');rows.forEach(row=>{row.hidden=!(row.dataset.title.includes(query)&&(currentView!=='groups'||row.dataset.kind==='Guruh'||row.dataset.kind==='Kanal')&&(filter!=='approved'||row.dataset.approved==='true')&&(filter!=='unread'||Number(row.dataset.unread)>0)&&(!filter.startsWith('friend')||(filter==='friend'?row.dataset.friend!=='':row.dataset.friend===filter.slice(7))));if(!row.hidden)visible++});$('#chatCount').textContent=visible+' ta chat';noMatches.hidden=visible>0||rows.length===0}
+
+/* Design v3 wiring: tool groups, Avtomatik javoblar tabs, chat types and skills */
+(function(){const actions=$('.top-actions');if(actions&&!actions.querySelector('.tool-group')){const primary=document.createElement('div');primary.className='tool-group';primary.append($('#connectionCheck'),$('#aiCheck'),$('#refresh'));const secondary=document.createElement('div');secondary.className='tool-group';const account=$('.account-action');secondary.append($('.theme-toggle'),$('.language'),...(account?[account]:[]),$('#logout'));actions.replaceChildren(...[primary,secondary,$('#quickPause')].filter(Boolean))}})();
+const replyTabs=[['status','Holat va qoidalar'],['strangers','Notanish chatlar'],['types','Suhbat turlari va skillar']];
+const typesPanel=document.createElement('article');typesPanel.className='detail-panel';typesPanel.dataset.group='types';typesPanel.style.gridColumn='1/-1';typesPanel.innerHTML='<h2>Suhbat turlari</h2><p>Har bir chat uchun alohida tur tanlanadi: Suhbatlar ro‘yxatidagi “Maxsus xotira” → tur. Tur faqat uslub va yo‘nalishni o‘zgartiradi; Shadow doim AI ekanini rost aytadi.</p><div class="type-grid" id="typeGrid">Yuklanmoqda…</div><h2 style="margin-top:22px">Skillar</h2><p>Shadow doim biladigan ko‘nikmalar. Alohida yoqish shart emas: kerak bo‘lganda o‘zi qo‘llaydi.</p><div class="type-grid" id="skillGrid"></div><div class="type-note">Yangi tur yoki skill kerak bo‘lsa, ayting: qo‘shamiz.</div>';
+$('#replyDetails').append(typesPanel);
+const groupByTitle={'Avto chatni ishga tushirish':'status','Javob berish qoidalari':'status','Yuborish nazorati':'status','Avtojavob tekshiruvi':'status','Instagram va TikTok videolari':'strangers','Notanish chatlar bilan salomlashish':'strangers','Notanish chatlarga ham video':'strangers'};
+$('#replyDetails').querySelectorAll(':scope>article').forEach(a=>{const h=a.querySelector('h2');if(h&&groupByTitle[h.textContent])a.dataset.group=groupByTitle[h.textContent]});
+const viewTabs=document.createElement('div');viewTabs.className='view-tabs';viewTabs.setAttribute('role','tablist');viewTabs.setAttribute('aria-label','Avtomatik javoblar bo‘limlari');
+let replyTab='status';
+function showReplyTab(tab){replyTab=tab;viewTabs.querySelectorAll('.view-tab').forEach(b=>b.setAttribute('aria-selected',String(b.dataset.tab===tab)));$('#replyDetails').querySelectorAll(':scope>article').forEach(a=>{a.hidden=(a.dataset.group||'status')!==tab})}
+replyTabs.forEach(([key,label])=>{const b=document.createElement('button');b.type='button';b.className='view-tab';b.dataset.tab=key;b.setAttribute('role','tab');b.textContent=label;b.addEventListener('click',()=>{showReplyTab(key);if(key==='types')loadTypes()});viewTabs.append(b)});
+$('#replyDetails').before(viewTabs);viewTabs.hidden=true;
+let typesLoaded=false;
+async function loadTypes(){if(typesLoaded)return;try{const data=await api('/dashboard/api/agents');const card=(item,isDefault)=>{const el=document.createElement('div');el.className='type-card'+(isDefault?' default':'');const t=document.createElement('strong');t.textContent=item.label;const d=document.createElement('span');d.textContent=item.description;el.append(t,d);return el};$('#typeGrid').replaceChildren(...(data.agents||[]).map((a,i)=>card(a,i===0)));$('#skillGrid').replaceChildren(...(data.skills||[]).map(x=>card(x,false)));typesLoaded=true}catch(error){$('#typeGrid').textContent=error.message==='auth'?'Panel sessiyasi tugadi. Qayta kiring.':'Ro‘yxatni yuklab bo‘lmadi. Yangilashni bosing.'}}
+showReplyTab('status');
+
 function syncPanels(s){syncGreet(s);syncVideoUnknown(s);$('#quickPause').hidden=!s.reply_enabled;updateReplyActivity(s);updateReplyReadiness(s);$('#heroConnection').textContent=s.connected?'ALOQA FAOL':'ALOQA UZILGAN';$('#heroReplies').textContent=s.reply_enabled?'JAVOBLAR YOQILGAN':'JAVOBLAR O‘CHIRILGAN';$('#heroModel').textContent=s.last_ai_model||s.openai_model||'Vazifa kutilyapti';syncModelInputs(s);$('#groupMode').textContent=s.group_reply_mode==='all'?'Barcha xabarlarga':'Eslatma yoki javobga';$('#replyApproved').textContent=String(s.approved_chat_count);$('#settingsConnection').textContent=s.connected?'Ulangan':'Ulanmagan';$('#sessionSaved').textContent=typeof s.session_persisted==='boolean'?(s.session_persisted?'Ha':'Yo‘q'):'—';$('#sessionAvailable').textContent=typeof s.can_persist_session==='boolean'?(s.can_persist_session?'Mavjud':'Sozlanmagan'):'—';$('#lastUpdated').textContent=new Date().toLocaleTimeString('uz-UZ',{hour:'2-digit',minute:'2-digit',second:'2-digit'});$('#panelNotice').textContent=s.last_error?'Ulanish holati: '+s.last_error:''}
 $('#saveModels').addEventListener('click',saveModels);
 function renderAiProviders(s){const box=$('#aiProviderList');if(!box)return;const list=(s.ai_backup&&s.ai_backup.providers)||[];box.replaceChildren();if(!list.length){box.textContent='Qo‘shilgan zaxira AI yo‘q.';return}list.forEach(p=>{const row=document.createElement('div');row.className='setting-row';const info=document.createElement('div');const name=document.createElement('strong');name.textContent=p.name;const model=document.createElement('small');model.textContent=p.model;info.append(name,model);const del=document.createElement('button');del.type='button';del.className='btn';del.textContent='O‘chirish';del.addEventListener('click',()=>removeAiProvider(p,del));row.append(info,del);box.append(row)})}
