@@ -28,3 +28,4 @@ jobs:
       - run: python -m unittest discover -s tests -p 'test_model_catalog.py'
       - run: python -m unittest discover -s tests -p 'test_ai_fallback.py'
       - run: python -m unittest discover -s tests -p 'test_compat_tools.py'
+      - run: python -m unittest discover -s tests -p 'test_multi_providers.py'
