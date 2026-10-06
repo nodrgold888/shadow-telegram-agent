@@ -156,6 +156,13 @@ name, base URL (templates for OpenRouter and Gemini), model ID and API key. Shad
 (1..5) through the Render API (`RENDER_API_KEY` + `RENDER_SERVICE_ID` must be set; Render then restarts the service) and also
 applies it live. Each added provider is listed under the form with an "O'chirish" button that frees its slot (variables are removed from Render too). The key is never shown again or logged. Without Render persistence the provider only lives until the next restart.
 
+## Voice messages
+
+Voice messages in approved chats are transcribed with OpenAI (`gpt-transcribe`) and answered like text. When OpenAI is
+limited (429), cooling down or not configured, Shadow transcribes with Gemini instead (the models of your Gemini backup
+providers, then `gemini-flash-lite-latest`) through the `google-genai` SDK. The answer is a voice note when OpenAI
+speech works, otherwise a text reply. Voice messages up to 3 minutes / 10 MB.
+
 ## Image generation (owner only)
 
 Write `/rasm <tavsif>` to yourself in Telegram **Saved Messages** and Shadow answers there with a generated image
