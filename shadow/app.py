@@ -310,6 +310,20 @@ async def dashboard_replies(
     return {"reply_enabled": agent.reply_enabled, "persisted": persisted}
 
 
+@app.post("/dashboard/api/greet-unknown")
+async def dashboard_greet_unknown(
+    request: Request,
+    shadow_setup: str | None = Cookie(default=None),
+    authorization: str | None = Header(default=None),
+) -> dict[str, object]:
+    if not _dashboard_allowed(shadow_setup, authorization):
+        raise HTTPException(status_code=401, detail="Kirish kerak")
+    enabled = (await request.json()).get("enabled")
+    if not isinstance(enabled, bool):
+        raise HTTPException(status_code=400, detail="enabled qiymati true yoki false bo‘lishi kerak")
+    return await agent.set_greet_unknown(enabled)
+
+
 @app.post("/dashboard/api/ai-providers")
 async def dashboard_add_ai_provider(
     request: Request,
