@@ -51,6 +51,13 @@ class HumanChatTests(unittest.TestCase):
         self.assertIn("Davr Bank", bank.instructions)
         self.assertIn("boshqa banklarni tilga olmang", bank.instructions)
 
+    def test_clarifying_questions_name_the_options(self):
+        skill = assistant.SKILL_PROMPT
+        self.assertIn("Clarifying questions: name the options", skill)
+        self.assertIn("Avto salondan yangi mashinami, yoki bozordan (ikkinchi qo‘l)mi?", skill)
+        self.assertIn("ask one short question that names the options", skill)
+        self.assertIn("Clarifying questions: name the options", assistant.PUBLIC_SKILL_PROMPT)
+
     def test_honesty_rules_survive_the_style_change(self):
         self.assertIn("rost ayting", assistant.SYSTEM_PROMPT)
         self.assertIn("inson yoki akkaunt egasining o‘zi deb da’vo qilmang", assistant.SYSTEM_PROMPT)
