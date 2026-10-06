@@ -85,6 +85,15 @@ def _ai_base_url(raw: str) -> str:
 MAX_BACKUP_PROVIDERS = 5
 
 
+def _first_slot(raw: str) -> int:
+    """AI_FIRST_SLOT: which backup slot (1..5) is tried first; anything else means no preference."""
+    try:
+        value = int(raw.strip())
+    except ValueError:
+        return 0
+    return value if 1 <= value <= MAX_BACKUP_PROVIDERS else 0
+
+
 @dataclass(frozen=True)
 class AIProvider:
     """One OpenAI-compatible (Chat Completions) backup provider."""
@@ -136,6 +145,7 @@ class Settings:
     ai_primary: bool = False
     ai_name: str = "zaxira"
     ai_extra_providers: tuple["AIProvider", ...] = ()
+    ai_first_slot: int = 0
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -181,6 +191,7 @@ class Settings:
             ai_primary=_boolean("AI_PRIMARY", False, local.get("AI_PRIMARY")),
             ai_name=re.sub(r"[^A-Za-z0-9 ._-]", "", os.getenv("AI_NAME", "")).strip()[:30] or "zaxira",
             ai_extra_providers=_extra_providers(),
+            ai_first_slot=_first_slot(os.getenv("AI_FIRST_SLOT", "")),
         )
 
     @property
@@ -190,7 +201,11 @@ class Settings:
             (AIProvider(self.ai_name, self.ai_base_url, self.ai_api_key, self.ai_model, 1),)
             if self.ai_base_url and self.ai_api_key and self.ai_model else ()
         )
-        return first + self.ai_extra_providers
+        providers = first + self.ai_extra_providers
+        if self.ai_first_slot:
+            # The owner picked one provider (panel "Birinchi qilish"): it is tried before the others.
+            providers = tuple(sorted(providers, key=lambda p: p.slot != self.ai_first_slot))
+        return providers
 
     @property
     def compat_ai_ready(self) -> bool:

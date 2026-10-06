@@ -556,7 +556,7 @@ class TelegramAgent:
             "group_reply_mode": self.settings.group_reply_mode,
             "last_ai_model": self.assistant.last_model if self.assistant else None,
             "openai_model": self.settings.openai_model,
-            "ai_backup": {"configured": self.settings.compat_ai_ready, "model": self.settings.ai_model or None, "primary": self.settings.ai_primary, "last_provider": self.assistant.last_provider if self.assistant else None, "providers": [{"name": p.name, "model": p.model, "slot": p.slot} for p in self.settings.backup_providers]},
+            "ai_backup": {"configured": self.settings.compat_ai_ready, "model": self.settings.ai_model or None, "primary": self.settings.ai_primary, "first_slot": self.settings.ai_first_slot, "last_provider": self.assistant.last_provider if self.assistant else None, "providers": [{"name": p.name, "model": p.model, "slot": p.slot} for p in self.settings.backup_providers]},
             "supported_models": [{"id": model_id, "label": label} for model_id, label in AVAILABLE_MODELS],
             "complex_openai_model": self.settings.complex_openai_model,
             "last_error": self.last_error,
