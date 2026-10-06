@@ -111,7 +111,7 @@ Open <http://localhost:10000/healthz>.
 
 Shadow answers only when **all** of these are true: Telegram is connected, the dashboard reply switch is on, `OPENAI_API_KEY` is set, and the chat is in the approved list (dashboard → chats). Messages from chats that are not approved are ignored on purpose, including private chats from people you did not approve. In approved private chats it answers every message; in approved groups it answers only when mentioned or replied to, unless `GROUP_REPLY_MODE=all`.
 
-Replies are written like a real person texting (short, in the other person's register and language, no assistant boilerplate, a short "typing…" pause), but Shadow never claims to be human and says it is Shadow AI if someone sincerely asks (`shadow/skills/human_chat.md`).
+Replies are written like a real person texting (`shadow/skills/human_chat.md`): short, in the other person's language, script and register, no assistant boilerplate. A reply can be sent as up to three consecutive short messages (the model separates them with a `||` line), with a brief "read" pause and a typing pause before each one. Shadow never claims to be human and says it is Shadow AI if someone sincerely asks.
 
 ### Instagram / TikTok video download
 
@@ -141,7 +141,7 @@ OpenAI API credits are prepaid and separate from a ChatGPT/Codex plan's usage li
 - `AI_API_KEY`: an API key from that provider
 - `AI_MODEL`: the exact model ID from that provider's docs
 
-By default the backup is used automatically when OpenAI fails with no credits / rate limit (429), a bad key (401/402/403), a server error or a connection error; other errors (e.g. 400) are shown, not hidden. Set `AI_PRIMARY=true` to use the backup first, and if `OPENAI_API_KEY` is empty it is used on its own. Backup mode is text-only: Word/Excel creation and the calculator tool are not available, and voice-message transcription and speech replies still need OpenAI. Chat text sent to the AI goes to the provider you configure, so choose one you trust with that content. The dashboard's "AI ni tekshirish" button tests OpenAI and the backup separately.
+By default the backup is used automatically when OpenAI fails with no credits / rate limit (429), a bad key (401/402/403), a server error or a connection error; other errors (e.g. 400) are shown, not hidden. Set `AI_PRIMARY=true` to use the backup first, and if `OPENAI_API_KEY` is empty it is used on its own. The backup supports the calculator and Word/Excel creation through function calling; if a provider rejects tools, Shadow retries as plain text. Voice-message transcription and speech replies still need OpenAI. Chat text sent to the AI goes to the provider you configure, so choose one you trust with that content. The dashboard's "AI ni tekshirish" button tests OpenAI and the backup separately.
 
 ## Always-online status
 
