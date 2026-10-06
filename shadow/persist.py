@@ -118,14 +118,34 @@ async def save_session(session: str) -> bool:
     return True
 
 
-def load_friend_chats() -> frozenset[int]:
+FRIEND_CATEGORIES = {"oila": "Oila", "ish": "Ish", "dostlar": "Do‘stlar"}
+DEFAULT_FRIEND_CATEGORY = "dostlar"
+
+
+def parse_friend_chats(raw: str) -> dict[int, str]:
+    """`5:oila,7` -> {5: "oila", 7: "dostlar"}. A bare id or unknown category means "dostlar"."""
+    result: dict[int, str] = {}
+    for item in raw.split(","):
+        item = item.strip()
+        if not item:
+            continue
+        chat, _, category = item.partition(":")
+        result[int(chat)] = category.strip() if category.strip() in FRIEND_CATEGORIES else DEFAULT_FRIEND_CATEGORY
+    return result
+
+
+def format_friend_chats(friends: dict[int, str]) -> str:
+    return ",".join(f"{chat}:{friends[chat]}" for chat in sorted(friends))
+
+
+def load_friend_chats() -> dict[int, str]:
     """Chats (friends) where Shadow never writes. Bad values are ignored, never fatal."""
     raw = load_local_settings().get("FRIEND_CHAT_IDS", os.getenv("FRIEND_CHAT_IDS", "")).strip()
     try:
-        return frozenset(int(item) for item in raw.split(",") if item.strip())
+        return parse_friend_chats(raw)
     except ValueError:
         log.warning("Ignoring invalid FRIEND_CHAT_IDS")
-        return frozenset()
+        return {}
 
 
 async def save_friend_chats(value: str) -> bool:

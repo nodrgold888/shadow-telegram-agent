@@ -20,7 +20,7 @@ from .office_files import OfficeFileError, MAX_UPLOAD_BYTES, inspect_office
 _WORK_SLOTS = asyncio.Semaphore(2)
 from .video_download import VideoDownloadError, downloaded_video, find_video_url
 from .config import AVAILABLE_MODELS, Settings
-from .persist import persistence_available, load_friend_chats, save_friend_chats, load_chat_profiles, save_chat_profiles, save_session, save_approved_chats, save_reply_enabled
+from .persist import persistence_available, load_friend_chats, save_friend_chats, format_friend_chats, FRIEND_CATEGORIES, DEFAULT_FRIEND_CATEGORY, load_chat_profiles, save_chat_profiles, save_session, save_approved_chats, save_reply_enabled
 from .diagnostics import safe_error_detail
 from .image_gen import ImageGenError, gemini_api_key, generate_image, parse_image_command
 from .humanize import human_typing_delay, read_delay, split_parts
@@ -55,7 +55,7 @@ class TelegramAgent:
         self._approval_lock = asyncio.Lock()
         self._profile_lock = asyncio.Lock()
         self.chat_profiles = load_chat_profiles()
-        self.friend_ids: frozenset[int] = load_friend_chats()
+        self.friend_ids: dict[int, str] = load_friend_chats()
         self.session_persisted = bool(settings.telegram_session)
         self._watchdog_task: asyncio.Task | None = None
         self.presence = OnlinePresence(settings.always_online)
@@ -634,20 +634,22 @@ class TelegramAgent:
                 selected.discard(chat_id)
             return await self._apply_chat_approvals(frozenset(selected))
 
-    async def update_chat_friend(self, chat_id: int, friend: bool) -> dict[str, object]:
+    async def update_chat_friend(self, chat_id: int, friend: bool, category: str = DEFAULT_FRIEND_CATEGORY) -> dict[str, object]:
         """Friends are chats Shadow never writes to, whatever the approval list says."""
+        if category not in FRIEND_CATEGORIES:
+            raise ValueError("Do‘st toifasi noto‘g‘ri")
         async with self._approval_lock:
             if friend:
                 dialogs = await self.dialogs()
                 if not any(dialog["id"] == chat_id for dialog in dialogs):
                     raise ValueError("Chat arxivlanmagan suhbatlar ro‘yxatida topilmadi")
-            selected = set(self.friend_ids)
+            selected = dict(self.friend_ids)
             if friend:
-                selected.add(chat_id)
+                selected[chat_id] = category
             else:
-                selected.discard(chat_id)
-            self.friend_ids = frozenset(selected)
-            persisted = await save_friend_chats(",".join(str(i) for i in sorted(selected)))
+                selected.pop(chat_id, None)
+            self.friend_ids = selected
+            persisted = await save_friend_chats(format_friend_chats(selected))
         return {"ok": True, "persisted": persisted, "friend_count": len(selected)}
 
     async def clear_chat_approvals(self) -> dict[str, object]:
@@ -689,6 +691,7 @@ class TelegramAgent:
                 "kind": "Kanal" if is_channel else "Guruh" if is_group else "Shaxsiy chat",
                 "approved": approved == "*" or dialog.id in approved,
                 "friend": dialog.id in self.friend_ids,
+                "friend_category": self.friend_ids.get(dialog.id, ""),
                 "has_profile": (approved == "*" or dialog.id in approved) and str(dialog.id) in self.chat_profiles,
                 "unread_count": dialog.unread_count,
             })
