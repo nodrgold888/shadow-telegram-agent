@@ -271,10 +271,11 @@ async def dashboard_chat_friend(
     if not isinstance(body, dict):
         raise HTTPException(status_code=400, detail="So‘rov noto‘g‘ri")
     chat_id, friend = body.get("chat_id"), body.get("friend")
-    if type(chat_id) is not int or type(friend) is not bool:
+    category = body.get("category", "dostlar")
+    if type(chat_id) is not int or type(friend) is not bool or type(category) is not str:
         raise HTTPException(status_code=400, detail="Chat ID va holat noto‘g‘ri")
     try:
-        return await agent.update_chat_friend(chat_id, friend)
+        return await agent.update_chat_friend(chat_id, friend, category)
     except ValueError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
 
