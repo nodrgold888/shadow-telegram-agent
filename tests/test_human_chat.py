@@ -24,6 +24,18 @@ class HumanChatTests(unittest.TestCase):
         self.assertIn("What makes a reply sound like a bot", assistant.SKILL_PROMPT)
         self.assertIn("Small talk examples", assistant.SKILL_PROMPT)
 
+    def test_skill_forbids_unprompted_offers_and_meta_comments(self):
+        skill = assistant.SKILL_PROMPT
+        self.assertIn("kredit bo'yicha yordam kerakmidi?", skill)
+        self.assertIn("yana salom", skill)
+        self.assertIn("The one test", skill)
+        self.assertIn("so‘ramagan xizmat yoki mavzuni", assistant.SYSTEM_PROMPT)
+
+    def test_skill_has_plain_greeting_examples(self):
+        skill = assistant.SKILL_PROMPT
+        self.assertIn("salom  →  salom", skill)
+        self.assertIn("Never (each of these is a bot)", skill)
+
     def test_honesty_rules_survive_the_style_change(self):
         self.assertIn("rost ayting", assistant.SYSTEM_PROMPT)
         self.assertIn("inson yoki akkaunt egasining o‘zi deb da’vo qilmang", assistant.SYSTEM_PROMPT)
