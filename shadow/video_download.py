@@ -11,6 +11,8 @@ from urllib.parse import urlsplit
 MAX_BYTES = 50 * 1024 * 1024
 TIMEOUT_SECONDS = 120
 _DOWNLOAD_SLOTS = asyncio.Semaphore(2)
+EXIT_LOGIN_REQUIRED = 2
+EXIT_TOO_LARGE = 3
 
 
 class VideoDownloadError(Exception):
@@ -28,7 +30,10 @@ def find_video_url(text: str) -> str | None:
             path = parsed.path
         except ValueError:
             continue
-        if host in {"instagram.com", "www.instagram.com", "m.instagram.com"} and re.match(r"^/(?:reel|reels|p|tv)/[A-Za-z0-9_-]+/?$", path):
+        if host in {"instagram.com", "www.instagram.com", "m.instagram.com"} and re.match(
+            # /reel/ID, /p/ID, /tv/ID and the profile-prefixed /<user>/reel/ID form.
+            r"^(?:/[A-Za-z0-9._]+)?/(?:reel|reels|p|tv)/[A-Za-z0-9_-]+/?$", path
+        ):
             return candidate
         if host in {"tiktok.com", "www.tiktok.com", "m.tiktok.com"} and (
             re.match(r"^/@[^/]+/video/\d+/?$", path)
@@ -80,6 +85,13 @@ def _worker(url: str, directory: str) -> int:
             downloader.download([url])
         video = target / "video.mp4"
         return 0 if video.is_file() and 0 < video.stat().st_size <= MAX_BYTES else 1
+    except DownloadError as exc:
+        message = str(exc).lower()
+        if any(word in message for word in ("login", "log in", "private", "cookies", "authentication")):
+            return EXIT_LOGIN_REQUIRED
+        if "video_size_limit" in message or "max-filesize" in message:
+            return EXIT_TOO_LARGE
+        return 1
     except Exception:
         return 1
 
@@ -100,6 +112,10 @@ async def downloaded_video(url: str):
                     await asyncio.wait_for(process.wait(), timeout=TIMEOUT_SECONDS)
                 except asyncio.TimeoutError as exc:
                     raise VideoDownloadError("Video yuklash vaqti tugadi. Keyinroq qayta urinib ko‘ring.") from exc
+                if process.returncode == EXIT_LOGIN_REQUIRED:
+                    raise VideoDownloadError("Bu video yopiq yoki kirish talab qiladi. Faqat ochiq (hamma ko‘ra oladigan) videolarni yuklay olaman.")
+                if process.returncode == EXIT_TOO_LARGE:
+                    raise VideoDownloadError("Video 50 MB dan katta, Telegram orqali yubora olmayman.")
                 if process.returncode != 0:
                     raise VideoDownloadError("Videoni yuklab bo‘lmadi. Havola ochiq video bo‘lishi kerak. Sayt kirishni cheklagan yoki video 50 MB dan katta bo‘lishi mumkin.")
                 video = Path(directory) / "video.mp4"

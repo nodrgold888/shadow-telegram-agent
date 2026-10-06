@@ -20,7 +20,7 @@ _WORK_SLOTS = asyncio.Semaphore(2)
 from .video_download import VideoDownloadError, downloaded_video, find_video_url
 from .config import Settings
 from .persist import persistence_available, load_chat_profiles, save_chat_profiles, save_session, save_approved_chats, save_reply_enabled
-from .policy import chat_is_approved, group_message_needs_reply, split_telegram_message
+from .policy import chat_is_approved, group_message_needs_reply, split_telegram_message, typing_delay
 
 log = logging.getLogger("shadow.telegram")
 
@@ -272,10 +272,11 @@ class TelegramAgent:
                         async with downloaded_video(video_url) as video:
                             if not self.reply_enabled or not chat_is_approved(chat_id, self.settings.approved_chat_ids):
                                 return
-                            await self.client.send_file(
-                                chat_id, str(video), caption="Video tayyor.",
-                                reply_to=event.id, supports_streaming=True,
-                            )
+                            async with self.client.action(chat_id, "video"):
+                                await self.client.send_file(
+                                    chat_id, str(video), caption="Video tayyor.",
+                                    reply_to=event.id, supports_streaming=True,
+                                )
                         self.reply_count += 1
                         self.last_reply_at = datetime.now(timezone.utc).isoformat()
                         self.last_reply_error = None
@@ -369,6 +370,9 @@ class TelegramAgent:
                     directory=directory, document_preview=preview,
                     chat_profile=self.chat_profiles.get(str(chat_id), {}),
                 )
+                if answer and not voice_reply:
+                    # Keep "typing…" visible for a moment so replies arrive at a human pace.
+                    await asyncio.sleep(typing_delay(answer))
             if not answer and not files:
                 raise RuntimeError("empty_ai_reply")
             speech_path = None
