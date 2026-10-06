@@ -141,6 +141,8 @@ OpenAI API credits are prepaid and separate from a ChatGPT/Codex plan's usage li
 - `AI_API_KEY`: an API key from that provider
 - `AI_MODEL`: the exact model ID from that provider's docs
 
+**Google Gemini.** With a Gemini API key (from Google AI Studio) use Google's OpenAI-compatible endpoint: `AI_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai`, `AI_API_KEY=<your Gemini key>`, `AI_MODEL=<a model ID from Google's docs, e.g. gemini-3.8-flash>`, `AI_NAME=Gemini`. Model names change often, so confirm the ID with the dashboard's "AI ni tekshirish" button. If a provider rejects `max_tokens` Shadow retries the request once without it. Check Google's terms for how free-tier prompts are used before sending private chats there.
+
 **More than one backup provider.** Add up to four more by repeating the three values with a numeric suffix: `AI_BASE_URL_2`, `AI_API_KEY_2`, `AI_MODEL_2` (and `_3`, `_4`, `_5`). Optionally name any slot with `AI_NAME` / `AI_NAME_2` ... (shown in the dashboard). Providers are tried in order (slot 1, then 2, 3, ...); the first that answers wins and a failing one is skipped for that message. A slot with only some of its three values is ignored. "AI ni tekshirish" tests every provider separately and `/admin/status` lists them under `ai_backup.providers`.
 
 **Free providers via FreeLLMAPI.** [FreeLLMAPI](https://github.com/tashfeenahmed/freellmapi) aggregates many free LLM tiers behind one OpenAI-compatible endpoint and works as a backup provider with no code change (`AI_MODEL=auto`). A hardened start script and the security notes (it needs Docker and a persistent disk, so it cannot run on Render's free plan, and must only be exposed over HTTPS) are in [`integrations/freellmapi/`](integrations/freellmapi/README.md).
