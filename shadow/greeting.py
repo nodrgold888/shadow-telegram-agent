@@ -48,3 +48,28 @@ class GreetingState:
 
     def mute(self, chat_id: int) -> None:
         self.muted.add(chat_id)
+
+
+# Notes to the owner about people who are not approved: one per chat every few minutes, capped overall.
+NOTE_GAP_SECONDS = 10 * 60
+NOTE_GLOBAL_PER_HOUR = 20
+
+
+@dataclass
+class NoteState:
+    gap_seconds: int = NOTE_GAP_SECONDS
+    global_per_hour: int = NOTE_GLOBAL_PER_HOUR
+    note_count: int = 0
+    _last: dict[int, float] = field(default_factory=dict)
+    _global_times: deque = field(default_factory=deque)
+
+    def allow(self, chat_id: int, now: float | None = None) -> bool:
+        now = time.time() if now is None else now
+        while self._global_times and self._global_times[0] < now - 3600:
+            self._global_times.popleft()
+        if now - self._last.get(chat_id, float("-inf")) < self.gap_seconds or len(self._global_times) >= self.global_per_hour:
+            return False
+        self._last[chat_id] = now
+        self._global_times.append(now)
+        self.note_count += 1
+        return True
