@@ -18,7 +18,7 @@ RENDER_API = "https://api.render.com/v1"
 
 
 _local_lock = threading.Lock()
-_LOCAL_KEYS = {"TELEGRAM_SESSION", "APPROVED_CHAT_IDS", "REPLY_ENABLED", "SHADOW_MODEL_SELECTION", "SHADOW_CHAT_PROFILES"}
+_LOCAL_KEYS = {"TELEGRAM_SESSION", "APPROVED_CHAT_IDS", "REPLY_ENABLED", "SHADOW_MODEL_SELECTION", "SHADOW_CHAT_PROFILES", "FRIEND_CHAT_IDS"}
 
 
 def load_local_settings() -> dict[str, str]:
@@ -115,6 +115,36 @@ async def save_session(session: str) -> bool:
         log.error("Could not persist Telegram session: %s", type(exc).__name__)
         return False
     log.info("Telegram session saved to Render environment")
+    return True
+
+
+def load_friend_chats() -> frozenset[int]:
+    """Chats (friends) where Shadow never writes. Bad values are ignored, never fatal."""
+    raw = load_local_settings().get("FRIEND_CHAT_IDS", os.getenv("FRIEND_CHAT_IDS", "")).strip()
+    try:
+        return frozenset(int(item) for item in raw.split(",") if item.strip())
+    except ValueError:
+        log.warning("Ignoring invalid FRIEND_CHAT_IDS")
+        return frozenset()
+
+
+async def save_friend_chats(value: str) -> bool:
+    if os.getenv("SHADOW_STATE_FILE", "").strip():
+        try:
+            await asyncio.to_thread(_save_local, "FRIEND_CHAT_IDS", value)
+            return True
+        except Exception as exc:
+            log.error("Could not save friend list locally: %s", type(exc).__name__)
+            return False
+    if not persistence_available():
+        return False
+    try:
+        await asyncio.to_thread(
+            _put_env_var, os.environ["RENDER_SERVICE_ID"].strip(), os.environ["RENDER_API_KEY"].strip(),
+            "FRIEND_CHAT_IDS", value)
+    except Exception as exc:
+        log.warning("Could not persist friend list: %s", type(exc).__name__)
+        return False
     return True
 
 

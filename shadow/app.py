@@ -259,6 +259,26 @@ async def dashboard_chat_approval(
         raise HTTPException(status_code=409, detail=str(exc)) from exc
 
 
+@app.post("/dashboard/api/chats/friend")
+async def dashboard_chat_friend(
+    request: Request,
+    shadow_setup: str | None = Cookie(default=None),
+    authorization: str | None = Header(default=None),
+) -> dict[str, object]:
+    if not _dashboard_allowed(shadow_setup, authorization):
+        raise HTTPException(status_code=401, detail="Kirish kerak")
+    body = await request.json()
+    if not isinstance(body, dict):
+        raise HTTPException(status_code=400, detail="So‘rov noto‘g‘ri")
+    chat_id, friend = body.get("chat_id"), body.get("friend")
+    if type(chat_id) is not int or type(friend) is not bool:
+        raise HTTPException(status_code=400, detail="Chat ID va holat noto‘g‘ri")
+    try:
+        return await agent.update_chat_friend(chat_id, friend)
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
 @app.post("/dashboard/api/chats/clear-approvals")
 async def dashboard_clear_chat_approvals(
     shadow_setup: str | None = Cookie(default=None),
