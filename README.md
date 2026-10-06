@@ -117,6 +117,12 @@ Replies are written like a real person texting (short, in the other person's reg
 
 In an approved chat, a public Instagram (reel, post, IGTV, also `instagram.com/<user>/reel/...`) or TikTok link is downloaded and sent back as a video, even in groups and without a mention. Limits: public videos only (no private accounts, stories or photo posts), up to 50 MB. Private or login-protected links get a specific message (`shadow/skills/video_download.md`).
 
+## Always-online status
+
+By default Shadow keeps the connected Telegram account showing as **online** by refreshing its status every ~2 minutes (`shadow/presence.py`). It only changes the visible status; it never reads or sends messages. Turn it off with `ALWAYS_ONLINE=false`. Current state and counters are under `online_presence` in `/admin/status` and the dashboard status.
+
+Things to know: while one session is online, Telegram may stop sending push notifications to your other devices (phone, desktop), so you can miss message alerts. The account also looks online to everyone who can see your status, even when you are away. Staying online 24/7 also needs the service itself to be awake (see Keep-alive ping below; the free Render plan can still sleep).
+
 ## Keep-alive ping
 
 On Render's free plan the service sleeps after about 15 minutes without inbound traffic, which interrupts the Telegram connection. Two independent pingers call the lightweight public `/ping` endpoint (it never touches Telegram or the agent):

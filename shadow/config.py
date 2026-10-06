@@ -57,6 +57,7 @@ class Settings:
     admin_token: str
     setup_token: str
     complex_openai_model: str = "gpt-6-luna"
+    always_online: bool = True
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -89,6 +90,7 @@ class Settings:
             max_reply_chars=max(500, min(_integer("MAX_REPLY_CHARS", 3800) or 3800, 4000)),
             admin_token=os.getenv("ADMIN_TOKEN", "").strip(),
             setup_token=os.getenv("SETUP_TOKEN", "").strip(),
+            always_online=_boolean("ALWAYS_ONLINE", True, local.get("ALWAYS_ONLINE")),
         )
 
     @property

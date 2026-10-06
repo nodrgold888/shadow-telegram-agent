@@ -22,3 +22,4 @@ jobs:
       - run: python -m unittest discover -s tests -p 'test_keepalive.py'
       - run: python -m unittest discover -s tests -p 'test_panel_login.py'
       - run: python -m unittest discover -s tests -p 'test_human_chat.py'
+      - run: python -m unittest discover -s tests -p 'test_presence.py'

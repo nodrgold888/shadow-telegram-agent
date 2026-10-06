@@ -20,6 +20,7 @@ _WORK_SLOTS = asyncio.Semaphore(2)
 from .video_download import VideoDownloadError, downloaded_video, find_video_url
 from .config import Settings
 from .persist import persistence_available, load_chat_profiles, save_chat_profiles, save_session, save_approved_chats, save_reply_enabled
+from .presence import OnlinePresence
 from .policy import chat_is_approved, group_message_needs_reply, split_telegram_message, typing_delay
 
 log = logging.getLogger("shadow.telegram")
@@ -49,6 +50,7 @@ class TelegramAgent:
         self.chat_profiles = load_chat_profiles()
         self.session_persisted = bool(settings.telegram_session)
         self._watchdog_task: asyncio.Task | None = None
+        self.presence = OnlinePresence(settings.always_online)
         self.session_revoked = False
 
     async def start(self) -> None:
@@ -114,6 +116,7 @@ class TelegramAgent:
         self.settings = replace(self.settings, telegram_session=session)
 
     async def stop(self) -> None:
+        self.presence.stop()
         if self._watchdog_task:
             self._watchdog_task.cancel()
         if self.client:
@@ -141,6 +144,7 @@ class TelegramAgent:
         self.connected = True
         self.last_error = None
         log.info("Shadow connected to Telegram account %s", self.account_label)
+        self.presence.start(lambda: self.client)
         if previous is not None:
             try:
                 await previous.disconnect()
@@ -430,6 +434,7 @@ class TelegramAgent:
             "session_persisted": self.session_persisted,
             "session_revoked": self.session_revoked,
             "can_persist_session": persistence_available(),
+            "online_presence": self.presence.status(),
         }
 
     def set_reply_enabled(self, enabled: bool) -> None:
