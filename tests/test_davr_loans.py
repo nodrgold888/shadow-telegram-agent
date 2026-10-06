@@ -68,6 +68,11 @@ class DavrLoansSkillTests(unittest.TestCase):
         self.assertNotIn("Kapitalbank", self.skill)
         self.assertIn("Never invent", self.skill)
 
+    def test_offers_interest_free_and_with_interest_and_no_invented_trims(self):
+        self.assertIn("Offer the choice yourself", self.skill)
+        self.assertIn("foizsiz", self.skill)
+        self.assertIn("never list or price trims from memory", self.skill)
+
 
 if __name__ == "__main__":
     unittest.main()
