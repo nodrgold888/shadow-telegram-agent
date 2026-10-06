@@ -24,6 +24,18 @@ class HumanChatTests(unittest.TestCase):
         self.assertIn("What makes a reply sound like a bot", assistant.SKILL_PROMPT)
         self.assertIn("Small talk examples", assistant.SKILL_PROMPT)
 
+    def test_skill_forbids_unprompted_offers_and_meta_comments(self):
+        skill = assistant.SKILL_PROMPT
+        self.assertIn("kredit bo'yicha yordam kerakmidi?", skill)
+        self.assertIn("yana salom", skill)
+        self.assertIn("The one test", skill)
+        self.assertIn("so‘ramagan xizmat yoki mavzuni", assistant.SYSTEM_PROMPT)
+
+    def test_skill_has_plain_greeting_examples(self):
+        skill = assistant.SKILL_PROMPT
+        self.assertIn("salom  →  salom", skill)
+        self.assertIn("Never (each of these is a bot)", skill)
+
     def test_bank_answers_are_davr_bank_only(self):
         skill = assistant.SKILL_PROMPT
         self.assertIn("Davr Bank only", skill)
