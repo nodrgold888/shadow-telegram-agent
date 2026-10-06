@@ -93,6 +93,7 @@ class AIProvider:
     base_url: str
     api_key: str = field(repr=False)
     model: str
+    slot: int = 0
 
 
 def _extra_providers() -> tuple[AIProvider, ...]:
@@ -108,7 +109,7 @@ def _extra_providers() -> tuple[AIProvider, ...]:
         if not (base and key and model):
             continue
         name = re.sub(r"[^A-Za-z0-9 ._-]", "", os.getenv(f"AI_NAME_{number}", "")).strip()[:30]
-        providers.append(AIProvider(name or f"zaxira {number}", _ai_base_url(base), key, model))
+        providers.append(AIProvider(name or f"zaxira {number}", _ai_base_url(base), key, model, number))
     return tuple(providers)
 
 
@@ -186,7 +187,7 @@ class Settings:
     def backup_providers(self) -> tuple[AIProvider, ...]:
         """Configured backup providers in the order they are tried (slot 1 first)."""
         first = (
-            (AIProvider(self.ai_name, self.ai_base_url, self.ai_api_key, self.ai_model),)
+            (AIProvider(self.ai_name, self.ai_base_url, self.ai_api_key, self.ai_model, 1),)
             if self.ai_base_url and self.ai_api_key and self.ai_model else ()
         )
         return first + self.ai_extra_providers

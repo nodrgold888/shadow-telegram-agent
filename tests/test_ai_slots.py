@@ -2,8 +2,8 @@ import os
 import unittest
 from unittest.mock import patch
 
-from shadow.ai_slots import apply_provider, free_slot, parse_provider, provider_env
-from shadow.persist import save_env_vars
+from shadow.ai_slots import apply_provider, free_slot, parse_provider, provider_env, remove_slot
+from shadow.persist import delete_env_vars, save_env_vars
 from tests.test_ai_fallback import make_settings
 
 
@@ -51,8 +51,28 @@ class AiSlotsTest(unittest.TestCase):
         one = apply_provider(settings, 1, p)
         self.assertEqual(one.ai_model, p.model)
         two = apply_provider(settings, 2, p)
-        self.assertEqual(two.ai_extra_providers[-1], p)
+        self.assertEqual((two.ai_extra_providers[-1].model, two.ai_extra_providers[-1].slot), (p.model, 2))
         self.assertTrue(two.compat_ai_ready)
+
+    def test_remove_extra_slot_keeps_the_others(self):
+        base = make_settings()
+        p = parse_provider(body())
+        settings = apply_provider(apply_provider(base, 2, p), 3, parse_provider(body(name="Other")))
+        env = {"AI_MODEL_2": "m", "AI_API_KEY_2": "k", "AI_BASE_URL_2": "u", "AI_NAME_2": "n", "AI_MODEL_3": "keep"}
+        out = remove_slot(settings, 2, env)
+        self.assertEqual([x.slot for x in out.ai_extra_providers], [3])
+        self.assertEqual(env, {"AI_MODEL_3": "keep"})
+
+    def test_remove_first_slot_clears_the_primary_backup(self):
+        settings = apply_provider(make_settings(), 1, parse_provider(body()))
+        self.assertTrue(settings.compat_ai_ready)
+        env = {"AI_MODEL": "m"}
+        out = remove_slot(settings, 1, env)
+        self.assertEqual((out.ai_model, out.ai_api_key, env), ("", "", {}))
+
+    def test_status_slot_numbers(self):
+        settings = apply_provider(make_settings(), 3, parse_provider(body()))
+        self.assertEqual([p.slot for p in settings.backup_providers][-1], 3)
 
     def test_key_not_in_repr(self):
         self.assertNotIn("sk-or-v1", repr(parse_provider(body())))
@@ -70,6 +90,20 @@ class SaveEnvVarsTest(unittest.IsolatedAsyncioTestCase):
             self.assertEqual([c.args[2] for c in put.call_args_list], ["A", "B"])
             put.side_effect = OSError("boom")
             self.assertFalse(await save_env_vars({"A": "1"}))
+
+
+class DeleteEnvVarsTest(unittest.IsolatedAsyncioTestCase):
+    async def test_not_configured_returns_false(self):
+        with patch.dict(os.environ, {}, clear=True):
+            self.assertFalse(await delete_env_vars(["A"]))
+
+    async def test_deletes_each_key_and_reports_failure(self):
+        env = {"RENDER_API_KEY": "r", "RENDER_SERVICE_ID": "srv"}
+        with patch.dict(os.environ, env, clear=True), patch("shadow.persist._delete_env_var") as gone:
+            self.assertTrue(await delete_env_vars(["A", "B"]))
+            self.assertEqual([c.args[2] for c in gone.call_args_list], ["A", "B"])
+            gone.side_effect = OSError("boom")
+            self.assertFalse(await delete_env_vars(["A"]))
 
 
 if __name__ == "__main__":
