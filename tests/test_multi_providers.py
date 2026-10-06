@@ -4,9 +4,20 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
-from shadow.assistant import ShadowAssistant, cooldown_seconds
+from shadow.assistant import ShadowAssistant, cooldown_seconds, is_transient
 from shadow.config import AIProvider, Settings
 from tests.test_ai_fallback import QuotaError, make_settings
+
+
+_NO_RETRY_WAIT = patch("shadow.assistant.RETRY_DELAY", 0)
+
+
+def setUpModule():
+    _NO_RETRY_WAIT.start()
+
+
+def tearDownModule():
+    _NO_RETRY_WAIT.stop()
 
 
 def reply(text):
@@ -161,3 +172,49 @@ class CooldownTests(unittest.IsolatedAsyncioTestCase):
         assistant, _ = build(settings_with_two(), {"backup-model": Boom(), "model-2": "Ikkinchi"})
         await self.ask(assistant)
         self.assertEqual(assistant._cooldowns, {})
+
+
+class Overloaded(Exception):
+    status_code = 503
+
+
+class RetryTests(unittest.IsolatedAsyncioTestCase):
+    async def ask(self, assistant):
+        return await assistant.reply_with_files(chat_title="C", history="", message="Salom", directory=Path("."))
+
+    def test_which_errors_are_transient(self):
+        self.assertTrue(is_transient(Overloaded()))
+        self.assertFalse(is_transient(RateLimited()))
+        self.assertFalse(is_transient(ValueError()))
+
+    async def test_transient_error_is_retried_once_on_the_same_provider(self):
+        results = [Overloaded(), "Qayta urinish ishladi"]
+        settings = settings_with_two()
+        assistant, clients = build(settings, {"backup-model": "x", "model-2": "Ikkinchi"})
+        first = next(c for url, c in clients.items() if "second" not in url)
+
+        async def flaky(**request):
+            outcome = results.pop(0)
+            if isinstance(outcome, Exception):
+                raise outcome
+            return reply(outcome)
+        first.chat.completions.create = AsyncMock(side_effect=flaky)
+        with patch("shadow.assistant.RETRY_DELAY", 0):
+            answer, _ = await self.ask(assistant)
+        self.assertEqual(answer, "Qayta urinish ishladi")
+        self.assertEqual(first.chat.completions.create.await_count, 2)
+
+    async def test_still_failing_moves_on_to_the_next_provider(self):
+        assistant, clients = build(settings_with_two(), {"backup-model": Overloaded(), "model-2": "Ikkinchi"})
+        with patch("shadow.assistant.RETRY_DELAY", 0):
+            answer, _ = await self.ask(assistant)
+        self.assertEqual(answer, "Ikkinchi")
+        first = next(c for url, c in clients.items() if "second" not in url)
+        self.assertEqual(first.chat.completions.create.await_count, 2)
+
+    async def test_rate_limit_is_not_retried(self):
+        assistant, clients = build(settings_with_two(), {"backup-model": RateLimited("x"), "model-2": "Ikkinchi"})
+        with patch("shadow.assistant.RETRY_DELAY", 0):
+            await self.ask(assistant)
+        first = next(c for url, c in clients.items() if "second" not in url)
+        self.assertEqual(first.chat.completions.create.await_count, 1)
