@@ -1,0 +1,34 @@
+# FreeLLMAPI (https://github.com/tashfeenahmed/freellmapi, MIT) next to Shadow.
+# It aggregates the free tiers of many LLM providers behind one OpenAI-compatible /v1 API,
+# which Shadow can use as a backup AI provider (see README.md in this folder).
+#
+# Start with ./setup.sh (it creates .env with a fresh ENCRYPTION_KEY first).
+services:
+  freellmapi:
+    image: ghcr.io/tashfeenahmed/freellmapi:latest
+    environment:
+      NODE_ENV: production
+      PORT: "3001"
+      # Encrypts the provider API keys stored in the SQLite database. Keep it safe and do not
+      # change it afterwards without rotating (see the upstream docs).
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:?ENCRYPTION_KEY is missing - run ./setup.sh first}
+    ports:
+      # Loopback only by default: upstream is a single-user service guarded only by its unified
+      # API key. Put an HTTPS tunnel/reverse proxy in front of it if Shadow runs elsewhere.
+      - "${HOST_BIND:-127.0.0.1}:${PORT:-3001}:3001"
+    volumes:
+      - freellmapi-data:/app/server/data
+    restart: unless-stopped
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:3001/api/ping').then((r) => { if (!r.ok) process.exit(1); }).catch(() => process.exit(1));"
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
+
+volumes:
+  freellmapi-data:

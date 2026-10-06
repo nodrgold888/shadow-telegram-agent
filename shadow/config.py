@@ -1,20 +1,23 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import re
 from dataclasses import dataclass, field
 
 from .persist import load_local_settings
 
+log = logging.getLogger("shadow.config")
+
 # (API model ID, label shown in the dashboard). The two newest IDs are taken from the
-# names shown in the OpenAI app ("GPT-5.6 Luna", "GPT-Reserve") and have not been
-# confirmed against the API; the dashboard's "AI ni tekshirish" button verifies an ID.
+# name shown in the OpenAI app ("GPT-5.6 Luna"). "gpt-reserve" was tried and the API
+# answers 404 model_not_found, so it is not offered; the dashboard's "AI ni tekshirish"
+# button verifies an ID, and EXTRA_OPENAI_MODELS adds another exact API ID.
 MODEL_CATALOG = (
     ("gpt-5-mini", "GPT-5 mini"),
     ("gpt-6-luna", "GPT-6 Luna"),
     ("gpt-5.6-luna", "GPT-5.6 Luna"),
-    ("gpt-reserve", "GPT-Reserve"),
 )
 _MODEL_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,63}$")
 
@@ -142,12 +145,17 @@ class Settings:
             model_selection = json.loads(raw_models) if raw_models else {}
         except json.JSONDecodeError as exc:
             raise ValueError("SHADOW_MODEL_SELECTION is invalid") from exc
-        if not isinstance(model_selection, dict) or any(
-            key not in {"openai_model", "complex_openai_model"}
-            or value not in SUPPORTED_OPENAI_MODELS
-            for key, value in model_selection.items()
-        ):
-            raise ValueError("SHADOW_MODEL_SELECTION contains an unsupported model")
+        if not isinstance(model_selection, dict):
+            raise ValueError("SHADOW_MODEL_SELECTION is invalid")
+        valid = {
+            key: value for key, value in model_selection.items()
+            if key in {"openai_model", "complex_openai_model"} and value in SUPPORTED_OPENAI_MODELS
+        }
+        if valid != model_selection:
+            # A saved model that is no longer offered (e.g. it was removed from the catalog)
+            # must not stop the service from booting: fall back to the default for that slot.
+            log.warning("Ignoring unsupported entries in SHADOW_MODEL_SELECTION")
+            model_selection = valid
         if mode not in {"mentions", "all"}:
             raise ValueError("GROUP_REPLY_MODE must be 'mentions' or 'all'")
         return cls(
