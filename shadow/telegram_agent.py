@@ -20,7 +20,7 @@ from .office_files import OfficeFileError, MAX_UPLOAD_BYTES, inspect_office
 _WORK_SLOTS = asyncio.Semaphore(2)
 from .video_download import VideoDownloadError, downloaded_video, find_video_url
 from .config import AVAILABLE_MODELS, Settings
-from .persist import persistence_available, load_chat_profiles, save_chat_profiles, save_session, save_approved_chats, save_reply_enabled
+from .persist import persistence_available, load_friend_chats, save_friend_chats, load_chat_profiles, save_chat_profiles, save_session, save_approved_chats, save_reply_enabled
 from .diagnostics import safe_error_detail
 from .image_gen import ImageGenError, gemini_api_key, generate_image, parse_image_command
 from .humanize import human_typing_delay, read_delay, split_parts
@@ -55,6 +55,7 @@ class TelegramAgent:
         self._approval_lock = asyncio.Lock()
         self._profile_lock = asyncio.Lock()
         self.chat_profiles = load_chat_profiles()
+        self.friend_ids: frozenset[int] = load_friend_chats()
         self.session_persisted = bool(settings.telegram_session)
         self._watchdog_task: asyncio.Task | None = None
         self.presence = OnlinePresence(settings.always_online)
@@ -272,7 +273,7 @@ class TelegramAgent:
         ):
             return
         chat_id = event.chat_id
-        if chat_id is None:
+        if chat_id is None or chat_id in self.friend_ids:
             return
         if not chat_is_approved(chat_id, self.settings.approved_chat_ids):
             await self._maybe_public_bank_reply(event)
@@ -432,7 +433,8 @@ class TelegramAgent:
                 "models": models, "chat_test": chat_test}
 
     def _can_reply(self, chat_id: int) -> bool:
-        return bool(self.reply_enabled and chat_is_approved(chat_id, self.settings.approved_chat_ids))
+        return bool(self.reply_enabled and chat_id not in self.friend_ids
+                    and chat_is_approved(chat_id, self.settings.approved_chat_ids))
 
     async def _work_voice_reply(self, event, title: str) -> None:
         assert self.client is not None and self.assistant is not None
@@ -632,6 +634,22 @@ class TelegramAgent:
                 selected.discard(chat_id)
             return await self._apply_chat_approvals(frozenset(selected))
 
+    async def update_chat_friend(self, chat_id: int, friend: bool) -> dict[str, object]:
+        """Friends are chats Shadow never writes to, whatever the approval list says."""
+        async with self._approval_lock:
+            if friend:
+                dialogs = await self.dialogs()
+                if not any(dialog["id"] == chat_id for dialog in dialogs):
+                    raise ValueError("Chat arxivlanmagan suhbatlar ro‘yxatida topilmadi")
+            selected = set(self.friend_ids)
+            if friend:
+                selected.add(chat_id)
+            else:
+                selected.discard(chat_id)
+            self.friend_ids = frozenset(selected)
+            persisted = await save_friend_chats(",".join(str(i) for i in sorted(selected)))
+        return {"ok": True, "persisted": persisted, "friend_count": len(selected)}
+
     async def clear_chat_approvals(self) -> dict[str, object]:
         async with self._approval_lock:
             return await self._apply_chat_approvals(frozenset())
@@ -670,6 +688,7 @@ class TelegramAgent:
                 "title": dialog.name or "Telegram chat",
                 "kind": "Kanal" if is_channel else "Guruh" if is_group else "Shaxsiy chat",
                 "approved": approved == "*" or dialog.id in approved,
+                "friend": dialog.id in self.friend_ids,
                 "has_profile": (approved == "*" or dialog.id in approved) and str(dialog.id) in self.chat_profiles,
                 "unread_count": dialog.unread_count,
             })
