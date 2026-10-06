@@ -14,7 +14,7 @@ from .config import Settings
 from .ai_slots import apply_provider, free_slot, parse_provider, provider_env, remove_slot, slot_env_names
 from .persist import delete_env_vars, save_env_vars, save_model_selection, save_reply_enabled
 from .config import MAX_BACKUP_PROVIDERS, SUPPORTED_OPENAI_MODELS
-from .agents import agent_catalog
+from .agents import agent_catalog, skill_catalog
 from .chat_memory import normalize_chat_profile
 from .keepalive import build_keepalive
 from .panel_login import PanelLogin, LoginError
@@ -193,6 +193,16 @@ async def dashboard_chats(
         raise HTTPException(status_code=401, detail="Kirish kerak")
     return {"chats": await agent.dialogs()}
 
+
+
+@app.get("/dashboard/api/agents")
+async def dashboard_agents(
+    shadow_setup: str | None = Cookie(default=None),
+    authorization: str | None = Header(default=None),
+) -> dict[str, object]:
+    if not _dashboard_allowed(shadow_setup, authorization):
+        raise HTTPException(status_code=401, detail="Kirish kerak")
+    return {"agents": agent_catalog(), "skills": skill_catalog()}
 
 
 @app.get("/dashboard/api/chats/{chat_id}/profile")

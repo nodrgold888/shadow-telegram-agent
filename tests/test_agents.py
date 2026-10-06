@@ -58,6 +58,41 @@ class AgentProfileTests(unittest.TestCase):
         self.assertEqual(profiles["102"]["agent"], "")
 
 
+class NewAgentTests(unittest.TestCase):
+    def test_new_chat_types_exist_and_have_a_role(self):
+        for agent_id in ("coder", "content", "docs", "sales"):
+            self.assertIn(agent_id, AGENT_IDS)
+            role = agent_role({"agent": agent_id})
+            self.assertIn(CUSTOM_RULES, role)
+            self.assertIn("Rol:", role)
+
+    def test_sales_role_does_not_invent_prices_or_promises(self):
+        role = agent_role({"agent": "sales"})
+        self.assertIn("o‘ylab topmang", role)
+        self.assertIn("majburiyat olmang", role)
+
+    def test_coding_and_learning_skills_are_in_the_main_prompt_only(self):
+        from shadow import assistant
+        self.assertIn("# Coding help", assistant.SKILL_PROMPT)
+        self.assertIn("# Learning assistant", assistant.SKILL_PROMPT)
+        self.assertNotIn("# Coding help", assistant.PUBLIC_SKILL_PROMPT)
+        self.assertNotIn("# Learning assistant", assistant.PUBLIC_SKILL_PROMPT)
+
+
+class SkillCatalogTests(unittest.TestCase):
+    def test_every_skill_has_a_label_and_description_and_a_file(self):
+        from pathlib import Path
+        from shadow.agents import skill_catalog
+        catalog = skill_catalog()
+        self.assertGreaterEqual(len(catalog), 9)
+        self.assertEqual(len({item["id"] for item in catalog}), len(catalog))
+        for item in catalog:
+            self.assertTrue(item["label"] and item["description"])
+        skills = Path(__file__).resolve().parents[1] / "shadow" / "skills"
+        for name in ("coding", "learning", "math", "excel", "word", "human_chat"):
+            self.assertTrue((skills / f"{name}.md").exists(), name)
+
+
 class AgentPromptTests(unittest.IsolatedAsyncioTestCase):
     async def test_each_chat_gets_only_its_own_agent_in_the_system_prompt(self):
         create = AsyncMock(return_value=SimpleNamespace(output=[], output_text="ok"))

@@ -112,7 +112,7 @@ Qoidalar:
 SKILL_DIR = Path(__file__).with_name("skills")
 SKILL_PROMPT = "\n\n".join(
     (SKILL_DIR / name).read_text(encoding="utf-8")
-    for name in ("assistant.md", "math.md", "excel.md", "word.md", "banking_uz.md", "davrbank_uz.md", "human_chat.md", "video_download.md")
+    for name in ("assistant.md", "math.md", "excel.md", "word.md", "coding.md", "learning.md", "banking_uz.md", "davrbank_uz.md", "human_chat.md", "video_download.md")
 )
 PUBLIC_SKILL_PROMPT = "\n\n".join(
     (SKILL_DIR / name).read_text(encoding="utf-8")

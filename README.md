@@ -286,3 +286,7 @@ Off by default. In the dashboard open **Avtomatik javoblar** and switch on **Not
 ### Videos for people who are not approved
 
 Off by default. In **Avtomatik javoblar** switch on **Notanish chatlarga ham video**. A public Instagram or TikTok link from an unapproved private chat is then downloaded and sent back like in approved chats. There is no hourly limit, only two downloads at a time; friend chats, groups and bots are never served, and the reply switch must be on.
+
+### Chat types and skills
+
+Per-chat types (Suhbatlar → "Maxsus xotira" → tur): Umumiy yordamchi, Do'stona suhbatdosh, Bank maslahatchisi, Tarjimon, O'qituvchi, Ish yordamchisi, Kod yordamchisi, Kontent yozuvchi, Taqdimot va hujjat, Savdo va mijozlar bilan. The built-in skills (`shadow/skills/*.md`: general, natural chat, math, Excel, Word, coding, learning, Davr Bank, video) are listed read-only in **Avtomatik javoblar → Suhbat turlari va skillar** (`GET /dashboard/api/agents`).
