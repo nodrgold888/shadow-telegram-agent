@@ -156,6 +156,18 @@ name, base URL (templates for OpenRouter and Gemini), model ID and API key. Shad
 (1..5) through the Render API (`RENDER_API_KEY` + `RENDER_SERVICE_ID` must be set; Render then restarts the service) and also
 applies it live. Each added provider is listed under the form with an "O'chirish" button that frees its slot (variables are removed from Render too). The key is never shown again or logged. Without Render persistence the provider only lives until the next restart.
 
+## Image generation (owner only)
+
+Write `/rasm <tavsif>` to yourself in Telegram **Saved Messages** and Shadow answers there with a generated image
+(Gemini image model, default `gemini-nano-banana-2.1`, override with `IMAGE_MODEL`). Only the account owner can write to
+their own Saved Messages, so nobody else can trigger it. Other chats never get this command, and Shadow's own image
+(whose caption is the prompt) is ignored, so it cannot loop.
+
+- The key is taken from a Gemini backup provider (panel "AI qo'shish", base URL `generativelanguage.googleapis.com`) or
+  from `GEMINI_API_KEY`. Image generation usually needs a billing-enabled Google project; a quota error is reported in
+  Saved Messages.
+- One image at a time, prompts up to 1000 characters, 90 s limit. Uses the `google-genai` SDK (`client.interactions`).
+
 ## Agents per chat
 
 Each approved chat can have its own agent: in the dashboard open the chat's profile (Suhbatlar → chat → xotira) and pick an **Agent**: Umumiy yordamchi (default), Do'stona suhbatdosh, Bank maslahatchisi, Tarjimon, O'qituvchi or Ish yordamchisi (`shadow/agents.py`). You can also write chat-specific extra instructions (up to 1200 characters, e.g. "always answer in Russian"). The agent is added to the system prompt for that chat only, for both OpenAI and the backup providers, and is stored with the chat profile (so it survives restarts when persistence is configured and is removed when the chat's approval is revoked). Agents only change focus, tone and working style: the honesty rule (Shadow says it is an AI when sincerely asked), the safety rules and chat isolation always apply.
