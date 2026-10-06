@@ -20,11 +20,12 @@ from .office_files import OfficeFileError, MAX_UPLOAD_BYTES, inspect_office
 _WORK_SLOTS = asyncio.Semaphore(2)
 from .video_download import VideoDownloadError, downloaded_video, find_video_url
 from .config import AVAILABLE_MODELS, Settings
-from .persist import persistence_available, load_friend_chats, save_friend_chats, load_chat_profiles, save_chat_profiles, save_session, save_approved_chats, save_reply_enabled
+from .persist import persistence_available, load_greet_unknown, save_greet_unknown, load_friend_chats, save_friend_chats, load_chat_profiles, save_chat_profiles, save_session, save_approved_chats, save_reply_enabled
 from .diagnostics import safe_error_detail
 from .image_gen import ImageGenError, gemini_api_key, generate_image, parse_image_command
 from .humanize import human_typing_delay, read_delay, split_parts
 from .presence import OnlinePresence
+from .greeting import GreetingState
 from .public_bank import DISCLOSURE, PublicBankState, is_stop_request
 from .policy import chat_is_approved, group_message_needs_reply, split_telegram_message
 
@@ -60,6 +61,8 @@ class TelegramAgent:
         self._watchdog_task: asyncio.Task | None = None
         self.presence = OnlinePresence(settings.always_online)
         self.public_bank = PublicBankState()
+        self.greeting = GreetingState()
+        self.greet_unknown = load_greet_unknown()
         self.session_revoked = False
 
     async def start(self) -> None:
@@ -276,7 +279,8 @@ class TelegramAgent:
         if chat_id is None or chat_id in self.friend_ids:
             return
         if not chat_is_approved(chat_id, self.settings.approved_chat_ids):
-            await self._maybe_public_bank_reply(event)
+            if not await self._maybe_public_bank_reply(event):
+                await self._maybe_greet_unknown(event)
             return
         text = (event.raw_text or "").strip()
         is_voice = bool(getattr(event.message, "voice", None))
@@ -358,34 +362,38 @@ class TelegramAgent:
                     self.last_reply_error = "empty_ai_reply"
                 log.exception("Failed to reply in chat %s", chat_id)
 
-    async def _maybe_public_bank_reply(self, event) -> None:
+    async def _maybe_public_bank_reply(self, event) -> bool:
         """Opt-in (PUBLIC_BANK_REPLY): answer bank questions from people in private chats
         that are not approved. Private chats only, text only, bank topics only, rate limited,
-        and the first reply says it is an AI. Never runs for groups, channels, bots or files."""
+        and the first reply says it is an AI. Never runs for groups, channels, bots or files.
+        Returns True when this chat is in a bank conversation (so the greeting must stay quiet)."""
         if not self.settings.public_bank_reply or not event.is_private or not self.assistant:
-            return
+            return False
         chat_id = event.chat_id
         text = (event.raw_text or "").strip()
         if not text or getattr(event.message, "media", None):
-            return
+            return False
         sender = await event.get_sender()
         if sender is None or getattr(sender, "bot", False) or getattr(sender, "deleted", False) or sender.id in {777000, self._me_id}:
-            return
+            return False
         state = self.public_bank
         if chat_id in state.muted:
-            return
+            return True
         lock = self._locks.setdefault(chat_id, asyncio.Lock())
         async with lock:
             if not self.reply_enabled or not self.client or not self.assistant:
-                return
+                return False
             if is_stop_request(text):
                 # Only acknowledge a stop inside a conversation we started answering.
                 if state.in_session(chat_id):
                     state.mute(chat_id)
                     await self.client.send_message(chat_id, "Xo‘p, boshqa yozmayman.")
-                return
-            if not state.should_answer(chat_id, text) or not state.allow(chat_id):
-                return
+                    return True
+                return False
+            if not state.should_answer(chat_id, text):
+                return False
+            if not state.allow(chat_id):
+                return True
             try:
                 history = await self._history(chat_id)
                 async with self.client.action(chat_id, "typing"):
@@ -393,7 +401,7 @@ class TelegramAgent:
                     if answer:
                         await asyncio.sleep(human_typing_delay(answer))
                 if not answer:
-                    return
+                    return True
                 parts = split_parts(answer)
                 if state.needs_disclosure(chat_id) and parts:
                     parts[0] = DISCLOSURE + parts[0]
@@ -413,6 +421,63 @@ class TelegramAgent:
                 self.last_reply_error = type(exc).__name__
                 self.last_reply_error_detail = safe_error_detail(exc)
                 log.exception("Public bank reply failed in chat %s", chat_id)
+            return True
+
+    async def _maybe_greet_unknown(self, event) -> None:
+        """Opt-in (dashboard switch): a short greeting that asks why an unapproved person wrote.
+        Private chats only, text only, no bots, friends never reach this code, and a few replies
+        per chat per day."""
+        if not self.greet_unknown or not event.is_private or not self.assistant:
+            return
+        chat_id = event.chat_id
+        text = (event.raw_text or "").strip()
+        if not text or getattr(event.message, "media", None):
+            return
+        sender = await event.get_sender()
+        if sender is None or getattr(sender, "bot", False) or getattr(sender, "deleted", False) or sender.id in {777000, self._me_id}:
+            return
+        state = self.greeting
+        if chat_id in state.muted:
+            return
+        lock = self._locks.setdefault(chat_id, asyncio.Lock())
+        async with lock:
+            if not self.reply_enabled or not self.client or not self.assistant or not self.greet_unknown:
+                return
+            if is_stop_request(text):
+                if state.replies_in_chat(chat_id):
+                    state.mute(chat_id)
+                    await self.client.send_message(chat_id, "Xo‘p, boshqa yozmayman.")
+                return
+            if not state.allow(chat_id, text):
+                return
+            try:
+                history = await self._history(chat_id)
+                async with self.client.action(chat_id, "typing"):
+                    answer = await self.assistant.reply_greeting(history=history, message=text)
+                    if answer:
+                        await asyncio.sleep(human_typing_delay(answer))
+                if not answer:
+                    return
+                for number, part in enumerate(split_parts(answer)):
+                    if number > 0:
+                        async with self.client.action(chat_id, "typing"):
+                            await asyncio.sleep(human_typing_delay(part))
+                    for chunk in split_telegram_message(part, self.settings.max_reply_chars):
+                        await self.client.send_message(chat_id, chunk)
+                state.reply_count += 1
+                self.reply_count += 1
+                self.last_reply_at = datetime.now(timezone.utc).isoformat()
+                self.last_reply_error = None
+                await self.client.send_read_acknowledge(chat_id)
+                log.info("Greeted an unapproved chat %s", chat_id)
+            except Exception as exc:
+                self.last_reply_error = type(exc).__name__
+                self.last_reply_error_detail = safe_error_detail(exc)
+                log.exception("Greeting failed in chat %s", chat_id)
+
+    async def set_greet_unknown(self, enabled: bool) -> dict[str, object]:
+        self.greet_unknown = enabled
+        return {"greet_unknown": enabled, "persisted": await save_greet_unknown(enabled)}
 
     async def ai_check(self) -> dict[str, object]:
         """One tiny OpenAI request so the owner can see why replies fail. Never raises."""
@@ -570,6 +635,7 @@ class TelegramAgent:
             "session_revoked": self.session_revoked,
             "can_persist_session": persistence_available(),
             "online_presence": self.presence.status(),
+            "greet_unknown": {"enabled": self.greet_unknown, "replies": self.greeting.reply_count},
             "public_bank_reply": {"enabled": self.settings.public_bank_reply, "replies": self.public_bank.reply_count, "muted_chats": len(self.public_bank.muted)},
         }
 

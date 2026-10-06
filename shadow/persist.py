@@ -18,7 +18,7 @@ RENDER_API = "https://api.render.com/v1"
 
 
 _local_lock = threading.Lock()
-_LOCAL_KEYS = {"TELEGRAM_SESSION", "APPROVED_CHAT_IDS", "REPLY_ENABLED", "SHADOW_MODEL_SELECTION", "SHADOW_CHAT_PROFILES", "FRIEND_CHAT_IDS"}
+_LOCAL_KEYS = {"TELEGRAM_SESSION", "APPROVED_CHAT_IDS", "REPLY_ENABLED", "SHADOW_MODEL_SELECTION", "SHADOW_CHAT_PROFILES", "FRIEND_CHAT_IDS", "GREET_UNKNOWN"}
 
 
 def load_local_settings() -> dict[str, str]:
@@ -269,6 +269,32 @@ async def save_reply_enabled(enabled: bool) -> bool:
         )
     except Exception as exc:
         log.warning("Could not persist reply mode: %s", type(exc).__name__)
+        return False
+    return True
+
+
+def load_greet_unknown() -> bool:
+    raw = load_local_settings().get("GREET_UNKNOWN", os.getenv("GREET_UNKNOWN", ""))
+    return raw.strip().lower() in {"1", "true", "yes", "on"}
+
+
+async def save_greet_unknown(enabled: bool) -> bool:
+    value = "true" if enabled else "false"
+    if os.getenv("SHADOW_STATE_FILE", "").strip():
+        try:
+            await asyncio.to_thread(_save_local, "GREET_UNKNOWN", value)
+            return True
+        except Exception as exc:
+            log.error("Could not save local state: %s", type(exc).__name__)
+            return False
+    if not persistence_available():
+        return False
+    try:
+        await asyncio.to_thread(
+            _put_env_var, os.environ["RENDER_SERVICE_ID"].strip(), os.environ["RENDER_API_KEY"].strip(),
+            "GREET_UNKNOWN", value)
+    except Exception as exc:
+        log.warning("Could not persist greeting switch: %s", type(exc).__name__)
         return False
     return True
 
