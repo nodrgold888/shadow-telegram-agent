@@ -18,7 +18,7 @@ RENDER_API = "https://api.render.com/v1"
 
 
 _local_lock = threading.Lock()
-_LOCAL_KEYS = {"TELEGRAM_SESSION", "APPROVED_CHAT_IDS", "REPLY_ENABLED", "SHADOW_MODEL_SELECTION", "SHADOW_CHAT_PROFILES"}
+_LOCAL_KEYS = {"TELEGRAM_SESSION", "APPROVED_CHAT_IDS", "REPLY_ENABLED", "SHADOW_MODEL_SELECTION", "SHADOW_CHAT_PROFILES", "FRIEND_CHAT_IDS", "GREET_UNKNOWN", "VIDEO_UNKNOWN"}
 
 
 def load_local_settings() -> dict[str, str]:
@@ -115,6 +115,56 @@ async def save_session(session: str) -> bool:
         log.error("Could not persist Telegram session: %s", type(exc).__name__)
         return False
     log.info("Telegram session saved to Render environment")
+    return True
+
+
+FRIEND_CATEGORIES = {"oila": "Oila", "ish": "Ish", "dostlar": "Do‘stlar"}
+DEFAULT_FRIEND_CATEGORY = "dostlar"
+
+
+def parse_friend_chats(raw: str) -> dict[int, str]:
+    """`5:oila,7` -> {5: "oila", 7: "dostlar"}. A bare id or unknown category means "dostlar"."""
+    result: dict[int, str] = {}
+    for item in raw.split(","):
+        item = item.strip()
+        if not item:
+            continue
+        chat, _, category = item.partition(":")
+        result[int(chat)] = category.strip() if category.strip() in FRIEND_CATEGORIES else DEFAULT_FRIEND_CATEGORY
+    return result
+
+
+def format_friend_chats(friends: dict[int, str]) -> str:
+    return ",".join(f"{chat}:{friends[chat]}" for chat in sorted(friends))
+
+
+def load_friend_chats() -> dict[int, str]:
+    """Chats (friends) where Shadow never writes. Bad values are ignored, never fatal."""
+    raw = load_local_settings().get("FRIEND_CHAT_IDS", os.getenv("FRIEND_CHAT_IDS", "")).strip()
+    try:
+        return parse_friend_chats(raw)
+    except ValueError:
+        log.warning("Ignoring invalid FRIEND_CHAT_IDS")
+        return {}
+
+
+async def save_friend_chats(value: str) -> bool:
+    if os.getenv("SHADOW_STATE_FILE", "").strip():
+        try:
+            await asyncio.to_thread(_save_local, "FRIEND_CHAT_IDS", value)
+            return True
+        except Exception as exc:
+            log.error("Could not save friend list locally: %s", type(exc).__name__)
+            return False
+    if not persistence_available():
+        return False
+    try:
+        await asyncio.to_thread(
+            _put_env_var, os.environ["RENDER_SERVICE_ID"].strip(), os.environ["RENDER_API_KEY"].strip(),
+            "FRIEND_CHAT_IDS", value)
+    except Exception as exc:
+        log.warning("Could not persist friend list: %s", type(exc).__name__)
+        return False
     return True
 
 
@@ -241,6 +291,46 @@ async def save_reply_enabled(enabled: bool) -> bool:
         log.warning("Could not persist reply mode: %s", type(exc).__name__)
         return False
     return True
+
+
+def _load_flag(key: str) -> bool:
+    return load_local_settings().get(key, os.getenv(key, "")).strip().lower() in {"1", "true", "yes", "on"}
+
+
+async def _save_flag(key: str, enabled: bool) -> bool:
+    value = "true" if enabled else "false"
+    if os.getenv("SHADOW_STATE_FILE", "").strip():
+        try:
+            await asyncio.to_thread(_save_local, key, value)
+            return True
+        except Exception as exc:
+            log.error("Could not save local state: %s", type(exc).__name__)
+            return False
+    if not persistence_available():
+        return False
+    try:
+        await asyncio.to_thread(
+            _put_env_var, os.environ["RENDER_SERVICE_ID"].strip(), os.environ["RENDER_API_KEY"].strip(), key, value)
+    except Exception as exc:
+        log.warning("Could not persist %s: %s", key, type(exc).__name__)
+        return False
+    return True
+
+
+def load_greet_unknown() -> bool:
+    return _load_flag("GREET_UNKNOWN")
+
+
+async def save_greet_unknown(enabled: bool) -> bool:
+    return await _save_flag("GREET_UNKNOWN", enabled)
+
+
+def load_video_unknown() -> bool:
+    return _load_flag("VIDEO_UNKNOWN")
+
+
+async def save_video_unknown(enabled: bool) -> bool:
+    return await _save_flag("VIDEO_UNKNOWN", enabled)
 
 
 async def save_env_vars(values: dict[str, str]) -> bool:

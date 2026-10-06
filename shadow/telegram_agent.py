@@ -18,13 +18,15 @@ from .chat_memory import normalize_chat_profile
 from .office_files import OfficeFileError, MAX_UPLOAD_BYTES, inspect_office
 
 _WORK_SLOTS = asyncio.Semaphore(2)
+_VIDEO_SLOTS = asyncio.Semaphore(2)
 from .video_download import VideoDownloadError, downloaded_video, find_video_url
 from .config import AVAILABLE_MODELS, Settings
-from .persist import persistence_available, load_chat_profiles, save_chat_profiles, save_session, save_approved_chats, save_reply_enabled
+from .persist import persistence_available, load_greet_unknown, save_greet_unknown, load_video_unknown, save_video_unknown, load_friend_chats, save_friend_chats, format_friend_chats, FRIEND_CATEGORIES, DEFAULT_FRIEND_CATEGORY, load_chat_profiles, save_chat_profiles, save_session, save_approved_chats, save_reply_enabled
 from .diagnostics import safe_error_detail
 from .image_gen import ImageGenError, gemini_api_key, generate_image, parse_image_command
 from .humanize import human_typing_delay, read_delay, split_parts
 from .presence import OnlinePresence
+from .greeting import GreetingState
 from .public_bank import DISCLOSURE, PublicBankState, is_stop_request
 from .policy import chat_is_approved, group_message_needs_reply, split_telegram_message
 
@@ -55,10 +57,14 @@ class TelegramAgent:
         self._approval_lock = asyncio.Lock()
         self._profile_lock = asyncio.Lock()
         self.chat_profiles = load_chat_profiles()
+        self.friend_ids: dict[int, str] = load_friend_chats()
         self.session_persisted = bool(settings.telegram_session)
         self._watchdog_task: asyncio.Task | None = None
         self.presence = OnlinePresence(settings.always_online)
         self.public_bank = PublicBankState()
+        self.greeting = GreetingState()
+        self.greet_unknown = load_greet_unknown()
+        self.video_unknown = load_video_unknown()
         self.session_revoked = False
 
     async def start(self) -> None:
@@ -272,10 +278,13 @@ class TelegramAgent:
         ):
             return
         chat_id = event.chat_id
-        if chat_id is None:
+        if chat_id is None or chat_id in self.friend_ids:
             return
         if not chat_is_approved(chat_id, self.settings.approved_chat_ids):
-            await self._maybe_public_bank_reply(event)
+            if await self._maybe_unknown_video(event):
+                return
+            if not await self._maybe_public_bank_reply(event):
+                await self._maybe_greet_unknown(event)
             return
         text = (event.raw_text or "").strip()
         is_voice = bool(getattr(event.message, "voice", None))
@@ -315,23 +324,7 @@ class TelegramAgent:
                 title = getattr(chat, "title", None) or getattr(chat, "first_name", None) or str(chat_id)
 
                 if video_url:
-                    try:
-                        async with downloaded_video(video_url) as video:
-                            if not self.reply_enabled or not chat_is_approved(chat_id, self.settings.approved_chat_ids):
-                                return
-                            async with self.client.action(chat_id, "video"):
-                                await self.client.send_file(
-                                    chat_id, str(video), caption="Video tayyor.",
-                                    reply_to=event.id, supports_streaming=True,
-                                )
-                        self.reply_count += 1
-                        self.last_reply_at = datetime.now(timezone.utc).isoformat()
-                        self.last_reply_error = None
-                        await self.client.send_read_acknowledge(chat_id)
-                    except VideoDownloadError as exc:
-                        self.last_reply_error = "video_download_failed"
-                        if self.reply_enabled and chat_is_approved(chat_id, self.settings.approved_chat_ids):
-                            await event.reply(str(exc))
+                    await self._send_video(event, chat_id, video_url)
                     return
                 async with _WORK_SLOTS:
                     async with asyncio.timeout(180):
@@ -357,34 +350,93 @@ class TelegramAgent:
                     self.last_reply_error = "empty_ai_reply"
                 log.exception("Failed to reply in chat %s", chat_id)
 
-    async def _maybe_public_bank_reply(self, event) -> None:
+    def _video_allowed(self, chat_id: int) -> bool:
+        """Videos go to approved chats, and to any private non-friend chat while the owner's switch is on."""
+        if not self.reply_enabled or chat_id in self.friend_ids:
+            return False
+        return chat_is_approved(chat_id, self.settings.approved_chat_ids) or self.video_unknown
+
+    async def _send_video(self, event, chat_id: int, video_url: str) -> None:
+        try:
+            async with downloaded_video(video_url) as video:
+                if not self._video_allowed(chat_id):
+                    return
+                async with self.client.action(chat_id, "video"):
+                    await self.client.send_file(
+                        chat_id, str(video), caption="Video tayyor.",
+                        reply_to=event.id, supports_streaming=True,
+                    )
+            self.reply_count += 1
+            self.last_reply_at = datetime.now(timezone.utc).isoformat()
+            self.last_reply_error = None
+            await self.client.send_read_acknowledge(chat_id)
+        except VideoDownloadError as exc:
+            self.last_reply_error = "video_download_failed"
+            if self._video_allowed(chat_id):
+                await event.reply(str(exc))
+
+    async def _maybe_unknown_video(self, event) -> bool:
+        """Opt-in (dashboard switch): send the video for a public Instagram/TikTok link written by
+        an unapproved private chat. No rate limit, but at most two downloads run at the same time.
+        Returns True when the message was a video link handled (or skipped) here."""
+        if not self.video_unknown or not event.is_private or not self.client:
+            return False
+        video_url = find_video_url((event.raw_text or "").strip())
+        if not video_url:
+            return False
+        sender = await event.get_sender()
+        if sender is None or getattr(sender, "bot", False) or getattr(sender, "deleted", False) or sender.id in {777000, self._me_id}:
+            return True
+        chat_id = event.chat_id
+        lock = self._locks.setdefault(chat_id, asyncio.Lock())
+        async with lock:
+            if not self._video_allowed(chat_id):
+                return True
+            try:
+                async with _VIDEO_SLOTS:
+                    await self._send_video(event, chat_id, video_url)
+            except Exception as exc:
+                self.last_reply_error = type(exc).__name__
+                self.last_reply_error_detail = safe_error_detail(exc)
+                log.exception("Video for an unapproved chat failed in chat %s", chat_id)
+        return True
+
+    async def set_video_unknown(self, enabled: bool) -> dict[str, object]:
+        self.video_unknown = enabled
+        return {"video_unknown": enabled, "persisted": await save_video_unknown(enabled)}
+
+    async def _maybe_public_bank_reply(self, event) -> bool:
         """Opt-in (PUBLIC_BANK_REPLY): answer bank questions from people in private chats
         that are not approved. Private chats only, text only, bank topics only, rate limited,
-        and the first reply says it is an AI. Never runs for groups, channels, bots or files."""
+        and the first reply says it is an AI. Never runs for groups, channels, bots or files.
+        Returns True when this chat is in a bank conversation (so the greeting must stay quiet)."""
         if not self.settings.public_bank_reply or not event.is_private or not self.assistant:
-            return
+            return False
         chat_id = event.chat_id
         text = (event.raw_text or "").strip()
         if not text or getattr(event.message, "media", None):
-            return
+            return False
         sender = await event.get_sender()
         if sender is None or getattr(sender, "bot", False) or getattr(sender, "deleted", False) or sender.id in {777000, self._me_id}:
-            return
+            return False
         state = self.public_bank
         if chat_id in state.muted:
-            return
+            return True
         lock = self._locks.setdefault(chat_id, asyncio.Lock())
         async with lock:
             if not self.reply_enabled or not self.client or not self.assistant:
-                return
+                return False
             if is_stop_request(text):
                 # Only acknowledge a stop inside a conversation we started answering.
                 if state.in_session(chat_id):
                     state.mute(chat_id)
                     await self.client.send_message(chat_id, "Xo‘p, boshqa yozmayman.")
-                return
-            if not state.should_answer(chat_id, text) or not state.allow(chat_id):
-                return
+                    return True
+                return False
+            if not state.should_answer(chat_id, text):
+                return False
+            if not state.allow(chat_id):
+                return True
             try:
                 history = await self._history(chat_id)
                 async with self.client.action(chat_id, "typing"):
@@ -392,7 +444,7 @@ class TelegramAgent:
                     if answer:
                         await asyncio.sleep(human_typing_delay(answer))
                 if not answer:
-                    return
+                    return True
                 parts = split_parts(answer)
                 if state.needs_disclosure(chat_id) and parts:
                     parts[0] = DISCLOSURE + parts[0]
@@ -412,6 +464,63 @@ class TelegramAgent:
                 self.last_reply_error = type(exc).__name__
                 self.last_reply_error_detail = safe_error_detail(exc)
                 log.exception("Public bank reply failed in chat %s", chat_id)
+            return True
+
+    async def _maybe_greet_unknown(self, event) -> None:
+        """Opt-in (dashboard switch): a short greeting that asks why an unapproved person wrote.
+        Private chats only, text only, no bots, friends never reach this code, and a few replies
+        per chat per day."""
+        if not self.greet_unknown or not event.is_private or not self.assistant:
+            return
+        chat_id = event.chat_id
+        text = (event.raw_text or "").strip()
+        if not text or getattr(event.message, "media", None):
+            return
+        sender = await event.get_sender()
+        if sender is None or getattr(sender, "bot", False) or getattr(sender, "deleted", False) or sender.id in {777000, self._me_id}:
+            return
+        state = self.greeting
+        if chat_id in state.muted:
+            return
+        lock = self._locks.setdefault(chat_id, asyncio.Lock())
+        async with lock:
+            if not self.reply_enabled or not self.client or not self.assistant or not self.greet_unknown:
+                return
+            if is_stop_request(text):
+                if state.replies_in_chat(chat_id):
+                    state.mute(chat_id)
+                    await self.client.send_message(chat_id, "Xo‘p, boshqa yozmayman.")
+                return
+            if not state.allow(chat_id, text):
+                return
+            try:
+                history = await self._history(chat_id)
+                async with self.client.action(chat_id, "typing"):
+                    answer = await self.assistant.reply_greeting(history=history, message=text)
+                    if answer:
+                        await asyncio.sleep(human_typing_delay(answer))
+                if not answer:
+                    return
+                for number, part in enumerate(split_parts(answer)):
+                    if number > 0:
+                        async with self.client.action(chat_id, "typing"):
+                            await asyncio.sleep(human_typing_delay(part))
+                    for chunk in split_telegram_message(part, self.settings.max_reply_chars):
+                        await self.client.send_message(chat_id, chunk)
+                state.reply_count += 1
+                self.reply_count += 1
+                self.last_reply_at = datetime.now(timezone.utc).isoformat()
+                self.last_reply_error = None
+                await self.client.send_read_acknowledge(chat_id)
+                log.info("Greeted an unapproved chat %s", chat_id)
+            except Exception as exc:
+                self.last_reply_error = type(exc).__name__
+                self.last_reply_error_detail = safe_error_detail(exc)
+                log.exception("Greeting failed in chat %s", chat_id)
+
+    async def set_greet_unknown(self, enabled: bool) -> dict[str, object]:
+        self.greet_unknown = enabled
+        return {"greet_unknown": enabled, "persisted": await save_greet_unknown(enabled)}
 
     async def ai_check(self) -> dict[str, object]:
         """One tiny OpenAI request so the owner can see why replies fail. Never raises."""
@@ -432,7 +541,8 @@ class TelegramAgent:
                 "models": models, "chat_test": chat_test}
 
     def _can_reply(self, chat_id: int) -> bool:
-        return bool(self.reply_enabled and chat_is_approved(chat_id, self.settings.approved_chat_ids))
+        return bool(self.reply_enabled and chat_id not in self.friend_ids
+                    and chat_is_approved(chat_id, self.settings.approved_chat_ids))
 
     async def _work_voice_reply(self, event, title: str) -> None:
         assert self.client is not None and self.assistant is not None
@@ -568,6 +678,8 @@ class TelegramAgent:
             "session_revoked": self.session_revoked,
             "can_persist_session": persistence_available(),
             "online_presence": self.presence.status(),
+            "video_unknown": {"enabled": self.video_unknown},
+            "greet_unknown": {"enabled": self.greet_unknown, "replies": self.greeting.reply_count},
             "public_bank_reply": {"enabled": self.settings.public_bank_reply, "replies": self.public_bank.reply_count, "muted_chats": len(self.public_bank.muted)},
         }
 
@@ -632,6 +744,24 @@ class TelegramAgent:
                 selected.discard(chat_id)
             return await self._apply_chat_approvals(frozenset(selected))
 
+    async def update_chat_friend(self, chat_id: int, friend: bool, category: str = DEFAULT_FRIEND_CATEGORY) -> dict[str, object]:
+        """Friends are chats Shadow never writes to, whatever the approval list says."""
+        if category not in FRIEND_CATEGORIES:
+            raise ValueError("Do‘st toifasi noto‘g‘ri")
+        async with self._approval_lock:
+            if friend:
+                dialogs = await self.dialogs()
+                if not any(dialog["id"] == chat_id for dialog in dialogs):
+                    raise ValueError("Chat arxivlanmagan suhbatlar ro‘yxatida topilmadi")
+            selected = dict(self.friend_ids)
+            if friend:
+                selected[chat_id] = category
+            else:
+                selected.pop(chat_id, None)
+            self.friend_ids = selected
+            persisted = await save_friend_chats(format_friend_chats(selected))
+        return {"ok": True, "persisted": persisted, "friend_count": len(selected)}
+
     async def clear_chat_approvals(self) -> dict[str, object]:
         async with self._approval_lock:
             return await self._apply_chat_approvals(frozenset())
@@ -670,6 +800,8 @@ class TelegramAgent:
                 "title": dialog.name or "Telegram chat",
                 "kind": "Kanal" if is_channel else "Guruh" if is_group else "Shaxsiy chat",
                 "approved": approved == "*" or dialog.id in approved,
+                "friend": dialog.id in self.friend_ids,
+                "friend_category": self.friend_ids.get(dialog.id, ""),
                 "has_profile": (approved == "*" or dialog.id in approved) and str(dialog.id) in self.chat_profiles,
                 "unread_count": dialog.unread_count,
             })

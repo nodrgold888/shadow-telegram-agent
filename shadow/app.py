@@ -259,6 +259,27 @@ async def dashboard_chat_approval(
         raise HTTPException(status_code=409, detail=str(exc)) from exc
 
 
+@app.post("/dashboard/api/chats/friend")
+async def dashboard_chat_friend(
+    request: Request,
+    shadow_setup: str | None = Cookie(default=None),
+    authorization: str | None = Header(default=None),
+) -> dict[str, object]:
+    if not _dashboard_allowed(shadow_setup, authorization):
+        raise HTTPException(status_code=401, detail="Kirish kerak")
+    body = await request.json()
+    if not isinstance(body, dict):
+        raise HTTPException(status_code=400, detail="So‘rov noto‘g‘ri")
+    chat_id, friend = body.get("chat_id"), body.get("friend")
+    category = body.get("category", "dostlar")
+    if type(chat_id) is not int or type(friend) is not bool or type(category) is not str:
+        raise HTTPException(status_code=400, detail="Chat ID va holat noto‘g‘ri")
+    try:
+        return await agent.update_chat_friend(chat_id, friend, category)
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
 @app.post("/dashboard/api/chats/clear-approvals")
 async def dashboard_clear_chat_approvals(
     shadow_setup: str | None = Cookie(default=None),
@@ -287,6 +308,34 @@ async def dashboard_replies(
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     persisted = await save_reply_enabled(agent.reply_enabled)
     return {"reply_enabled": agent.reply_enabled, "persisted": persisted}
+
+
+@app.post("/dashboard/api/greet-unknown")
+async def dashboard_greet_unknown(
+    request: Request,
+    shadow_setup: str | None = Cookie(default=None),
+    authorization: str | None = Header(default=None),
+) -> dict[str, object]:
+    if not _dashboard_allowed(shadow_setup, authorization):
+        raise HTTPException(status_code=401, detail="Kirish kerak")
+    enabled = (await request.json()).get("enabled")
+    if not isinstance(enabled, bool):
+        raise HTTPException(status_code=400, detail="enabled qiymati true yoki false bo‘lishi kerak")
+    return await agent.set_greet_unknown(enabled)
+
+
+@app.post("/dashboard/api/video-unknown")
+async def dashboard_video_unknown(
+    request: Request,
+    shadow_setup: str | None = Cookie(default=None),
+    authorization: str | None = Header(default=None),
+) -> dict[str, object]:
+    if not _dashboard_allowed(shadow_setup, authorization):
+        raise HTTPException(status_code=401, detail="Kirish kerak")
+    enabled = (await request.json()).get("enabled")
+    if not isinstance(enabled, bool):
+        raise HTTPException(status_code=400, detail="enabled qiymati true yoki false bo‘lishi kerak")
+    return await agent.set_video_unknown(enabled)
 
 
 @app.post("/dashboard/api/ai-providers")
