@@ -10,6 +10,7 @@ from openai import AsyncOpenAI
 from .work_tools import calculate, create_excel, create_word
 from .model_routing import needs_reasoning_model
 
+from .agents import agent_role
 from .config import Settings
 from .diagnostics import safe_error_detail
 
@@ -223,14 +224,15 @@ class ShadowAssistant:
         chat_profile: dict[str, str] | None = None,
     ) -> tuple[str, list[Path]]:
         prompt = self._build_prompt(chat_title, history, message, document_preview, chat_profile)
+        role = agent_role(chat_profile)
         if self._use_compat_first():
-            return await self._compat_reply(prompt, directory)
+            return await self._compat_reply(prompt, directory, role)
         try:
-            result = await self._openai_reply(prompt, message, directory, document_preview)
+            result = await self._openai_reply(prompt, message, directory, document_preview, role)
         except Exception as exc:
             if self.compat_clients and should_fall_back(exc):
                 log.warning("OpenAI failed (%s); using the backup AI provider", type(exc).__name__)
-                return await self._compat_reply(prompt, directory)
+                return await self._compat_reply(prompt, directory, role)
             raise
         self.last_provider = "openai"
         return result
@@ -284,11 +286,11 @@ class ShadowAssistant:
         except (ValueError, TypeError, KeyError, ArithmeticError, SyntaxError) as exc:
             return json.dumps({"error": str(exc)[:300], "retry_with_valid_arguments": True})
 
-    async def _compat_reply(self, prompt: str, directory: Path | None) -> tuple[str, list[Path]]:
+    async def _compat_reply(self, prompt: str, directory: Path | None, role: str = "") -> tuple[str, list[Path]]:
         """Backup-provider reply with the same calculator/Word/Excel tools (function calling).
 
         Providers are tried in order. A provider that rejects tools is retried once as plain text."""
-        base = SYSTEM_PROMPT + "\n\n" + SKILL_PROMPT
+        base = SYSTEM_PROMPT + "\n\n" + SKILL_PROMPT + role
         tools = [
             {"type": "function", "function": {"name": t["name"], "description": t["description"], "parameters": t["parameters"]}}
             for t in (WORK_TOOLS if directory is not None else WORK_TOOLS[:1])
@@ -332,7 +334,7 @@ class ShadowAssistant:
         return await self._try_providers(call)
 
     async def _openai_reply(
-        self, prompt: str, message: str, directory: Path | None, document_preview: str,
+        self, prompt: str, message: str, directory: Path | None, document_preview: str, role: str = "",
     ) -> tuple[str, list[Path]]:
         items = [{"role": "user", "content": prompt}]
         use_reasoning_model = needs_reasoning_model(message, has_document=bool(document_preview))
@@ -344,7 +346,7 @@ class ShadowAssistant:
         for turn in range(6):
             request = {
                 "model": selected_model,
-                "instructions": SYSTEM_PROMPT + "\n\n" + SKILL_PROMPT,
+                "instructions": SYSTEM_PROMPT + "\n\n" + SKILL_PROMPT + role,
                 "input": items,
                 "tools": tools,
                 "parallel_tool_calls": False,

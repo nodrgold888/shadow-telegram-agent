@@ -33,7 +33,10 @@ class LocalPersistenceTests(unittest.IsolatedAsyncioTestCase):
                 )
                 self.assertEqual(
                     json.loads(saved["SHADOW_CHAT_PROFILES"]),
-                    {"101": {"style": "do‘stona", "memory": "Futbolni yaxshi ko‘radi", "notes": "", "routines": ""}},
+                    {"101": {
+                        "style": "do‘stona", "memory": "Futbolni yaxshi ko‘radi", "notes": "", "routines": "",
+                        "agent_instructions": "", "agent": "",
+                    }},
                 )
                 current = Settings.from_env()
                 self.assertEqual(current.openai_model, "gpt-6-luna")

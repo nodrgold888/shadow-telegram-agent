@@ -147,6 +147,10 @@ OpenAI API credits are prepaid and separate from a ChatGPT/Codex plan's usage li
 
 By default the backup is used automatically when OpenAI fails with no credits / rate limit (429), a bad key (401/402/403), a server error or a connection error; other errors (e.g. 400) are shown, not hidden. Set `AI_PRIMARY=true` to use the backup first, and if `OPENAI_API_KEY` is empty it is used on its own. The backup supports the calculator and Word/Excel creation through function calling; if a provider rejects tools, Shadow retries as plain text. Voice-message transcription and speech replies still need OpenAI. Chat text sent to the AI goes to the provider you configure, so choose one you trust with that content. The dashboard's "AI ni tekshirish" button tests OpenAI and the backup separately.
 
+## Agents per chat
+
+Each approved chat can have its own agent: in the dashboard open the chat's profile (Suhbatlar → chat → xotira) and pick an **Agent**: Umumiy yordamchi (default), Do'stona suhbatdosh, Bank maslahatchisi, Tarjimon, O'qituvchi or Ish yordamchisi (`shadow/agents.py`). You can also write chat-specific extra instructions (up to 1200 characters, e.g. "always answer in Russian"). The agent is added to the system prompt for that chat only, for both OpenAI and the backup providers, and is stored with the chat profile (so it survives restarts when persistence is configured and is removed when the chat's approval is revoked). Agents only change focus, tone and working style: the honesty rule (Shadow says it is an AI when sincerely asked), the safety rules and chat isolation always apply.
+
 ## Always-online status
 
 By default Shadow keeps the connected Telegram account showing as **online** by refreshing its status every ~2 minutes (`shadow/presence.py`). It only changes the visible status; it never reads or sends messages. Turn it off with `ALWAYS_ONLINE=false`. Current state and counters are under `online_presence` in `/admin/status` and the dashboard status.
