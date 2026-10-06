@@ -87,6 +87,13 @@ Qoidalar:
 WORK_TOOLS = [{"type":"function","name":"calculate","description":"Check numeric calculations. Operators + - * / % **; functions sqrt, sin, cos, tan, log, log10, exp, abs, round; pi/e. Trigonometry in radians.","parameters":{"type":"object","properties":{"expression":{"type":"string"}},"required":["expression"],"additionalProperties":False},"strict":True},{"type":"function","name":"create_excel","description":"Create and return a NEW styled .xlsx workbook when the user asks for an Excel file. At most 5 sheets, each up to 500 rows and 30 columns. First row is header. Formula support is limited to local A1 references and SUM, AVERAGE, MIN, MAX, COUNT, ROUND, ABS, IF. Formulas recalculate in Excel; server does not evaluate them.","parameters":{"type":"object","properties":{"sheets":{"type":"array","items":{"type":"object","properties":{"name":{"type":"string"},"rows":{"type":"array","items":{"type":"array","items":{"anyOf":[{"type":"string"},{"type":"number"},{"type":"boolean"},{"type":"null"}]}}}},"required":["name","rows"],"additionalProperties":False}}},"required":["sheets"],"additionalProperties":False},"strict":True},{"type":"function","name":"create_word","description":"Create and return a NEW professionally formatted .docx file when requested. Sections have headings, paragraphs, and an optional table (empty array if absent).","parameters":{"type":"object","properties":{"title":{"type":"string"},"sections":{"type":"array","items":{"type":"object","properties":{"heading":{"type":"string"},"paragraphs":{"type":"array","items":{"type":"string"}},"table":{"type":"array","items":{"type":"array","items":{"anyOf":[{"type":"string"},{"type":"number"},{"type":"boolean"},{"type":"null"}]}}}},"required":["heading","paragraphs","table"],"additionalProperties":False}}},"required":["title","sections"],"additionalProperties":False},"strict":True}]
 
 
+def _is_empty_reply(result) -> bool:
+    """True for a blank text answer or a (text, files) answer with no text and no files."""
+    if isinstance(result, tuple):
+        return not str(result[0]).strip() and not result[1]
+    return isinstance(result, str) and not result.strip()
+
+
 class ShadowAssistant:
     def __init__(self, settings: Settings) -> None:
         self.settings = settings
@@ -186,8 +193,12 @@ class ShadowAssistant:
     async def _try_providers(self, call):
         """Run call(provider, client) on each backup provider in order; the first success wins.
 
-        Every provider's failure is logged by class only; if all fail, the last error is raised."""
+        Every provider's failure is logged by class only; if all fail, the last error is raised.
+        A provider that answers with nothing (some free models spend the token budget on hidden
+        reasoning) counts as failed so the next provider still gets a chance; when every provider
+        is empty the empty result is returned, like before."""
         last: Exception | None = None
+        empty = None
         for provider, client in self.compat_clients:
             try:
                 result = await call(provider, client)
@@ -195,9 +206,16 @@ class ShadowAssistant:
                 last = exc
                 log.warning("Backup AI provider %s failed (%s)", provider.name, type(exc).__name__)
                 continue
+            if _is_empty_reply(result):
+                if empty is None:
+                    empty = result
+                log.warning("Backup AI provider %s returned an empty reply", provider.name)
+                continue
             self.last_model = provider.model
             self.last_provider = provider.name
             return result
+        if empty is not None:
+            return empty
         assert last is not None, "no backup AI provider configured"
         raise last
 
