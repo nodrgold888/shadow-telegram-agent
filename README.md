@@ -107,6 +107,16 @@ Open <http://localhost:10000/healthz>.
 
 `/dashboard` accepts either token (`ADMIN_TOKEN` or `SETUP_TOKEN`) or a **Telegram login code**: press "Telegram orqali kirish" and Shadow sends a 6-digit one-time code to the connected account's own Saved Messages (it never messages anyone else). The code is single use, expires after 5 minutes, allows 5 wrong guesses (then 15 minutes lockout) and can be requested once per minute. Sessions last 12 hours and live in memory, so a restart signs you out. This needs Telegram to be connected; use a token otherwise. The code is only sent when you press the button.
 
+## When does Shadow reply?
+
+Shadow answers only when **all** of these are true: Telegram is connected, the dashboard reply switch is on, `OPENAI_API_KEY` is set, and the chat is in the approved list (dashboard → chats). Messages from chats that are not approved are ignored on purpose, including private chats from people you did not approve. In approved private chats it answers every message; in approved groups it answers only when mentioned or replied to, unless `GROUP_REPLY_MODE=all`.
+
+Replies are written like a real person texting (short, in the other person's register and language, no assistant boilerplate, a short "typing…" pause), but Shadow never claims to be human and says it is Shadow AI if someone sincerely asks (`shadow/skills/human_chat.md`).
+
+### Instagram / TikTok video download
+
+In an approved chat, a public Instagram (reel, post, IGTV, also `instagram.com/<user>/reel/...`) or TikTok link is downloaded and sent back as a video, even in groups and without a mention. Limits: public videos only (no private accounts, stories or photo posts), up to 50 MB. Private or login-protected links get a specific message (`shadow/skills/video_download.md`).
+
 ## Keep-alive ping
 
 On Render's free plan the service sleeps after about 15 minutes without inbound traffic, which interrupts the Telegram connection. Two independent pingers call the lightweight public `/ping` endpoint (it never touches Telegram or the agent):
