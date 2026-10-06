@@ -389,11 +389,12 @@ class TelegramAgent:
             return {"ok": False, "error": type(exc).__name__, "detail": safe_error_detail(exc),
                     "model": self.settings.openai_model}
         models = result["models"]
+        chat_test = await assistant.chat_test()
         if any(m["replied"] for m in models):
-            return {"ok": True, "models": models}
+            return {"ok": True, "models": models, "chat_test": chat_test}
         first = next((m for m in models if m.get("error")), {})
         return {"ok": False, "error": first.get("error", "empty_reply"), "detail": first.get("detail", "Bo‘sh javob"),
-                "models": models}
+                "models": models, "chat_test": chat_test}
 
     def _can_reply(self, chat_id: int) -> bool:
         return bool(self.reply_enabled and chat_is_approved(chat_id, self.settings.approved_chat_ids))
