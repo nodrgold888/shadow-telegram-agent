@@ -358,6 +358,98 @@ fieldset.agent-picker{margin:13px 0;padding:0;border:0}fieldset.agent-picker leg
 @media(max-width:900px){:root[data-theme] .shell{grid-template-columns:200px minmax(0,1fr);background:var(--v-bg)}:root[data-theme] .grid{grid-template-columns:repeat(2,minmax(0,1fr))}:root[data-theme] .hud-hero{grid-template-columns:1fr}:root[data-theme] .console-readouts{min-width:0}}
 @media(max-width:680px){:root[data-theme] .shell{display:block;background:var(--v-bg)}:root[data-theme] .side{position:static;height:auto;flex-direction:row;flex-wrap:wrap;gap:10px;padding:12px 14px;border-right:0;border-bottom:1px solid var(--v-line)}:root[data-theme] .side .brand{padding:0}:root[data-theme] .workspace-nav{display:flex!important;overflow-x:auto;flex-basis:100%;gap:6px;padding-bottom:2px}:root[data-theme] .workspace-nav .nav{flex:0 0 auto;width:auto;white-space:nowrap}:root[data-theme] .workspace-nav .nav-label,:root[data-theme] .side-note{display:none}:root[data-theme] .content{padding:18px 14px 40px}:root[data-theme] .top-actions{margin-left:0;justify-content:flex-start}:root[data-theme] .grid{grid-template-columns:1fr}:root[data-theme] .hud-hero{padding:18px}:root[data-theme] .row{grid-template-columns:1fr;gap:8px}.view-tabs{width:100%;overflow-x:auto;flex-wrap:nowrap}.view-tab{flex:none}.type-grid{grid-template-columns:1fr}}
 
+
+/* Professional pass: calmer palette, real icons, lighter type, quiet controls, user menu */
+:root[data-theme="dark"]{--v-bg:#0b0f14;--v-side:#0d1218;--v-surface:#111820;--v-surface2:#161f29;--v-line:#212c38;--v-line2:#2d3a48;--v-ink:#e8eef3;--v-muted:#8c9eac;--v-accent:#5fd4c0;--v-accent2:#34b8a2;--v-soft:#13302c;--v-shadow:none}
+:root[data-theme="light"]{--v-bg:#f5f7fa;--v-side:#ffffff;--v-surface:#ffffff;--v-surface2:#f7f9fb;--v-line:#e3e9ef;--v-line2:#cfd9e2;--v-ink:#162330;--v-muted:#617485;--v-accent:#0b7d70;--v-accent2:#0b7d70;--v-soft:#e6f4f1;--v-shadow:none}
+:root[data-theme] body{font-family:Inter,"Segoe UI",ui-sans-serif,system-ui,-apple-system,Roboto,sans-serif;font-size:14px;line-height:1.5;font-feature-settings:"tnum" 1,"cv11" 1;-webkit-font-smoothing:antialiased}
+:root[data-theme] .shell{grid-template-columns:236px minmax(0,1fr);background:linear-gradient(90deg,var(--v-side) 0 236px,var(--v-bg) 236px)}
+:root[data-theme] .side{padding:18px 12px}
+:root[data-theme] .side .brand{padding:2px 8px 22px}
+:root[data-theme] .side .brand strong{font-size:14px;letter-spacing:.16em;font-weight:700}
+:root[data-theme] .side .mark{width:34px;height:34px;border-radius:10px;font-size:16px}
+:root[data-theme] .nav-label{font-weight:600;font-size:10.5px;letter-spacing:.14em}
+:root[data-theme] .workspace-nav{gap:2px}
+:root[data-theme] .workspace-nav .nav{position:relative;gap:11px;height:38px;padding:0 10px 0 12px;border:0;border-radius:8px;font-size:13.5px;font-weight:500;color:var(--v-muted);background:transparent}
+:root[data-theme] .workspace-nav .nav b{width:18px;height:18px;border-radius:0;background:transparent;color:inherit;font-size:0}
+:root[data-theme] .workspace-nav .nav b svg,.ico svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;display:block}
+:root[data-theme] .workspace-nav .nav:hover{background:var(--v-surface2);color:var(--v-ink)}
+:root[data-theme] .workspace-nav .nav.active{background:var(--v-surface2);color:var(--v-ink);font-weight:600}
+:root[data-theme] .workspace-nav .nav.active:before{content:"";position:absolute;left:-12px;top:9px;bottom:9px;width:3px;border-radius:0 3px 3px 0;background:var(--v-accent)}
+:root[data-theme] .workspace-nav .nav.active b{background:transparent;color:var(--v-accent)}
+:root[data-theme] .side-note{font-size:11.5px}
+:root[data-theme] .content{width:min(1280px,100%);padding:22px clamp(18px,3vw,44px) 56px}
+:root[data-theme] .top{flex-wrap:nowrap;align-items:center;gap:16px;margin-bottom:20px;padding-bottom:16px}
+:root[data-theme] .eyebrow{font-size:10.5px;font-weight:600;letter-spacing:.12em;color:var(--v-muted)}
+:root[data-theme] .top h1{margin:3px 0 2px;font-size:clamp(20px,2.2vw,26px);font-weight:650;letter-spacing:-.02em}
+:root[data-theme] .top p{font-size:13px}
+:root[data-theme] .top-actions{width:auto;flex:none;margin-left:auto;flex-wrap:nowrap;justify-content:flex-end;gap:8px}
+:root[data-theme] .tool-group{padding:0;border:0;background:transparent;gap:6px}
+:root[data-theme] .btn,:root[data-theme] .theme-toggle,:root[data-theme] .tool-group .btn,:root[data-theme] .tool-group .theme-toggle{min-height:34px;height:34px;padding:0 12px;border:1px solid var(--v-line);border-radius:8px;background:var(--v-surface);color:var(--v-ink);font-size:12.5px;font-weight:550;letter-spacing:0;box-shadow:none}
+:root[data-theme] .tool-group .theme-toggle{min-width:34px;padding:0;display:inline-grid;place-items:center}
+:root[data-theme] .btn:hover,:root[data-theme] .theme-toggle:hover,:root[data-theme] .tool-group .btn:hover,:root[data-theme] .tool-group .theme-toggle:hover{background:var(--v-surface2);border-color:var(--v-line2);color:var(--v-ink)}
+:root[data-theme] button:focus-visible,:root[data-theme] a:focus-visible,:root[data-theme] select:focus-visible,:root[data-theme] input:focus-visible{outline:2px solid var(--v-accent);outline-offset:2px}
+:root[data-theme] .quick-pause{height:34px;border-radius:8px!important;font-size:12.5px;font-weight:600}
+.style-switch{padding:2px;border-radius:8px}.style-switch button{height:28px;font-size:11.5px}
+.user-menu{position:relative}.user-btn{display:inline-flex;align-items:center;gap:8px;height:34px;padding:0 8px 0 4px;border:1px solid var(--v-line);border-radius:999px;background:var(--v-surface);color:var(--v-ink);font-size:12.5px;font-weight:550}
+.user-btn:hover{background:var(--v-surface2);border-color:var(--v-line2)}
+.user-avatar{display:grid;place-items:center;width:26px;height:26px;border-radius:50%;background:var(--v-soft);color:var(--v-accent);font-size:12px;font-weight:700}
+.user-pop{position:absolute;right:0;top:calc(100% + 8px);z-index:20;min-width:270px;padding:6px;border:1px solid var(--v-line2);border-radius:12px;background:var(--v-surface);box-shadow:0 18px 40px -12px #000a}
+.user-pop[hidden]{display:none}.user-pop .who{padding:8px 10px 10px;border-bottom:1px solid var(--v-line);margin-bottom:6px}.user-pop .who strong{display:block;font-size:13px}.user-pop .who small{color:var(--v-muted);font-size:11.5px}
+:root[data-theme] .user-pop .btn,:root[data-theme] .user-pop a.btn{display:flex;align-items:center;width:100%;height:36px;margin:0;border:0;background:transparent;border-radius:8px;justify-content:flex-start;font-weight:500;text-decoration:none}
+:root[data-theme] .user-pop .btn:hover{background:var(--v-surface2)}
+:root[data-theme] .user-pop .btn{white-space:nowrap}
+:root[data-theme] .user-pop .danger{color:var(--v-danger)}
+.user-pop .sep{height:1px;margin:6px 0;background:var(--v-line)}.user-pop .lang{display:flex;align-items:center;gap:8px;padding:7px 10px;color:var(--v-muted);font-size:12px}
+/* hero: one calm status banner instead of a poster */
+:root[data-theme] .hud-hero{grid-template-columns:minmax(0,1fr) minmax(0,auto);padding:18px 22px;border-radius:14px;background:var(--v-surface);box-shadow:none}
+:root[data-theme] .hud-hero .hero-copy h2{font-size:clamp(19px,2vw,24px);font-weight:650;margin:4px 0 6px}
+:root[data-theme] .hud-hero .hero-copy p{margin:0;font-size:13px}
+:root[data-theme] .hero-tags{display:none}
+:root[data-theme] .hero-kicker{font-size:10.5px;font-weight:600;letter-spacing:.12em;color:var(--v-muted)}
+:root[data-theme] .console-readouts{grid-template-columns:repeat(3,minmax(0,1fr));min-width:0;gap:8px}
+:root[data-theme] .console-readouts>div,:root[data-theme] .console-readouts>div:last-child{grid-column:auto;padding:8px 12px;border-radius:10px;background:var(--v-surface2);border-color:var(--v-line)}
+:root[data-theme] .hero-console{width:min(520px,100%)}
+:root[data-theme] button,:root[data-theme] .btn,:root[data-theme] .badge{font-weight:550}
+:root[data-theme] .top>div:first-child{flex:none;min-width:0}:root[data-theme] .top h1{white-space:nowrap}
+:root[data-theme] .console-readouts small{font-size:10px;font-weight:600;letter-spacing:.1em}
+:root[data-theme] .console-readouts strong{font-size:12px;font-weight:600;letter-spacing:.02em;color:var(--v-ink)}
+/* cards, panels, tables */
+:root[data-theme] .section-kicker{font-size:11px;font-weight:600;letter-spacing:.12em;margin:20px 0 10px}
+:root[data-theme] .card,:root[data-theme] .detail-panel,:root[data-theme] .table,:root[data-theme] .warning,:root[data-theme] .cap-card,:root[data-theme] .cap-skills section{border-radius:12px;box-shadow:none;background:var(--v-surface)}
+:root[data-theme] .card{padding:16px 18px}
+:root[data-theme] .card-label{font-size:12px;font-weight:550}
+:root[data-theme] .value{font-size:24px;font-weight:650;letter-spacing:-.02em}
+:root[data-theme] .card-icon{width:32px;height:32px;border-radius:8px;background:var(--v-surface2);border:1px solid var(--v-line);color:var(--v-accent);font-size:0}
+:root[data-theme] .card-icon svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+:root[data-theme] .section-head h2,:root[data-theme] .detail-panel h2{font-size:16px;font-weight:650}
+:root[data-theme] .section-head p{font-size:12.5px}
+:root[data-theme] .cap-card:hover,:root[data-theme] button.cap-card:hover{border-color:var(--v-line2);background:var(--v-surface2);transform:none}
+:root[data-theme] .cap-card h3{font-size:14.5px;font-weight:650}
+:root[data-theme] .cap-card p{font-weight:400;color:var(--v-muted)}
+:root[data-theme] .console-readouts strong{white-space:normal;overflow:visible;letter-spacing:0}
+:root[data-theme] .cap-icon{border-radius:9px}
+:root[data-theme] .cap-tag{font-weight:600;font-size:10px}
+:root[data-theme] .cap-tab,:root[data-theme] .view-tab{font-weight:550;font-size:12.5px}
+:root[data-theme] .warning{padding:14px 18px}
+:root[data-theme] .warning strong{font-weight:650}
+:root[data-theme] .thead{font-weight:600;letter-spacing:.1em}
+:root[data-theme] .row{padding:10px 16px}
+:root[data-theme] .chat-name,:root[data-theme] .chat-name strong{font-weight:600}
+:root[data-theme] .approval-btn,:root[data-theme] .profile-btn,:root[data-theme] .friend-select{height:28px;min-height:28px;padding:0 10px;border:1px solid var(--v-line);border-radius:7px;background:transparent;color:var(--v-muted);font-size:11.5px;font-weight:550}
+:root[data-theme] .approval-btn:hover,:root[data-theme] .profile-btn:hover,:root[data-theme] .friend-select:hover{border-color:var(--v-line2);color:var(--v-ink);background:var(--v-surface2)}
+:root[data-theme] .approval-btn:not(.remove){color:var(--v-accent);border-color:var(--v-line2)}
+:root[data-theme] .approval-btn.remove{color:var(--v-muted)}
+:root[data-theme] .approval-btn.remove:hover{color:var(--v-danger);border-color:var(--v-danger)}
+:root[data-theme] .badge{border-radius:999px;font-weight:600;font-size:11px;padding:3px 9px}
+:root[data-theme] .chat-tools input,:root[data-theme] .chat-tools select{height:38px;border-radius:8px}
+:root[data-theme] .view-tabs{border-radius:10px;padding:3px}
+:root[data-theme] .view-tab{border-radius:7px}
+:root[data-theme] .count{font-weight:600;font-size:11.5px}
+:root[data-theme] dt{font-size:13px}:root[data-theme] dd{font-weight:600}
+@media(max-width:1100px){:root[data-theme] .top{flex-wrap:wrap}:root[data-theme] .top-actions{width:100%;flex-wrap:wrap;justify-content:flex-start;margin-left:0}:root[data-theme] .console-readouts{grid-template-columns:1fr}}
+@media(max-width:900px){:root[data-theme] .shell{grid-template-columns:200px minmax(0,1fr);background:var(--v-bg)}}
+@media(max-width:680px){:root[data-theme] .shell{display:block}:root[data-theme] .workspace-nav .nav{height:36px}:root[data-theme] .workspace-nav .nav.active:before{display:none}:root[data-theme] .workspace-nav .nav.active{background:var(--v-soft);color:var(--v-accent)}.user-pop{right:auto;left:0}}
 /* 2D / 3D look: 2D is the flat design above, 3D adds depth (raised keys, extruded cards, tilt, orb) */
 .style-switch{display:inline-flex;padding:2px;border-radius:9px;background:var(--v-surface2);border:1px solid var(--v-line)}
 .style-switch button{min-width:34px;height:28px;padding:0 9px;border:0;border-radius:7px;background:transparent;color:var(--v-muted);font-size:12px;font-weight:800;letter-spacing:.04em}
@@ -501,7 +593,22 @@ function switchView(view){if(!views[view])view='overview';currentView=view;$('.t
 function filterChats(){const query=$('#chatSearch').value.trim().toLocaleLowerCase('uz'),filter=$('#chatFilter').value;let visible=0;const rows=$('#chats').querySelectorAll('.row');rows.forEach(row=>{row.hidden=!(row.dataset.title.includes(query)&&(currentView!=='groups'||row.dataset.kind==='Guruh'||row.dataset.kind==='Kanal')&&(filter!=='approved'||row.dataset.approved==='true')&&(filter!=='unread'||Number(row.dataset.unread)>0)&&(!filter.startsWith('friend')||(filter==='friend'?row.dataset.friend!=='':row.dataset.friend===filter.slice(7))));if(!row.hidden)visible++});$('#chatCount').textContent=visible+' ta chat';noMatches.hidden=visible>0||rows.length===0}
 
 /* Design v3 wiring: tool groups, Avtomatik javoblar tabs, chat types and skills */
-(function(){const actions=$('.top-actions');if(actions&&!actions.querySelector('.tool-group')){const primary=document.createElement('div');primary.className='tool-group';primary.append($('#connectionCheck'),$('#aiCheck'),$('#refresh'));const secondary=document.createElement('div');secondary.className='tool-group';const account=$('.account-action');secondary.append($('.theme-toggle'),$('.language'),...(account?[account]:[]),$('#logout'));actions.replaceChildren(...[primary,secondary,$('#quickPause')].filter(Boolean))}})();
+const ICONS={overview:'<rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/>',chats:'<path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/>',groups:'<circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><circle cx="17" cy="9" r="2.4"/><path d="M17.5 14.2c2.2.3 3.5 2.2 3.5 4.3"/>',replies:'<path d="M13 3L5 13h6l-1 8 8-10h-6z"/>',settings:'<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>',link:'<path d="M10 13a5 5 0 0 0 7.1 0l3-3a5 5 0 0 0-7.1-7.1l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.1 0l-3 3a5 5 0 0 0 7.1 7.1l1.7-1.7"/>',user:'<circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8"/>',shield:'<path d="M12 3l8 3v6c0 4.5-3.2 8-8 9-4.8-1-8-4.5-8-9V6z"/><path d="M9 12l2 2 4-4"/>',chev:'<path d="M6 9l6 6 6-6"/>'};
+const icon=name=>'<svg viewBox="0 0 24 24" aria-hidden="true">'+ICONS[name]+'</svg>';
+document.querySelectorAll('.workspace-nav .nav[data-view]').forEach(button=>{const b=button.querySelector('b');if(b&&ICONS[button.dataset.view])b.innerHTML=icon(button.dataset.view)});
+[['↗','link'],['◎','user'],['✓','shield']].forEach(([glyph,name],index)=>{const el=document.querySelectorAll('.card .card-icon')[index];if(el)el.innerHTML=icon(name)});
+(function(){const actions=$('.top-actions');if(!actions||actions.querySelector('.user-menu'))return;
+const checks=document.createElement('div');checks.className='tool-group';checks.append($('#refresh'));
+const view=document.createElement('div');view.className='tool-group view-tools';view.append($('.theme-toggle'));
+const menu=document.createElement('div');menu.className='user-menu';const trigger=document.createElement('button');trigger.type='button';trigger.className='user-btn';trigger.setAttribute('aria-haspopup','true');trigger.setAttribute('aria-expanded','false');trigger.innerHTML='<span class="user-avatar" aria-hidden="true">S</span><span>Hisob</span><span class="ico" aria-hidden="true">'+icon('chev')+'</span>';
+const pop=document.createElement('div');pop.className='user-pop';pop.hidden=true;pop.setAttribute('role','menu');const who=document.createElement('div');who.className='who';who.innerHTML='<strong id="menuAccount">Shaxsiy akkaunt</strong><small>Shadow · O‘zbekcha</small>';
+const account=$('.account-action');account.textContent='Telegram akkauntini almashtirish';const logout=$('#logout');logout.classList.add('danger');const sep=document.createElement('div');sep.className='sep';pop.append(who,$('#connectionCheck'),$('#aiCheck'),account,sep,logout);
+menu.append(trigger,pop);
+const closeMenu=()=>{pop.hidden=true;trigger.setAttribute('aria-expanded','false')};
+pop.addEventListener('click',e=>{if(e.target.closest('button,a'))closeMenu()});trigger.addEventListener('click',e=>{e.stopPropagation();const open=pop.hidden;pop.hidden=!open;trigger.setAttribute('aria-expanded',String(open))});
+document.addEventListener('click',e=>{if(!menu.contains(e.target))closeMenu()});document.addEventListener('keydown',e=>{if(e.key==='Escape')closeMenu()});
+$('.language').style.display='none';
+actions.replaceChildren(...[$('#quickPause'),checks,view,menu].filter(Boolean))})();
 const replyTabs=[['status','Holat va qoidalar'],['strangers','Notanish chatlar'],['types','Suhbat turlari va skillar']];
 const typesPanel=document.createElement('article');typesPanel.className='detail-panel';typesPanel.dataset.group='types';typesPanel.style.gridColumn='1/-1';typesPanel.innerHTML='<h2>Suhbat turlari</h2><p>Har bir chat uchun alohida tur tanlanadi: Suhbatlar ro‘yxatidagi “Maxsus xotira” → tur. Tur faqat uslub va yo‘nalishni o‘zgartiradi; Shadow doim AI ekanini rost aytadi.</p><div class="type-grid" id="typeGrid">Yuklanmoqda…</div><h2 style="margin-top:22px">Skillar</h2><p>Shadow doim biladigan ko‘nikmalar. Alohida yoqish shart emas: kerak bo‘lganda o‘zi qo‘llaydi.</p><div class="type-grid" id="skillGrid"></div><h2 style="margin-top:22px">Chatlarga tayinlash</h2><p>Ruxsat berilgan chatlar va ularning turlari. Bir chatga bir nechta tur tanlash mumkin.</p><div class="assign-list" id="assignList"></div><div class="type-note">Yangi tur yoki skill kerak bo‘lsa, ayting: qo‘shamiz.</div>';
 $('#replyDetails').append(typesPanel);
@@ -519,7 +626,7 @@ showReplyTab('status');
 
 
 /* 2D/3D look switch + pointer tilt (3D only, not with reduced motion) */
-(function(){const group=$('.top-actions .tool-group:last-of-type');if(!group)return;const box=document.createElement('div');box.className='style-switch';box.setAttribute('role','group');box.setAttribute('aria-label','Ko‘rinish uslubi: 2D yoki 3D');
+(function(){const group=$('.top-actions .view-tools');if(!group)return;const box=document.createElement('div');box.className='style-switch';box.setAttribute('role','group');box.setAttribute('aria-label','Ko‘rinish uslubi: 2D yoki 3D');
 function apply(style){document.documentElement.dataset.style=style;box.querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.styleSet===style)));try{localStorage.setItem('shadow-style',style)}catch(e){}if(style!=='3d')document.querySelectorAll('[style*="--rx"]').forEach(el=>{el.style.removeProperty('--rx');el.style.removeProperty('--ry')})}
 ['2d','3d'].forEach(style=>{const b=document.createElement('button');b.type='button';b.dataset.styleSet=style;b.textContent=style.toUpperCase();b.title=style==='3d'?'Hajmli (3D) ko‘rinish':'Tekis (2D) ko‘rinish';b.addEventListener('click',()=>apply(style));box.append(b)});
 group.prepend(box);apply(document.documentElement.dataset.style==='3d'?'3d':'2d');
@@ -528,7 +635,7 @@ document.addEventListener('pointermove',e=>{if(document.documentElement.dataset.
 document.addEventListener('pointerout',e=>{const el=e.target.closest&&e.target.closest('.card,.cap-card,.detail-panel,.hud-hero');if(el&&!el.contains(e.relatedTarget)){el.style.removeProperty('--rx');el.style.removeProperty('--ry')}},{passive:true});
 })();
 
-function syncPanels(s){syncGreet(s);syncVideoUnknown(s);$('#quickPause').hidden=!s.reply_enabled;updateReplyActivity(s);updateReplyReadiness(s);$('#heroConnection').textContent=s.connected?'ALOQA FAOL':'ALOQA UZILGAN';$('#heroReplies').textContent=s.reply_enabled?'JAVOBLAR YOQILGAN':'JAVOBLAR O‘CHIRILGAN';$('#heroModel').textContent=s.last_ai_model||s.openai_model||'Vazifa kutilyapti';syncModelInputs(s);$('#groupMode').textContent=s.group_reply_mode==='all'?'Barcha xabarlarga':'Eslatma yoki javobga';$('#replyApproved').textContent=String(s.approved_chat_count);$('#settingsConnection').textContent=s.connected?'Ulangan':'Ulanmagan';$('#sessionSaved').textContent=typeof s.session_persisted==='boolean'?(s.session_persisted?'Ha':'Yo‘q'):'—';$('#sessionAvailable').textContent=typeof s.can_persist_session==='boolean'?(s.can_persist_session?'Mavjud':'Sozlanmagan'):'—';$('#lastUpdated').textContent=new Date().toLocaleTimeString('uz-UZ',{hour:'2-digit',minute:'2-digit',second:'2-digit'});$('#panelNotice').textContent=s.last_error?'Ulanish holati: '+s.last_error:''}
+function syncPanels(s){const who=$('#menuAccount');if(who&&s.account)who.textContent=s.account;syncGreet(s);syncVideoUnknown(s);$('#quickPause').hidden=!s.reply_enabled;updateReplyActivity(s);updateReplyReadiness(s);$('#heroConnection').textContent=s.connected?'ALOQA FAOL':'ALOQA UZILGAN';$('#heroReplies').textContent=s.reply_enabled?'JAVOBLAR YOQILGAN':'JAVOBLAR O‘CHIRILGAN';$('#heroModel').textContent=s.last_ai_model||s.openai_model||'Vazifa kutilyapti';syncModelInputs(s);$('#groupMode').textContent=s.group_reply_mode==='all'?'Barcha xabarlarga':'Eslatma yoki javobga';$('#replyApproved').textContent=String(s.approved_chat_count);$('#settingsConnection').textContent=s.connected?'Ulangan':'Ulanmagan';$('#sessionSaved').textContent=typeof s.session_persisted==='boolean'?(s.session_persisted?'Ha':'Yo‘q'):'—';$('#sessionAvailable').textContent=typeof s.can_persist_session==='boolean'?(s.can_persist_session?'Mavjud':'Sozlanmagan'):'—';$('#lastUpdated').textContent=new Date().toLocaleTimeString('uz-UZ',{hour:'2-digit',minute:'2-digit',second:'2-digit'});$('#panelNotice').textContent=s.last_error?'Ulanish holati: '+s.last_error:''}
 $('#saveModels').addEventListener('click',saveModels);
 function renderAiProviders(s){const box=$('#aiProviderList');if(!box)return;const list=(s.ai_backup&&s.ai_backup.providers)||[];box.replaceChildren();if(!list.length){box.textContent='Qo‘shilgan zaxira AI yo‘q.';return}list.forEach(p=>{const row=document.createElement('div');row.className='setting-row';const info=document.createElement('div');const name=document.createElement('strong');name.textContent=p.name;const model=document.createElement('small');model.textContent=p.model;info.append(name,model);const del=document.createElement('button');del.type='button';del.className='btn';del.textContent='O‘chirish';del.addEventListener('click',()=>removeAiProvider(p,del));row.append(info,del);box.append(row)})}
 async function removeAiProvider(p,button){if(!window.confirm(p.name+' ('+p.model+') ni o‘chirishni xohlaysizmi?'))return;const notice=$('#aiProviderNotice');button.disabled=true;notice.textContent='O‘chirilmoqda…';try{const r=await api('/dashboard/api/ai-providers/'+p.slot,{method:'DELETE'});notice.textContent=p.name+(r.persisted?' o‘chirildi. Render serverni qayta ishga tushirishi mumkin, 1-2 daqiqa kuting.':' hozirgi ishga tushishda o‘chirildi, lekin Renderdan o‘chmadi. RENDER_API_KEY va RENDER_SERVICE_ID ni tekshiring.');await load()}catch(e){notice.textContent=e.message==='auth'?'Panel sessiyasi tugadi. Qayta kiring.':e.message;button.disabled=false}}
