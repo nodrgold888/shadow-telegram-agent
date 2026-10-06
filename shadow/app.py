@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import secrets
 from contextlib import asynccontextmanager
 from dataclasses import replace
@@ -10,7 +11,8 @@ from fastapi import Cookie, FastAPI, Header, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse
 
 from .config import Settings
-from .persist import save_model_selection, save_reply_enabled
+from .ai_slots import apply_provider, free_slot, parse_provider, provider_env
+from .persist import save_env_vars, save_model_selection, save_reply_enabled
 from .config import SUPPORTED_OPENAI_MODELS
 from .agents import agent_catalog
 from .chat_memory import normalize_chat_profile
@@ -285,6 +287,31 @@ async def dashboard_replies(
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     persisted = await save_reply_enabled(agent.reply_enabled)
     return {"reply_enabled": agent.reply_enabled, "persisted": persisted}
+
+
+@app.post("/dashboard/api/ai-providers")
+async def dashboard_add_ai_provider(
+    request: Request,
+    shadow_setup: str | None = Cookie(default=None),
+    authorization: str | None = Header(default=None),
+) -> dict[str, object]:
+    if not _dashboard_allowed(shadow_setup, authorization):
+        raise HTTPException(status_code=401, detail="Kirish kerak")
+    try:
+        provider = parse_provider(await request.json())
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    slot = free_slot()
+    if slot is None:
+        raise HTTPException(status_code=409, detail="Barcha 5 ta AI joyi band")
+    values = provider_env(slot, provider)
+    persisted = await save_env_vars(values)
+    os.environ.update(values)
+    updated = apply_provider(agent.settings, slot, provider)
+    agent.settings = updated
+    if agent.assistant:
+        agent.assistant.update_settings(updated)
+    return {"ok": True, "slot": slot, "name": provider.name, "model": provider.model, "persisted": persisted}
 
 
 @app.post("/dashboard/api/ai-check")

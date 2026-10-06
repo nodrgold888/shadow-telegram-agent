@@ -32,3 +32,4 @@ jobs:
       - run: python -m unittest discover -s tests -p 'test_agents.py'
       - run: python -m unittest discover -s tests -p 'test_freellmapi_protocol.py'
       - run: python -m unittest discover -s tests -p 'test_gemini_backup.py'
+      - run: python -m unittest discover -s tests -p 'test_ai_slots.py'

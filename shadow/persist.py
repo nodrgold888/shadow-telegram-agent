@@ -241,3 +241,18 @@ async def save_reply_enabled(enabled: bool) -> bool:
         log.warning("Could not persist reply mode: %s", type(exc).__name__)
         return False
     return True
+
+
+async def save_env_vars(values: dict[str, str]) -> bool:
+    """Write several variables to the Render service (a restart follows). Never logs values."""
+    if os.getenv("SHADOW_STATE_FILE", "").strip() or not persistence_available():
+        return False
+    service_id = os.environ["RENDER_SERVICE_ID"].strip()
+    api_key = os.environ["RENDER_API_KEY"].strip()
+    try:
+        for key, value in values.items():
+            await asyncio.to_thread(_put_env_var, service_id, api_key, key, value)
+    except Exception as exc:
+        log.warning("Could not persist AI provider: %s", type(exc).__name__)
+        return False
+    return True
