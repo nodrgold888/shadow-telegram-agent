@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#f3f6f7">
 <title>Shadow · Boshqaruv paneli</title>
 <script>
-(function(){var theme='dark';try{var saved=localStorage.getItem('shadow-theme');if(saved==='light'||saved==='dark')theme=saved}catch(e){}document.documentElement.dataset.theme=theme;document.querySelector('meta[name="theme-color"]').content=theme==='dark'?'#0c1218':'#f3f6f7'})()
+(function(){var theme='dark';try{var saved=localStorage.getItem('shadow-theme');if(saved==='light'||saved==='dark')theme=saved}catch(e){}document.documentElement.dataset.theme=theme;var st='2d';try{if(localStorage.getItem('shadow-style')==='3d')st='3d'}catch(e){}document.documentElement.dataset.style=st;document.querySelector('meta[name="theme-color"]').content=theme==='dark'?'#0c1218':'#f3f6f7'})()
 </script>
 <style>
 :root{color-scheme:light;--bg:#f3f6f7;--paper:#fff;--ink:#17242a;--muted:#728188;--line:#e3eaeb;--nav:#14242a;--mint:#138d78;--mint-bg:#e7f6f1;--amber:#8a631b;--amber-bg:#fff5df;--shadow:0 10px 30px #1a33370b}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}button,input{font:inherit}button{cursor:pointer}button:focus-visible,input:focus-visible{outline:3px solid #52bda8;outline-offset:2px}
@@ -357,6 +357,41 @@ fieldset.agent-picker{margin:13px 0;padding:0;border:0}fieldset.agent-picker leg
 @media(max-width:680px){.agent-checks{grid-template-columns:1fr}.assign-row{grid-template-columns:1fr}}
 @media(max-width:900px){:root[data-theme] .shell{grid-template-columns:200px minmax(0,1fr);background:var(--v-bg)}:root[data-theme] .grid{grid-template-columns:repeat(2,minmax(0,1fr))}:root[data-theme] .hud-hero{grid-template-columns:1fr}:root[data-theme] .console-readouts{min-width:0}}
 @media(max-width:680px){:root[data-theme] .shell{display:block;background:var(--v-bg)}:root[data-theme] .side{position:static;height:auto;flex-direction:row;flex-wrap:wrap;gap:10px;padding:12px 14px;border-right:0;border-bottom:1px solid var(--v-line)}:root[data-theme] .side .brand{padding:0}:root[data-theme] .workspace-nav{display:flex!important;overflow-x:auto;flex-basis:100%;gap:6px;padding-bottom:2px}:root[data-theme] .workspace-nav .nav{flex:0 0 auto;width:auto;white-space:nowrap}:root[data-theme] .workspace-nav .nav-label,:root[data-theme] .side-note{display:none}:root[data-theme] .content{padding:18px 14px 40px}:root[data-theme] .top-actions{margin-left:0;justify-content:flex-start}:root[data-theme] .grid{grid-template-columns:1fr}:root[data-theme] .hud-hero{padding:18px}:root[data-theme] .row{grid-template-columns:1fr;gap:8px}.view-tabs{width:100%;overflow-x:auto;flex-wrap:nowrap}.view-tab{flex:none}.type-grid{grid-template-columns:1fr}}
+
+/* 2D / 3D look: 2D is the flat design above, 3D adds depth (raised keys, extruded cards, tilt, orb) */
+.style-switch{display:inline-flex;padding:2px;border-radius:9px;background:var(--v-surface2);border:1px solid var(--v-line)}
+.style-switch button{min-width:34px;height:28px;padding:0 9px;border:0;border-radius:7px;background:transparent;color:var(--v-muted);font-size:12px;font-weight:800;letter-spacing:.04em}
+.style-switch button[aria-pressed="true"]{background:var(--v-accent2);color:#04201b;box-shadow:0 1px 0 #ffffff40 inset}
+:root[data-theme="light"] .style-switch button[aria-pressed="true"]{color:#fff}
+:root[data-theme="dark"][data-style="3d"]{--d3-edge:#020409;--d3-hi:#ffffff1c;--d3-drop:#000d}
+:root[data-theme="light"][data-style="3d"]{--d3-edge:#b9c8d5;--d3-hi:#ffffffcc;--d3-drop:#1a3a5530}
+:root[data-style="3d"] .card,:root[data-style="3d"] .detail-panel,:root[data-style="3d"] .cap-card,:root[data-style="3d"] .hud-hero,:root[data-style="3d"] .warning,:root[data-style="3d"] .table,:root[data-style="3d"] .assign-row,:root[data-style="3d"] .type-card{border-color:var(--v-line2);box-shadow:0 1px 0 var(--d3-hi) inset,0 4px 0 var(--d3-edge),0 26px 38px -14px var(--d3-drop);transform:perspective(1100px) rotateX(var(--rx,0deg)) rotateY(var(--ry,0deg));transition:transform .18s ease,box-shadow .18s ease;will-change:transform}
+:root[data-style="3d"] .card:hover,:root[data-style="3d"] button.cap-card:hover,:root[data-style="3d"] .detail-panel:hover{box-shadow:0 1px 0 var(--d3-hi) inset,0 5px 0 var(--d3-edge),0 30px 44px -16px var(--d3-drop)}
+:root[data-style="3d"] .card,:root[data-style="3d"] .cap-card,:root[data-style="3d"] .detail-panel{background:linear-gradient(160deg,var(--v-surface2),var(--v-surface) 62%)}
+:root[data-style="3d"] .hud-hero{background:linear-gradient(150deg,var(--v-surface2),var(--v-soft))}
+:root[data-style="3d"] .row:hover{background:transparent}
+:root[data-style="3d"] .btn,:root[data-style="3d"] .approval-btn,:root[data-style="3d"] .profile-btn,:root[data-style="3d"] .cap-toggle,:root[data-style="3d"] .cap-tab{background:linear-gradient(180deg,var(--v-surface2),var(--v-surface));border:1px solid var(--v-line2);box-shadow:0 1px 0 var(--d3-hi) inset,0 3px 0 var(--d3-edge),0 8px 12px -6px var(--d3-drop);transition:transform .08s ease,box-shadow .08s ease}
+:root[data-style="3d"] .tool-group .btn,:root[data-style="3d"] .tool-group .theme-toggle,:root[data-style="3d"] .tool-group .language{border:1px solid var(--v-line2)}
+:root[data-style="3d"] .btn:active,:root[data-style="3d"] .approval-btn:active,:root[data-style="3d"] .profile-btn:active,:root[data-style="3d"] .cap-toggle:active,:root[data-style="3d"] .cap-tab:active,:root[data-style="3d"] .theme-toggle:active{transform:translateY(3px);box-shadow:0 1px 0 var(--d3-hi) inset,0 0 0 var(--d3-edge),0 2px 4px -2px var(--d3-drop)}
+:root[data-style="3d"] .cap-tab[aria-selected="true"],:root[data-style="3d"] .view-tab[aria-selected="true"]{box-shadow:0 2px 6px #0004 inset,0 1px 0 var(--d3-hi)}
+:root[data-style="3d"] .tool-group,:root[data-style="3d"] .view-tabs{box-shadow:0 2px 6px #0003 inset}
+:root[data-style="3d"] .workspace-nav .nav{box-shadow:0 1px 0 var(--d3-hi) inset,0 3px 0 var(--d3-edge);border-color:var(--v-line)}
+:root[data-style="3d"] .workspace-nav .nav:active{transform:translateY(2px);box-shadow:0 0 0 var(--d3-edge)}
+:root[data-style="3d"] .workspace-nav .nav.active{box-shadow:0 2px 8px #0005 inset,0 0 0 1px var(--v-accent2),0 0 18px -4px var(--v-accent2)}
+:root[data-style="3d"] .workspace-nav .nav b,:root[data-style="3d"] .cap-icon,:root[data-style="3d"] .card-icon,:root[data-style="3d"] .avatar{box-shadow:0 1px 0 var(--d3-hi) inset,0 2px 0 var(--d3-edge)}
+:root[data-style="3d"] .switch{box-shadow:0 2px 5px #0006 inset}
+:root[data-style="3d"] .switch:after,:root[data-style="3d"] .switch::after{box-shadow:0 2px 0 #0004,0 4px 8px #0005}
+:root[data-style="3d"] .mark{box-shadow:0 1px 0 #ffffff55 inset,0 4px 0 #0a5f55,0 10px 18px -6px #0008;transform:rotate(-4deg)}
+:root[data-style="3d"] .core-orb{display:grid;width:150px;transform-style:preserve-3d;perspective:600px}
+:root[data-style="3d"] .hero-console{display:flex;align-items:center;gap:18px}
+:root[data-style="3d"] .orb-ring{inset:0;border-width:2px;border-color:var(--v-accent);opacity:.7}:root[data-style="3d"] .ring-two{inset:12%}:root[data-style="3d"] .orb-center{width:50%}
+:root[data-style="3d"] .ring-one{transform:rotateX(72deg);animation:orbit3d 14s linear infinite}
+:root[data-style="3d"] .ring-two{transform:rotateY(72deg);animation:orbit3d 18s linear infinite reverse}
+:root[data-style="3d"] .orb-center{background:radial-gradient(circle at 32% 26%,#d9fff7,var(--v-accent) 38%,#0c5148 100%);color:#052a24;border:0;box-shadow:0 -6px 12px #0006 inset,0 12px 22px -4px #000a,0 0 28px -4px var(--v-accent2);text-shadow:0 1px 0 #ffffff80}
+:root[data-style="3d"] .top h1{text-shadow:0 2px 0 var(--d3-edge)}
+@keyframes orbit3d{to{rotate:360deg}}
+@media(max-width:900px){:root[data-style="3d"] .core-orb{display:none}}
+@media(prefers-reduced-motion:reduce){:root[data-style="3d"] .card,:root[data-style="3d"] .detail-panel,:root[data-style="3d"] .cap-card,:root[data-style="3d"] .btn{transition:none}:root[data-style="3d"] .ring-one,:root[data-style="3d"] .ring-two{animation:none}}
 </style>
 </head>
 <body>
@@ -481,6 +516,17 @@ let typesLoaded=false,lastChats=[],typeCatalog=[];
 function renderAssign(){const box=$('#assignList');if(!box)return;const labels=Object.fromEntries(typeCatalog.map(a=>[a.id,a.label]));const approved=lastChats.filter(c=>c.approved);box.replaceChildren();if(!approved.length){box.textContent='Ruxsat berilgan chat yo‘q. Avval Suhbatlar bo‘limida “+ Tanlash” ni bosing.';return}approved.forEach(chat=>{const row=document.createElement('div');row.className='assign-row';const name=document.createElement('strong');name.textContent=chat.title;const chips=document.createElement('span');chips.className='assign-chips';const ids=chat.agents||[];if(ids.length)ids.forEach(id=>{const chip=document.createElement('em');chip.textContent=labels[id]||id;chips.append(chip)});else{const chip=document.createElement('em');chip.className='none';chip.textContent='Umumiy yordamchi';chips.append(chip)}const button=document.createElement('button');button.type='button';button.className='btn';button.textContent='Turlarni tanlash';button.addEventListener('click',()=>openChatProfile(chat));row.append(name,chips,button);box.append(row)})}
 async function loadTypes(){if(typesLoaded)return;try{const data=await api('/dashboard/api/agents');const card=(item,isDefault)=>{const el=document.createElement('div');el.className='type-card'+(isDefault?' default':'');const t=document.createElement('strong');t.textContent=item.label;const d=document.createElement('span');d.textContent=item.description;el.append(t,d);return el};typeCatalog=data.agents||[];if(!agentCatalog.length)agentCatalog=typeCatalog;renderAssign();$('#typeGrid').replaceChildren(...(data.agents||[]).map((a,i)=>card(a,i===0)));$('#skillGrid').replaceChildren(...(data.skills||[]).map(x=>card(x,false)));typesLoaded=true}catch(error){$('#typeGrid').textContent=error.message==='auth'?'Panel sessiyasi tugadi. Qayta kiring.':'Ro‘yxatni yuklab bo‘lmadi. Yangilashni bosing.'}}
 showReplyTab('status');
+
+
+/* 2D/3D look switch + pointer tilt (3D only, not with reduced motion) */
+(function(){const group=$('.top-actions .tool-group:last-of-type');if(!group)return;const box=document.createElement('div');box.className='style-switch';box.setAttribute('role','group');box.setAttribute('aria-label','Ko‘rinish uslubi: 2D yoki 3D');
+function apply(style){document.documentElement.dataset.style=style;box.querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.styleSet===style)));try{localStorage.setItem('shadow-style',style)}catch(e){}if(style!=='3d')document.querySelectorAll('[style*="--rx"]').forEach(el=>{el.style.removeProperty('--rx');el.style.removeProperty('--ry')})}
+['2d','3d'].forEach(style=>{const b=document.createElement('button');b.type='button';b.dataset.styleSet=style;b.textContent=style.toUpperCase();b.title=style==='3d'?'Hajmli (3D) ko‘rinish':'Tekis (2D) ko‘rinish';b.addEventListener('click',()=>apply(style));box.append(b)});
+group.prepend(box);apply(document.documentElement.dataset.style==='3d'?'3d':'2d');
+const reduce=window.matchMedia('(prefers-reduced-motion: reduce)');
+document.addEventListener('pointermove',e=>{if(document.documentElement.dataset.style!=='3d'||reduce.matches||e.pointerType==='touch')return;const el=e.target.closest&&e.target.closest('.card,.cap-card,.detail-panel,.hud-hero');if(!el)return;const r=el.getBoundingClientRect();if(r.width>760){el.style.setProperty('--rx','0deg');el.style.setProperty('--ry','0deg');return}const x=(e.clientX-r.left)/r.width-.5,y=(e.clientY-r.top)/r.height-.5;el.style.setProperty('--ry',(x*7).toFixed(2)+'deg');el.style.setProperty('--rx',(-y*7).toFixed(2)+'deg')},{passive:true});
+document.addEventListener('pointerout',e=>{const el=e.target.closest&&e.target.closest('.card,.cap-card,.detail-panel,.hud-hero');if(el&&!el.contains(e.relatedTarget)){el.style.removeProperty('--rx');el.style.removeProperty('--ry')}},{passive:true});
+})();
 
 function syncPanels(s){syncGreet(s);syncVideoUnknown(s);$('#quickPause').hidden=!s.reply_enabled;updateReplyActivity(s);updateReplyReadiness(s);$('#heroConnection').textContent=s.connected?'ALOQA FAOL':'ALOQA UZILGAN';$('#heroReplies').textContent=s.reply_enabled?'JAVOBLAR YOQILGAN':'JAVOBLAR O‘CHIRILGAN';$('#heroModel').textContent=s.last_ai_model||s.openai_model||'Vazifa kutilyapti';syncModelInputs(s);$('#groupMode').textContent=s.group_reply_mode==='all'?'Barcha xabarlarga':'Eslatma yoki javobga';$('#replyApproved').textContent=String(s.approved_chat_count);$('#settingsConnection').textContent=s.connected?'Ulangan':'Ulanmagan';$('#sessionSaved').textContent=typeof s.session_persisted==='boolean'?(s.session_persisted?'Ha':'Yo‘q'):'—';$('#sessionAvailable').textContent=typeof s.can_persist_session==='boolean'?(s.can_persist_session?'Mavjud':'Sozlanmagan'):'—';$('#lastUpdated').textContent=new Date().toLocaleTimeString('uz-UZ',{hour:'2-digit',minute:'2-digit',second:'2-digit'});$('#panelNotice').textContent=s.last_error?'Ulanish holati: '+s.last_error:''}
 $('#saveModels').addEventListener('click',saveModels);
