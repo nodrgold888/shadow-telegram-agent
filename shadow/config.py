@@ -2,11 +2,38 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from dataclasses import dataclass
 
 from .persist import load_local_settings
 
-SUPPORTED_OPENAI_MODELS = ("gpt-5-mini", "gpt-6-luna")
+# (API model ID, label shown in the dashboard). The two newest IDs are taken from the
+# names shown in the OpenAI app ("GPT-5.6 Luna", "GPT-Reserve") and have not been
+# confirmed against the API; the dashboard's "AI ni tekshirish" button verifies an ID.
+MODEL_CATALOG = (
+    ("gpt-5-mini", "GPT-5 mini"),
+    ("gpt-6-luna", "GPT-6 Luna"),
+    ("gpt-5.6-luna", "GPT-5.6 Luna"),
+    ("gpt-reserve", "GPT-Reserve"),
+)
+_MODEL_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,63}$")
+
+
+def _extra_models() -> tuple[tuple[str, str], ...]:
+    """Extra API model IDs from EXTRA_OPENAI_MODELS (comma separated), so a new model
+    can be offered in the dashboard without a code change."""
+    known = {model_id for model_id, _ in MODEL_CATALOG}
+    extras = []
+    for raw in os.getenv("EXTRA_OPENAI_MODELS", "").split(","):
+        model_id = raw.strip()
+        if model_id and model_id not in known and _MODEL_ID.match(model_id):
+            known.add(model_id)
+            extras.append((model_id, model_id))
+    return tuple(extras)
+
+
+AVAILABLE_MODELS = MODEL_CATALOG + _extra_models()
+SUPPORTED_OPENAI_MODELS = tuple(model_id for model_id, _ in AVAILABLE_MODELS)
 
 
 def _integer(name: str, default: int | None = None) -> int | None:

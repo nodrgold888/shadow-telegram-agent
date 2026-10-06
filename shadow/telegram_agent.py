@@ -18,7 +18,7 @@ from .office_files import OfficeFileError, MAX_UPLOAD_BYTES, inspect_office
 
 _WORK_SLOTS = asyncio.Semaphore(2)
 from .video_download import VideoDownloadError, downloaded_video, find_video_url
-from .config import Settings
+from .config import AVAILABLE_MODELS, Settings
 from .persist import persistence_available, load_chat_profiles, save_chat_profiles, save_session, save_approved_chats, save_reply_enabled
 from .diagnostics import safe_error_detail
 from .presence import OnlinePresence
@@ -497,6 +497,7 @@ class TelegramAgent:
             "group_reply_mode": self.settings.group_reply_mode,
             "last_ai_model": self.assistant.last_model if self.assistant else None,
             "openai_model": self.settings.openai_model,
+            "supported_models": [{"id": model_id, "label": label} for model_id, label in AVAILABLE_MODELS],
             "complex_openai_model": self.settings.complex_openai_model,
             "last_error": self.last_error,
             "last_reply_at": self.last_reply_at,
