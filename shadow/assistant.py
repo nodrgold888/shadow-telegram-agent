@@ -100,6 +100,16 @@ class ShadowAssistant:
         )
         return answer
 
+    async def check(self) -> dict[str, object]:
+        """Minimal request to both configured models; raises the upstream error if one fails."""
+        checked = []
+        for model in dict.fromkeys((self.settings.openai_model, self.settings.complex_openai_model)):
+            response = await self.client.responses.create(
+                model=model, input="Salom", store=False, max_output_tokens=64,
+            )
+            checked.append({"model": model, "replied": bool((response.output_text or "").strip())})
+        return {"models": checked}
+
     async def reply_public_bank(self, *, history: str, message: str) -> str:
         """Short, tool-free banking answer for people who are not approved chats."""
         selected_model = self.settings.openai_model

@@ -286,6 +286,16 @@ async def dashboard_replies(
     return {"reply_enabled": agent.reply_enabled, "persisted": persisted}
 
 
+@app.post("/dashboard/api/ai-check")
+async def dashboard_ai_check(
+    shadow_setup: str | None = Cookie(default=None),
+    authorization: str | None = Header(default=None),
+) -> dict[str, object]:
+    if not _dashboard_allowed(shadow_setup, authorization):
+        raise HTTPException(status_code=401, detail="Kirish kerak")
+    return await agent.ai_check()
+
+
 @app.api_route("/ping", methods=["GET", "HEAD"])
 async def ping() -> PlainTextResponse:
     # Minimal public liveness probe for keep-alive pingers: no agent or Telegram access.

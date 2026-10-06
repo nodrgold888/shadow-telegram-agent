@@ -20,6 +20,7 @@ _WORK_SLOTS = asyncio.Semaphore(2)
 from .video_download import VideoDownloadError, downloaded_video, find_video_url
 from .config import Settings
 from .persist import persistence_available, load_chat_profiles, save_chat_profiles, save_session, save_approved_chats, save_reply_enabled
+from .diagnostics import safe_error_detail
 from .presence import OnlinePresence
 from .public_bank import DISCLOSURE, PublicBankState, is_stop_request
 from .policy import chat_is_approved, group_message_needs_reply, split_telegram_message, typing_delay
@@ -39,6 +40,7 @@ class TelegramAgent:
         self.last_error: str | None = None
         self.last_reply_at: str | None = None
         self.last_reply_error: str | None = None
+        self.last_reply_error_detail: str | None = None
         self.reply_count = 0
         self._locks: dict[int, asyncio.Lock] = {}
         self._me_id: int | None = None
@@ -304,11 +306,13 @@ class TelegramAgent:
                 self.reply_count += 1
                 self.last_reply_at = datetime.now(timezone.utc).isoformat()
                 self.last_reply_error = None
+                self.last_reply_error_detail = None
                 await self.client.send_read_acknowledge(chat_id)
                 log.info("Replied in approved chat %s", chat_id)
             except Exception as exc:
                 self.last_error = type(exc).__name__
                 self.last_reply_error = type(exc).__name__
+                self.last_reply_error_detail = safe_error_detail(exc)
                 if getattr(exc, "status_code", None) == 401:
                     self.last_reply_error = "openai_authentication_failed"
                 elif getattr(exc, "status_code", None) == 429:
@@ -365,7 +369,19 @@ class TelegramAgent:
                 log.info("Answered a public bank question in chat %s", chat_id)
             except Exception as exc:
                 self.last_reply_error = type(exc).__name__
+                self.last_reply_error_detail = safe_error_detail(exc)
                 log.exception("Public bank reply failed in chat %s", chat_id)
+
+    async def ai_check(self) -> dict[str, object]:
+        """One tiny OpenAI request so the owner can see why replies fail. Never raises."""
+        if not self.settings.openai_api_key:
+            return {"ok": False, "error": "openai_key_missing", "detail": "OPENAI_API_KEY o‘rnatilmagan"}
+        assistant = self.assistant or ShadowAssistant(self.settings)
+        try:
+            return {"ok": True, **await assistant.check()}
+        except Exception as exc:
+            return {"ok": False, "error": type(exc).__name__, "detail": safe_error_detail(exc),
+                    "model": self.settings.openai_model}
 
     def _can_reply(self, chat_id: int) -> bool:
         return bool(self.reply_enabled and chat_is_approved(chat_id, self.settings.approved_chat_ids))
@@ -485,6 +501,7 @@ class TelegramAgent:
             "last_error": self.last_error,
             "last_reply_at": self.last_reply_at,
             "last_reply_error": self.last_reply_error,
+            "last_reply_error_detail": self.last_reply_error_detail,
             "reply_count": self.reply_count,
             "session_persisted": self.session_persisted,
             "session_revoked": self.session_revoked,
