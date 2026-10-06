@@ -54,6 +54,22 @@ class ProviderChainTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(answer, "Ikkinchi javob")
         self.assertEqual((assistant.last_provider, assistant.last_model), ("ikkinchi", "model-2"))
 
+    async def test_empty_reply_falls_through_to_the_next_provider(self):
+        assistant, _ = build(settings_with_two(), {"backup-model": "", "model-2": "Gemini javobi"})
+        answer, _ = await self.ask(assistant)
+        self.assertEqual(answer, "Gemini javobi")
+        self.assertEqual(assistant.last_provider, "ikkinchi")
+
+    async def test_all_empty_still_returns_empty(self):
+        assistant, _ = build(settings_with_two(), {"backup-model": "", "model-2": "  "})
+        answer, files = await self.ask(assistant)
+        self.assertEqual((answer.strip(), files), ("", []))
+
+    async def test_empty_then_failure_returns_empty_not_error(self):
+        assistant, _ = build(settings_with_two(), {"backup-model": "", "model-2": QuotaError()})
+        answer, _ = await self.ask(assistant)
+        self.assertEqual(answer, "")
+
     async def test_all_failing_raises_the_last_error(self):
         class Last(Exception):
             status_code = 500
