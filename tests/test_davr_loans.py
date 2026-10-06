@@ -71,7 +71,14 @@ class DavrLoansSkillTests(unittest.TestCase):
     def test_offers_interest_free_and_with_interest_and_no_invented_trims(self):
         self.assertIn("Offer the choice yourself", self.skill)
         self.assertIn("foizsiz", self.skill)
-        self.assertIn("never list or price trims from memory", self.skill)
+        self.assertIn("never from memory for any other model", self.skill)
+
+    def test_tracker_trims_and_prices_from_official_site(self):
+        for name, price in (("LS PLUS", "215 951 360"), ("LTZ PLUS", "229 108 480"),
+                            ("PREMIER PLUS", "252 656 160"), ("REDLINE", "260 474 080")):
+            self.assertIn(name, self.skill)
+            self.assertIn(price, self.skill)
+        self.assertIn("107 975 680", self.skill)
 
 
 if __name__ == "__main__":
