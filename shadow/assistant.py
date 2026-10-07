@@ -236,7 +236,8 @@ class ShadowAssistant:
                     raise
                 log.warning("OpenAI transcription failed (%s); using Gemini", type(exc).__name__)
         if key:
-            return await gemini_audio.transcribe(key, gemini_audio.gemini_models(self.settings), path)
+            mime = "video/mp4" if path.suffix.lower() == ".mp4" else "audio/ogg"
+            return await gemini_audio.transcribe(key, gemini_audio.gemini_models(self.settings), path, mime)
         return await self._transcribe_openai(path)  # raises the "OpenAI key not set" error
 
     async def _transcribe_openai(self, path: Path) -> str:

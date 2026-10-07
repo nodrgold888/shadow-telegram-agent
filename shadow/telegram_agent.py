@@ -41,6 +41,18 @@ log = logging.getLogger("shadow.telegram")
 SETUP_NETWORK_TIMEOUT_SECONDS = 20
 
 
+def spoken_media(message) -> tuple[str | None, object | None]:
+    """The spoken-word attachment of a message: ("voice", media), ("video_note", media) for a round video
+    message, or (None, None). Round video messages are not `message.voice`, so they used to be ignored."""
+    voice = getattr(message, "voice", None)
+    if voice:
+        return "voice", voice
+    video_note = getattr(message, "video_note", None)
+    if video_note:
+        return "video_note", video_note
+    return None, None
+
+
 class TelegramSetupTimeout(RuntimeError):
     """Raised when a Telegram setup-flow network call exceeds its timeout."""
 
@@ -333,9 +345,11 @@ class TelegramAgent:
                 await self._maybe_greet_unknown(event)
             return
         text = (event.raw_text or "").strip()
-        is_voice = bool(getattr(event.message, "voice", None))
+        spoken_kind, _spoken = spoken_media(event.message)
+        is_voice = spoken_kind is not None
+        is_video_note = spoken_kind == "video_note"
         if is_voice and not text:
-            text = "Ovozli xabar"
+            text = "Video xabar" if is_video_note else "Ovozli xabar"
         attachment = getattr(event, "file", None)
         extension = Path(getattr(attachment, "name", "") or "").suffix.lower()
         if not extension:
@@ -375,7 +389,7 @@ class TelegramAgent:
                 async with _WORK_SLOTS:
                     async with asyncio.timeout(180):
                         if is_voice:
-                            await self._work_voice_reply(event, title)
+                            await self._work_voice_reply(event, title, video_note=is_video_note)
                         else:
                             await self._work_reply(event, title, text, extension if office_attachment else "")
                 self.reply_count += 1
@@ -466,7 +480,10 @@ class TelegramAgent:
             name = " ".join(part for part in (getattr(sender, "first_name", None), getattr(sender, "last_name", None)) if part) or "Noma’lum"
             username = getattr(sender, "username", None)
             text = (event.raw_text or "").strip()
-            if getattr(event.message, "voice", None):
+            spoken_kind, _spoken = spoken_media(event.message)
+            if spoken_kind == "video_note":
+                body = "🎥 video xabar"
+            elif spoken_kind == "voice":
                 body = "🎤 ovozli xabar"
             elif text:
                 body = text[:400] + ("…" if len(text) > 400 else "")
@@ -484,7 +501,7 @@ class TelegramAgent:
         the message was a voice message handled or skipped here."""
         if not self.voice_unknown or not event.is_private or not self.client or not self.assistant:
             return False
-        voice = getattr(event.message, "voice", None)
+        spoken_kind, voice = spoken_media(event.message)
         if not voice:
             return False
         sender = await self._stranger_sender(event)
@@ -501,7 +518,7 @@ class TelegramAgent:
                 return True
             try:
                 with TemporaryDirectory(prefix="shadow-voice-") as temporary:
-                    source = Path(temporary) / "voice.ogg"
+                    source = Path(temporary) / ("videonote.mp4" if spoken_kind == "video_note" else "voice.ogg")
                     downloaded = await self.client.download_media(event.message, file=str(source))
                     if not downloaded or not source.exists():
                         return True
@@ -681,30 +698,32 @@ class TelegramAgent:
         return bool(self.reply_enabled and chat_id not in self.friend_ids
                     and chat_is_approved(chat_id, self.settings.approved_chat_ids))
 
-    async def _work_voice_reply(self, event, title: str) -> None:
+    async def _work_voice_reply(self, event, title: str, *, video_note: bool = False) -> None:
         assert self.client is not None and self.assistant is not None
         chat_id = event.chat_id
-        voice = getattr(event.message, "voice", None)
-        duration = getattr(voice, "duration", None)
+        _kind, media = spoken_media(event.message)
+        label = "Video xabar" if video_note else "Ovozli xabar"
+        duration = getattr(media, "duration", None)
         attachment = getattr(event, "file", None)
         size = getattr(attachment, "size", None)
         if (duration is not None and duration > 180) or (size is not None and size > MAX_UPLOAD_BYTES):
             if self._can_reply(chat_id):
-                await event.reply("Ovozli xabar 3 daqiqadan yoki 10 MB dan oshmasin.")
+                await event.reply(f"{label} 3 daqiqadan yoki 10 MB dan oshmasin.")
             return
         with TemporaryDirectory(prefix="shadow-voice-") as temporary:
-            source = Path(temporary) / "voice.ogg"
+            source = Path(temporary) / ("videonote.mp4" if video_note else "voice.ogg")
             downloaded = await self.client.download_media(event.message, file=str(source))
             if not downloaded or not source.exists() or source.stat().st_size > MAX_UPLOAD_BYTES:
                 if self._can_reply(chat_id):
-                    await event.reply("Ovozli xabarni yuklab bo‘lmadi yoki hajmi 10 MB dan oshdi.")
+                    await event.reply(f"{label}ni yuklab bo‘lmadi yoki hajmi 10 MB dan oshdi.")
                 return
             transcript = await self.assistant.transcribe_audio(source)
             if not transcript:
                 if self._can_reply(chat_id):
-                    await event.reply("Ovozli xabarni tushunib bo‘lmadi. Iltimos, yana bir bor yuboring.")
+                    await event.reply(f"{label}ni tushunib bo‘lmadi. Iltimos, yana bir bor yuboring.")
                 return
-            await self._work_reply(event, title, transcript, "", voice_reply=True)
+            # A voice message is answered by voice; a round video message is answered in text.
+            await self._work_reply(event, title, transcript, "", voice_reply=not video_note)
 
     async def _work_reply(self, event, title: str, text: str, extension: str, *, voice_reply: bool = False) -> None:
         assert self.client is not None and self.assistant is not None
