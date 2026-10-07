@@ -11,6 +11,11 @@ class ChatTabFilterTests(unittest.TestCase):
         self.assertIn("currentView==='groups'?(row.dataset.kind==='Guruh'||row.dataset.kind==='Kanal')", body)
         self.assertIn("currentView==='chats'?row.dataset.kind==='Shaxsiy chat'", body)
 
+    def test_list_labels_follow_the_tab(self):
+        for text in ("Shaxsiy suhbatlar", "Guruhlar va kanallar", "Guruh yoki kanal nomini qidirish", "applyListLabels();$('.top h1')",
+                     "Suhbatlar yoki Guruhlar va kanallar bo‘limida"):
+            self.assertIn(text, HTML)
+
     def test_kinds_used_by_the_filter_match_what_the_server_sends(self):
         agent = (Path(__file__).resolve().parents[1] / "shadow" / "telegram_agent.py").read_text(encoding="utf-8")
         for kind in ("Kanal", "Guruh", "Shaxsiy chat"):
