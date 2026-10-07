@@ -16,7 +16,7 @@ def slot_env_names(slot: int) -> dict[str, str]:
 
 
 def free_slot(env: dict[str, str] | None = None) -> int | None:
-    """First backup slot (1..5) whose URL, key and model are not all set."""
+    """First backup slot (1..8) whose URL, key and model are not all set."""
     env = os.environ if env is None else env
     for slot in range(1, MAX_BACKUP_PROVIDERS + 1):
         names = slot_env_names(slot)
@@ -76,6 +76,24 @@ def remove_slot(settings: Settings, slot: int, env: dict[str, str] | None = None
     env = os.environ if env is None else env
     for name in slot_env_names(slot).values():
         env.pop(name, None)
+    if settings.ai_first_slot == slot:
+        env.pop("AI_FIRST_SLOT", None)
+        settings = replace(settings, ai_first_slot=0)
     if slot == 1:
         return replace(settings, ai_base_url="", ai_api_key="", ai_model="", ai_name="zaxira")
     return replace(settings, ai_extra_providers=tuple(p for p in settings.ai_extra_providers if p.slot != slot))
+
+
+def set_first(settings: Settings, slot: int) -> tuple[Settings, dict[str, str]]:
+    """Make the backup provider in `slot` the first AI tried (slot 0 = OpenAI first again).
+
+    Returns the new settings and the environment variables to persist. Raises ValueError for a slot
+    that holds no provider."""
+    if slot == 0:
+        return replace(settings, ai_primary=False, ai_first_slot=0), {"AI_PRIMARY": "false", "AI_FIRST_SLOT": "0"}
+    if slot not in {p.slot for p in settings.backup_providers}:
+        raise ValueError("Bunday AI topilmadi")
+    return (
+        replace(settings, ai_primary=True, ai_first_slot=slot),
+        {"AI_PRIMARY": "true", "AI_FIRST_SLOT": str(slot)},
+    )

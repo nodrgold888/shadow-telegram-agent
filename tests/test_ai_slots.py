@@ -2,7 +2,8 @@ import os
 import unittest
 from unittest.mock import patch
 
-from shadow.ai_slots import apply_provider, free_slot, parse_provider, provider_env, remove_slot
+from shadow.ai_slots import apply_provider, free_slot, parse_provider, provider_env, remove_slot, set_first
+from shadow.config import _first_slot
 from shadow.persist import delete_env_vars, save_env_vars
 from tests.test_ai_fallback import make_settings
 
@@ -36,9 +37,9 @@ class AiSlotsTest(unittest.TestCase):
         half2 = {**full1, "AI_BASE_URL_2": "https://b"}
         self.assertEqual(free_slot(half2), 2)
         everything = dict(full1)
-        for n in range(2, 6):
+        for n in range(2, 9):
             everything.update({f"AI_BASE_URL_{n}": "https://b", f"AI_API_KEY_{n}": "k", f"AI_MODEL_{n}": "m"})
-        self.assertIsNone(free_slot(everything))
+            self.assertEqual(free_slot(everything), n + 1 if n < 8 else None)
 
     def test_provider_env_names(self):
         p = parse_provider(body())
@@ -73,6 +74,35 @@ class AiSlotsTest(unittest.TestCase):
     def test_status_slot_numbers(self):
         settings = apply_provider(make_settings(), 3, parse_provider(body()))
         self.assertEqual([p.slot for p in settings.backup_providers][-1], 3)
+
+    def test_first_slot_env_parsing(self):
+        self.assertEqual([_first_slot(x) for x in ("", "abc", "0", "3", " 2 ", "9", "-1")], [0, 0, 0, 3, 2, 0, 0])
+
+    def test_set_first_puts_the_provider_in_front_and_before_openai(self):
+        settings = apply_provider(apply_provider(make_settings(), 2, parse_provider(body(name="A"))), 3, parse_provider(body(name="B")))
+        out, env = set_first(settings, 3)
+        self.assertEqual(out.backup_providers[0].name, "B")
+        self.assertTrue(out.ai_primary)
+        self.assertEqual((out.ai_first_slot, env), (3, {"AI_PRIMARY": "true", "AI_FIRST_SLOT": "3"}))
+        # the chosen provider leads; the others keep their relative order
+        self.assertEqual([p.slot for p in out.backup_providers], [3, 1, 2])
+
+    def test_set_first_zero_gives_openai_back_the_lead(self):
+        settings = apply_provider(make_settings(), 2, parse_provider(body()))
+        out, env = set_first(settings, 2)
+        back, env = set_first(out, 0)
+        self.assertEqual((back.ai_primary, back.ai_first_slot, env), (False, 0, {"AI_PRIMARY": "false", "AI_FIRST_SLOT": "0"}))
+
+    def test_set_first_rejects_an_empty_slot(self):
+        with self.assertRaises(ValueError):
+            set_first(make_settings(), 5)
+
+    def test_removing_the_first_provider_clears_the_preference(self):
+        settings = apply_provider(make_settings(), 2, parse_provider(body()))
+        out, _ = set_first(settings, 2)
+        env = {"AI_FIRST_SLOT": "2", "AI_MODEL_2": "m"}
+        after = remove_slot(out, 2, env)
+        self.assertEqual((after.ai_first_slot, env), (0, {}))
 
     def test_key_not_in_repr(self):
         self.assertNotIn("sk-or-v1", repr(parse_provider(body())))

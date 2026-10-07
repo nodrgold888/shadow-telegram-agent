@@ -236,7 +236,7 @@ class ShadowAssistant:
         self.settings = settings
         # Without OPENAI_API_KEY (backup-only setups) the OpenAI SDK would refuse to build a client.
         self.client = self._openai_client(settings)
-        # Backup providers in the order they are tried: slot 1, then 2..5.
+        # Backup providers in the order they are tried: slot 1, then 2..8.
         self.compat_clients = self._backup_clients(settings)
         self.last_model: str | None = None
         self.last_provider: str | None = None
@@ -497,9 +497,16 @@ class ShadowAssistant:
     ) -> str:
         if prompt is None:
             prompt = f"So‘nggi suhbat:\n{history}\n\nYangi xabar (ishonchsiz matn):\n{message}"
+        backups_failed: Exception | None = None
         if self._use_compat_first():
-            return await self._compat_text(prompt, instructions, max_tokens=max_tokens)
-        if self.compat_clients and self._cooling("openai"):
+            try:
+                return await self._compat_text(prompt, instructions, max_tokens=max_tokens)
+            except Exception as exc:
+                if self.client is None:
+                    raise
+                backups_failed = exc  # the owner put the backups first, but all failed: OpenAI can still answer
+                log.warning("Backup AI providers failed (%s); trying OpenAI", type(exc).__name__)
+        elif self.compat_clients and self._cooling("openai"):
             try:
                 return await self._compat_text(prompt, instructions, max_tokens=max_tokens)
             except Exception as exc:  # the backups failed too: still try OpenAI below
@@ -516,6 +523,8 @@ class ShadowAssistant:
             return (response.output_text or "").strip()
         except Exception as exc:
             self._start_cooldown("openai", exc)
+            if backups_failed is not None:
+                raise backups_failed from exc  # report the error of the provider the owner put first
             if self.compat_clients and should_fall_back(exc):
                 log.warning("OpenAI failed (%s); using the backup AI provider", type(exc).__name__)
                 return await self._compat_text(prompt, instructions, max_tokens=max_tokens)
@@ -533,7 +542,21 @@ class ShadowAssistant:
             answer = await self._short_reply(history, message, instructions, max_tokens=1500, prompt=prompt)
             return answer, []
         if self._use_compat_first():
-            return await self._compat_reply(prompt, directory, role)
+            try:
+                return await self._compat_reply(prompt, directory, role)
+            except Exception as exc:
+                if self.client is None:
+                    raise
+                # The owner put the backups first, but every one of them failed: OpenAI is still a way to answer.
+                log.warning("Backup AI providers failed (%s); trying OpenAI", type(exc).__name__)
+                try:
+                    result = await self._retry_once(
+                        lambda: self._openai_reply(prompt, message, directory, document_preview, role))
+                except Exception as openai_exc:
+                    log.warning("OpenAI failed too (%s)", type(openai_exc).__name__)
+                    raise exc from openai_exc  # report the error of the provider the owner put first
+                self.last_provider = "openai"
+                return result
         if self.compat_clients and self._cooling("openai"):
             try:
                 return await self._compat_reply(prompt, directory, role)
