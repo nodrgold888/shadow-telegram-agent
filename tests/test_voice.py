@@ -211,6 +211,97 @@ class VideoNoteTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(gem.await_args.args[3], "video/mp4")
 
 
+class StickerTests(unittest.IsolatedAsyncioTestCase):
+    def _agent(self, describe=None):
+        agent = TelegramAgent(settings())
+        seen = []
+
+        async def download(message, file):
+            seen.append(Path(file).name)
+            Path(file).write_bytes(b"sticker")
+            return file
+
+        agent.client = SimpleNamespace(download_media=download)
+        agent.assistant = SimpleNamespace(describe_sticker=describe or AsyncMock(return_value=("", False)))
+        agent._work_reply = AsyncMock()
+        return agent, seen
+
+    def _event(self, emoji="😂", mime="image/webp", size=20000):
+        return SimpleNamespace(
+            chat_id=123, id=7, message=SimpleNamespace(sticker=SimpleNamespace()),
+            file=SimpleNamespace(emoji=emoji, mime_type=mime, size=size), reply=AsyncMock(),
+        )
+
+    def test_stickers_are_recognised_before_plain_videos(self):
+        from shadow.telegram_agent import spoken_media
+        sticker = SimpleNamespace()
+        message = SimpleNamespace(voice=None, video_note=None, gif=None, sticker=sticker, video=sticker)
+        self.assertEqual(spoken_media(message, include_video=True), ("sticker", sticker))
+        self.assertEqual(spoken_media(message), (None, None))
+
+    async def test_picture_sticker_is_looked_at_and_its_emoji_is_passed_on(self):
+        describe = AsyncMock(return_value=("Ko'rinishi: mushuk kulmoqda. Ma'nosi: kulgi", True))
+        agent, names = self._agent(describe)
+        await agent._work_sticker_reply(self._event(), "Test")
+        self.assertEqual(names, ["sticker.webp"])
+        self.assertEqual(describe.await_args.args[1], "image/webp")
+        message = agent._work_reply.await_args.args[2]
+        self.assertIn("stiker yubordi (emoji: 😂)", message)
+        self.assertIn("mushuk kulmoqda", message)
+        self.assertIn("tasvirlab bermang", message)
+
+    async def test_video_sticker_is_sent_as_webm(self):
+        describe = AsyncMock(return_value=("Ko'rinishi: x", True))
+        agent, names = self._agent(describe)
+        await agent._work_sticker_reply(self._event(mime="video/webm"), "Test")
+        self.assertEqual(names, ["sticker.webm"])
+        self.assertEqual(describe.await_args.args[1], "video/webm")
+
+    async def test_animated_sticker_is_known_by_its_emoji_only(self):
+        agent, names = self._agent()
+        await agent._work_sticker_reply(self._event(mime="application/x-tgsticker"), "Test")
+        self.assertEqual(names, [])  # .tgs is not downloaded
+        message = agent._work_reply.await_args.args[2]
+        self.assertIn("faqat emojisi ma’lum", message)
+        self.assertIn("o‘ylab topmang", message)
+
+    async def test_unseen_sticker_without_an_emoji_gets_no_answer(self):
+        agent, _names = self._agent()
+        await agent._work_sticker_reply(self._event(emoji="", mime="image/webp"), "Test")
+        agent._work_reply.assert_not_awaited()
+
+    async def test_big_sticker_is_not_downloaded(self):
+        agent, names = self._agent()
+        await agent._work_sticker_reply(self._event(size=10 * 1024 * 1024), "Test")
+        self.assertEqual(names, [])
+        self.assertIn("emojisi", agent._work_reply.await_args.args[2])
+
+    async def test_assistant_and_gemini_helper(self):
+        from shadow import gemini_audio
+        from tests.test_voice_fallback import gemini_settings
+        assistant = ShadowAssistant(gemini_settings(openai_api_key=""))
+        clip = Path(tempfile.mkdtemp()) / "sticker.webp"
+        clip.write_bytes(b"x")
+        gem = AsyncMock(return_value="Ko'rinishi: x")
+        with patch("shadow.assistant.gemini_audio.describe_sticker", gem):
+            self.assertEqual(await assistant.describe_sticker(clip, "image/webp"), ("Ko'rinishi: x", True))
+        with patch("shadow.assistant.gemini_audio.describe_sticker", AsyncMock(side_effect=RuntimeError("boom"))):
+            self.assertEqual(await assistant.describe_sticker(clip), ("", False))
+        seen = []
+
+        def call(key, model, data, mime, *prompt):
+            seen.append((model, mime, prompt))
+            if model == "a":
+                raise RuntimeError("down")
+            return "ok"
+
+        self.assertEqual(await gemini_audio.describe_sticker("k", ["a", "b"], clip, "image/webp", call=call), "ok")
+        self.assertEqual(seen[-1], ("b", "image/webp", (gemini_audio.STICKER_PROMPT,)))
+        clip.write_bytes(b"x" * (gemini_audio.MAX_STICKER_BYTES + 1))
+        with self.assertRaises(ValueError):
+            await gemini_audio.describe_sticker("k", ["a"], clip, call=call)
+
+
 class DescribeVideoTests(unittest.IsolatedAsyncioTestCase):
     def _assistant(self, **over):
         from tests.test_voice_fallback import gemini_settings

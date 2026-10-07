@@ -268,6 +268,19 @@ class ShadowAssistant:
             return await gemini_audio.transcribe(key, gemini_audio.gemini_models(self.settings), path, mime)
         return await self._transcribe_openai(path)  # raises the "OpenAI key not set" error
 
+    async def describe_sticker(self, path: Path, mime: str = "image/webp") -> tuple[str, bool]:
+        """(text, saw_sticker): what a webp/webm sticker shows and what reaction it expresses, via Gemini.
+        Without a Gemini key (or when it fails) the result is ("", False) and the reply must rely on the emoji."""
+        key = gemini_api_key(self.settings)
+        if not key:
+            return "", False
+        try:
+            text = await gemini_audio.describe_sticker(key, gemini_audio.gemini_models(self.settings), path, mime)
+        except Exception as exc:
+            log.warning("Sticker understanding failed (%s)", type(exc).__name__)
+            return "", False
+        return text, bool(text)
+
     async def describe_video(self, path: Path, *, gif: bool = False) -> tuple[str, bool]:
         """(text, saw_video). With a Gemini key the video itself is analysed: what is shown and what is said.
         Without one (or when Gemini fails) only the sound is transcribed and saw_video is False, so the reply

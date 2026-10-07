@@ -36,6 +36,14 @@ GIF_PROMPT = (
     "xafalik, tabrik) — bir-ikki so‘z bilan.\n"
     "Faqat shu ikki qismni qaytaring, boshqa izoh qo‘shmang."
 )
+STICKER_PROMPT = (
+    "Bu Telegramdagi stiker (rasm yoki qisqa animatsiya). Qisqa yozing.\n"
+    "Ko‘rinishi: nima ko‘rinadi (personaj, harakat, yuz ifodasi, stikerdagi yozuv). Ko‘rinmagan narsani o‘ylab topmang.\n"
+    "Ma’nosi: odamlar bunday stikerni qanday his-tuyg‘u yoki reaksiya uchun yuboradi (masalan salom, kulgi, rahmat, "
+    "xafalik, tabrik, xayr) — bir-ikki so‘z bilan.\n"
+    "Faqat shu ikki qismni qaytaring, boshqa izoh qo‘shmang."
+)
+MAX_STICKER_BYTES = 3 * 1024 * 1024
 VIDEO_TIMEOUT = 90.0
 MAX_VIDEO_BYTES = 10 * 1024 * 1024
 
@@ -109,6 +117,28 @@ async def describe_video(
         except Exception as exc:  # log only the class: SDK messages can echo request details
             last = exc
             log.warning("Gemini video understanding with %s failed (%s)", model, type(exc).__name__)
+            continue
+        if text:
+            return text
+    if last is not None:
+        raise last
+    return ""
+
+
+async def describe_sticker(api_key: str, models: list[str], path: Path, mime: str = "image/webp", call=_describe_sync) -> str:
+    """What a sticker (webp picture or webm animation) shows and what reaction it expresses, from the first Gemini
+    model that answers. Raises the last error if every model failed; '' if they answered with nothing."""
+    data = await asyncio.to_thread(path.read_bytes)
+    if len(data) > MAX_STICKER_BYTES:
+        raise ValueError("Stiker juda katta")
+    last: Exception | None = None
+    for model in models:
+        try:
+            text = await asyncio.wait_for(
+                asyncio.to_thread(call, api_key, model, data, mime, STICKER_PROMPT), VIDEO_TIMEOUT)
+        except Exception as exc:  # log only the class: SDK messages can echo request details
+            last = exc
+            log.warning("Gemini sticker understanding with %s failed (%s)", model, type(exc).__name__)
             continue
         if text:
             return text

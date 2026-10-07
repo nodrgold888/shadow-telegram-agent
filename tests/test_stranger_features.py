@@ -168,6 +168,29 @@ class VoiceReplyTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(kwargs["gif"])
         self.assertFalse(kwargs["video"])
 
+    async def test_sticker_in_an_approved_chat_is_handled_and_strangers_stickers_are_not(self):
+        agent = make_agent()
+        agent.voice_unknown = True
+        stranger = event(agent, chat_id=9, voice=None)
+        stranger.message = SimpleNamespace(voice=None, video_note=None, video=None, gif=None, sticker=VOICE, media=VOICE)
+        agent.assistant.reply_greeting.reset_mock()
+        with mock.patch("asyncio.sleep", new=mock.AsyncMock()):
+            await agent._on_message(stranger)
+        agent.assistant.reply_greeting.assert_not_called()
+        ev = event(agent, chat_id=5, voice=None)
+        ev.message = SimpleNamespace(voice=None, video_note=None, video=None, gif=None, sticker=VOICE, media=VOICE, mentioned=False)
+        ev.file = SimpleNamespace(size=2000, name=None, ext=".webp", emoji="👍", mime_type="image/webp")
+
+        async def get_chat():
+            return SimpleNamespace(first_name="Aziz")
+
+        ev.get_chat = get_chat
+        ev.is_reply = False
+        agent._work_sticker_reply = mock.AsyncMock()
+        agent.client.send_read_acknowledge = mock.AsyncMock()
+        await agent._on_message(ev)
+        agent._work_sticker_reply.assert_awaited_once()
+
     async def test_ordinary_video_in_an_approved_chat_is_looked_at_but_not_from_strangers(self):
         agent = make_agent()
         agent.voice_unknown = True
