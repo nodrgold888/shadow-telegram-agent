@@ -37,9 +37,9 @@ class AiSlotsTest(unittest.TestCase):
         half2 = {**full1, "AI_BASE_URL_2": "https://b"}
         self.assertEqual(free_slot(half2), 2)
         everything = dict(full1)
-        for n in range(2, 6):
+        for n in range(2, 9):
             everything.update({f"AI_BASE_URL_{n}": "https://b", f"AI_API_KEY_{n}": "k", f"AI_MODEL_{n}": "m"})
-        self.assertIsNone(free_slot(everything))
+            self.assertEqual(free_slot(everything), n + 1 if n < 8 else None)
 
     def test_provider_env_names(self):
         p = parse_provider(body())

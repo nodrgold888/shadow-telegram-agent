@@ -236,7 +236,7 @@ class ShadowAssistant:
         self.settings = settings
         # Without OPENAI_API_KEY (backup-only setups) the OpenAI SDK would refuse to build a client.
         self.client = self._openai_client(settings)
-        # Backup providers in the order they are tried: slot 1, then 2..5.
+        # Backup providers in the order they are tried: slot 1, then 2..8.
         self.compat_clients = self._backup_clients(settings)
         self.last_model: str | None = None
         self.last_provider: str | None = None

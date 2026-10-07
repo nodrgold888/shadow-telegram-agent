@@ -82,11 +82,11 @@ def _ai_base_url(raw: str) -> str:
     raise ValueError("AI_BASE_URL must start with https://")
 
 
-MAX_BACKUP_PROVIDERS = 5
+MAX_BACKUP_PROVIDERS = 8
 
 
 def _first_slot(raw: str) -> int:
-    """AI_FIRST_SLOT: which backup slot (1..5) is tried first; anything else means no preference."""
+    """AI_FIRST_SLOT: which backup slot (1..8) is tried first; anything else means no preference."""
     try:
         value = int(raw.strip())
     except ValueError:
@@ -106,7 +106,7 @@ class AIProvider:
 
 
 def _extra_providers() -> tuple[AIProvider, ...]:
-    """Backup providers 2..5 from AI_BASE_URL_n / AI_API_KEY_n / AI_MODEL_n (+ optional AI_NAME_n).
+    """Backup providers 2..8 from AI_BASE_URL_n / AI_API_KEY_n / AI_MODEL_n (+ optional AI_NAME_n).
 
     A slot with only some of its three values set is ignored, so a half-filled slot cannot
     break startup; an invalid URL still fails loudly like slot 1."""

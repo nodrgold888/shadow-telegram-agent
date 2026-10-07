@@ -383,7 +383,7 @@ async def dashboard_add_ai_provider(
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     slot = free_slot()
     if slot is None:
-        raise HTTPException(status_code=409, detail="Barcha 5 ta AI joyi band")
+        raise HTTPException(status_code=409, detail="Barcha 8 ta AI joyi band")
     values = provider_env(slot, provider)
     persisted = await save_env_vars(values)
     os.environ.update(values)

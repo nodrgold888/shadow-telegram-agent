@@ -16,7 +16,7 @@ def slot_env_names(slot: int) -> dict[str, str]:
 
 
 def free_slot(env: dict[str, str] | None = None) -> int | None:
-    """First backup slot (1..5) whose URL, key and model are not all set."""
+    """First backup slot (1..8) whose URL, key and model are not all set."""
     env = os.environ if env is None else env
     for slot in range(1, MAX_BACKUP_PROVIDERS + 1):
         names = slot_env_names(slot)
