@@ -13,6 +13,10 @@ class QuotaError(Exception):
     message = "You have no credits remaining."
 
 
+class Overloaded(Exception):
+    status_code = 503
+
+
 class BadRequest(Exception):
     status_code = 400
     message = "bad request"
@@ -66,6 +70,26 @@ class FallbackTests(unittest.IsolatedAsyncioTestCase):
         assistant, openai_client, _ = build(make_settings(ai_primary=True))
         answer, _ = await self.ask(assistant)
         self.assertEqual(answer, "Zaxira javobi")
+        openai_client.responses.create.assert_not_called()
+
+    async def test_backups_first_but_all_failing_falls_back_to_openai(self):
+        assistant, openai_client, compat = build(make_settings(ai_primary=True))
+        compat.chat.completions.create.side_effect = Overloaded()
+        for message in ("Salom", "36 kvadrat 110 mingdan qancha"):  # the lean small-talk path and the tool path
+            answer, _ = await assistant.reply_with_files(chat_title="Chat", history="", message=message, directory=Path("."))
+            self.assertEqual(answer, "OpenAI javobi")
+        self.assertEqual(assistant.last_provider, "openai")
+
+    async def test_backups_first_and_openai_also_down_reports_the_backup_error(self):
+        assistant, openai_client, compat = build(make_settings(ai_primary=True), openai_error=QuotaError())
+        compat.chat.completions.create.side_effect = Overloaded()
+        for message in ("Salom", "36 kvadrat 110 mingdan qancha"):
+            with self.assertRaises(Overloaded):
+                await assistant.reply_with_files(chat_title="Chat", history="", message=message, directory=Path("."))
+
+    async def test_backups_first_and_working_never_touch_openai(self):
+        assistant, openai_client, _ = build(make_settings(ai_primary=True))
+        await self.ask(assistant)
         openai_client.responses.create.assert_not_called()
 
     async def test_backup_only_setup_works_without_openai_key(self):
