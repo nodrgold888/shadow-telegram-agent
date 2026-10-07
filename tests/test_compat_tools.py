@@ -92,8 +92,8 @@ class HumanizeTests(unittest.TestCase):
 
     def test_delays_are_short_and_bounded(self):
         for _ in range(100):
-            self.assertTrue(0.3 <= read_delay() <= 1.0)
-            self.assertTrue(0.3 <= human_typing_delay("salom") <= 4.5)
+            self.assertTrue(0.2 <= read_delay() <= 0.6)
+            self.assertTrue(0.3 <= human_typing_delay("salom") <= 2.5)
 
     def test_skill_keeps_the_honesty_rule_and_the_split_protocol(self):
         self.assertIn("say plainly that you are Shadow AI", SKILL_PROMPT)

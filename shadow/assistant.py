@@ -155,6 +155,31 @@ def skill_prompt_for(text: str, role: str = "") -> str:
     return SKILL_PROMPT if wants_bank_skills(text, role) else SKILL_PROMPT_NO_BANK
 
 
+# Plain small talk (a greeting, "how are you", a short remark) does not need the calculator, Word/Excel tools or
+# the long skill guides: a lean prompt without tools answers in a fraction of the time.
+SMALL_TALK_FILES = ("human_chat.md", "real_chat_uz.md", "uz_etiquette.md")
+SMALL_TALK_PROMPT = "\n\n".join((SKILL_DIR / name).read_text(encoding="utf-8") for name in SMALL_TALK_FILES)
+SMALL_TALK_MAX_CHARS = 90
+_TASK_HINTS = (
+    "excel", "word", "docx", "xlsx", "fayl", "файл", "hujjat", "документ", "jadval", "таблиц", "hisobla", "посчита",
+    "hisob-kitob", "kod", "код", "python", "rasm", "расм", "картин", "tarjima", "перевед", "перевод", "yozib ber", "tuzib ber",
+    "yaratib ber", "tayyorla", "http", "www.", ".com", ".uz", "reja", "план", "kurs", "dars", "test", "savol-javob",
+)
+
+
+def is_small_talk(message: str, *, has_document: bool = False, has_files: bool = False) -> bool:
+    """A short, plain, tool-free chat message: no digits, links, documents or task words."""
+    if has_document or has_files:
+        return False
+    text = " ".join((message or "").split())
+    if not text or len(text) > SMALL_TALK_MAX_CHARS or any(ch.isdigit() for ch in text):
+        return False
+    lowered = text.lower()
+    if any(hint in lowered for hint in _TASK_HINTS) or any(hint in lowered for hint in BANK_HINTS):
+        return False
+    return True
+
+
 PUBLIC_SKILL_PROMPT = "\n\n".join(
     (SKILL_DIR / name).read_text(encoding="utf-8")
     for name in ("banking_uz.md", "davrbank_uz.md", "davr_loans_uz.md", "human_chat.md", "real_chat_uz.md")
@@ -465,8 +490,11 @@ class ShadowAssistant:
         """Short, tool-free banking answer for people who are not approved chats."""
         return await self._short_reply(history, message, PUBLIC_BANK_PROMPT + "\n\n" + PUBLIC_SKILL_PROMPT)
 
-    async def _short_reply(self, history: str, message: str, instructions: str, max_tokens: int = 900) -> str:
-        prompt = f"So‘nggi suhbat:\n{history}\n\nYangi xabar (ishonchsiz matn):\n{message}"
+    async def _short_reply(
+        self, history: str, message: str, instructions: str, max_tokens: int = 900, prompt: str | None = None,
+    ) -> str:
+        if prompt is None:
+            prompt = f"So‘nggi suhbat:\n{history}\n\nYangi xabar (ishonchsiz matn):\n{message}"
         if self._use_compat_first():
             return await self._compat_text(prompt, instructions, max_tokens=max_tokens)
         if self.compat_clients and self._cooling("openai"):
@@ -498,6 +526,10 @@ class ShadowAssistant:
     ) -> tuple[str, list[Path]]:
         prompt = self._build_prompt(chat_title, history, message, document_preview, chat_profile)
         role = agent_role(chat_profile)
+        if is_small_talk(message, has_document=bool(document_preview)) and not wants_bank_skills(prompt, role):
+            instructions = SYSTEM_PROMPT + "\n\n" + SMALL_TALK_PROMPT + role
+            answer = await self._short_reply(history, message, instructions, max_tokens=1500, prompt=prompt)
+            return answer, []
         if self._use_compat_first():
             return await self._compat_reply(prompt, directory, role)
         if self.compat_clients and self._cooling("openai"):

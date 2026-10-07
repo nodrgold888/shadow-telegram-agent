@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import io
 import logging
+import time
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from dataclasses import replace
@@ -80,6 +81,7 @@ class TelegramAgent:
         self.account_id: int | None = None
         self.last_error: str | None = None
         self.last_reply_at: str | None = None
+        self.last_reply_seconds: float | None = None  # how long the latest approved-chat reply took to produce and send
         self.last_reply_error: str | None = None
         self.last_reply_error_detail: str | None = None
         self.reply_count = 0
@@ -411,6 +413,7 @@ class TelegramAgent:
                 if video_url:
                     await self._send_video(event, chat_id, video_url)
                     return
+                started = time.monotonic()
                 async with _WORK_SLOTS:
                     async with asyncio.timeout(180):
                         if is_sticker:
@@ -421,10 +424,11 @@ class TelegramAgent:
                             await self._work_reply(event, title, text, extension if office_attachment else "")
                 self.reply_count += 1
                 self.last_reply_at = datetime.now(timezone.utc).isoformat()
+                self.last_reply_seconds = round(time.monotonic() - started, 1)
                 self.last_reply_error = None
                 self.last_reply_error_detail = None
                 await self.client.send_read_acknowledge(chat_id)
-                log.info("Replied in approved chat %s", chat_id)
+                log.info("Replied in approved chat %s in %.1f s", chat_id, self.last_reply_seconds)
             except Exception as exc:
                 self.last_error = type(exc).__name__
                 self.last_reply_error = type(exc).__name__
@@ -924,6 +928,7 @@ class TelegramAgent:
             "complex_openai_model": self.settings.complex_openai_model,
             "last_error": self.last_error,
             "last_reply_at": self.last_reply_at,
+            "last_reply_seconds": self.last_reply_seconds,
             "last_reply_error": self.last_reply_error,
             "last_reply_error_detail": self.last_reply_error_detail,
             "reply_count": self.reply_count,
