@@ -80,6 +80,10 @@ class HumanChatTests(unittest.TestCase):
         for pair in ("ishlar qalay (not \"ishlaringiz qanday\")", "nega (not \"nima uchun\")", "lekin (not \"ammo/biroq\")"):
             self.assertIn(pair, assistant.SKILL_PROMPT)
 
+    def test_spoken_is_the_main_style_in_every_prompt(self):
+        for prompt in (assistant.SKILL_PROMPT, assistant.PUBLIC_SKILL_PROMPT, assistant.GREETING_STYLE):
+            self.assertIn("Main style: spoken, never literary", prompt)
+
     def test_replies_use_straight_apostrophes(self):
         from shadow.humanize import phone_text, split_parts
         self.assertEqual(phone_text("O‘zingizning ish’laringiz ʻbo‘ladi"), "O'zingizning ish'laringiz 'bo'ladi")
