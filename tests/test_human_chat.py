@@ -95,6 +95,18 @@ class HumanChatTests(unittest.TestCase):
         for agent in AGENTS:
             self.assertNotIn("rasmiy uslubda yozing", agent.instructions)
 
+    def test_bank_guides_are_only_loaded_when_the_chat_is_about_banking(self):
+        small_talk = assistant.skill_prompt_for("Chat: Aziz\n\nAziz: salom, qalaysiz\n\nJavob: nima gap")
+        self.assertNotIn("Davr Bank car loans and microloans", small_talk)
+        self.assertNotIn("Davr Bank and payments guide", small_talk)
+        self.assertIn("Real Uzbek texting", small_talk)
+        self.assertIn("Natural, human-sounding conversation", small_talk)
+        self.assertLess(len(small_talk), len(assistant.SKILL_PROMPT) * 0.7)
+        for text in ("avtokredit olmoqchiman", "Kredit qancha foiz?", "O‘TKAZMA qilmoqchiman", "карта ишламаяпти", "davr bank"):
+            full = assistant.skill_prompt_for(text)
+            self.assertEqual(full, assistant.SKILL_PROMPT, text)
+        self.assertEqual(assistant.skill_prompt_for("salom", "Rol: Davr Bank bo‘yicha maslahatchi."), assistant.SKILL_PROMPT)
+
     def test_replies_use_straight_apostrophes(self):
         from shadow.humanize import phone_text, split_parts
         self.assertEqual(phone_text("O‘zingizning ish’laringiz ʻbo‘ladi"), "O'zingizning ish'laringiz 'bo'ladi")

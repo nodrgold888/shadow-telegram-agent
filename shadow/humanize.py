@@ -26,8 +26,8 @@ def split_parts(answer: str, max_parts: int = MAX_PARTS) -> list[str]:
 
 
 def read_delay(rng: random.Random | None = None) -> float:
-    """Short pause before "typing…" starts, as if the message was just read (0.5-1.6 s)."""
-    return (rng or random).uniform(0.5, 1.6)
+    """Short pause before "typing…" starts, as if the message was just read (0.3-1.0 s)."""
+    return (rng or random).uniform(0.3, 1.0)
 
 
 def human_typing_delay(text: str, rng: random.Random | None = None) -> float:

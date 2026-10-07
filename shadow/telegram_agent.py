@@ -319,15 +319,24 @@ class TelegramAgent:
     async def _history(self, chat_id: int) -> str:
         assert self.client is not None
         lines: list[str] = []
+        names: dict[object, str] = {}  # one lookup per sender, not one per message
         async for item in self.client.iter_messages(chat_id, limit=self.settings.context_messages):
             text = (item.raw_text or "").strip()
             if not text:
                 continue
-            sender = await item.get_sender()
-            if sender and sender.id == self._me_id:
+            sender_id = getattr(item, "sender_id", None)
+            if getattr(item, "out", False) or (sender_id is not None and sender_id == self._me_id):
                 name = "Shadow/men"
+            elif sender_id is not None and sender_id in names:
+                name = names[sender_id]
             else:
-                name = getattr(sender, "first_name", None) or getattr(sender, "title", None) or "Suhbatdosh"
+                sender = await item.get_sender()
+                if sender and sender.id == self._me_id:
+                    name = "Shadow/men"
+                else:
+                    name = getattr(sender, "first_name", None) or getattr(sender, "title", None) or "Suhbatdosh"
+                if sender_id is not None:
+                    names[sender_id] = name
             lines.append(f"{name}: {text[:1200]}")
         return "\n".join(reversed(lines))[-9000:]
 
