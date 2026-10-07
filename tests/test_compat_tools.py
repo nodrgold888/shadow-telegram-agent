@@ -62,7 +62,7 @@ class CompatToolTests(unittest.IsolatedAsyncioTestCase):
         class NoTools(Exception):
             status_code = 400
         assistant, compat = build([NoTools(), completion("Oddiy matnli javob.")])
-        answer, files = await assistant.reply_with_files(chat_title="Chat", history="", message="Salom", directory=Path("."))
+        answer, files = await assistant.reply_with_files(chat_title="Chat", history="", message="2 + 2 ni hisobla", directory=Path("."))
         self.assertEqual((answer, files), ("Oddiy matnli javob.", []))
         retry = compat.chat.completions.create.call_args_list[1].kwargs
         self.assertNotIn("tools", retry)
@@ -72,7 +72,7 @@ class CompatToolTests(unittest.IsolatedAsyncioTestCase):
             completion(calls=[tool_call("c1", "calculate", {"wrong": 1})]),
             completion("Hisoblab bo‘lmadi."),
         ])
-        answer, _ = await assistant.reply_with_files(chat_title="Chat", history="", message="?", directory=Path("."))
+        answer, _ = await assistant.reply_with_files(chat_title="Chat", history="", message="2 + 2 ni hisobla", directory=Path("."))
         self.assertEqual(answer, "Hisoblab bo‘lmadi.")
         tool_message = compat.chat.completions.create.call_args_list[1].kwargs["messages"][-1]
         self.assertIn("error", tool_message["content"])
@@ -92,8 +92,8 @@ class HumanizeTests(unittest.TestCase):
 
     def test_delays_are_short_and_bounded(self):
         for _ in range(100):
-            self.assertTrue(0.3 <= read_delay() <= 1.0)
-            self.assertTrue(0.3 <= human_typing_delay("salom") <= 4.5)
+            self.assertTrue(0.2 <= read_delay() <= 0.6)
+            self.assertTrue(0.3 <= human_typing_delay("salom") <= 2.5)
 
     def test_skill_keeps_the_honesty_rule_and_the_split_protocol(self):
         self.assertIn("say plainly that you are Shadow AI", SKILL_PROMPT)
