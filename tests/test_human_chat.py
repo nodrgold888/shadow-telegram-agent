@@ -63,6 +63,44 @@ class HumanChatTests(unittest.TestCase):
         self.assertIn("Tracker", assistant.SKILL_PROMPT)
         self.assertIn("the make is already known", assistant.SKILL_PROMPT)
 
+    def test_real_uzbek_texting_skill_is_loaded_last(self):
+        skill = assistant.SKILL_PROMPT
+        self.assertIn("Real Uzbek texting", skill)
+        self.assertTrue(skill.rstrip().endswith("> Good: ha, shunaqa"))
+        self.assertIn("Real Uzbek texting", assistant.PUBLIC_SKILL_PROMPT)
+        for phrase in ("tuzukman, ishlar ham joyida. o'zingiz-chi?", "Javob qaytarish", "plain straight apostrophe",
+                       "Never answer \"yo'q\" to \"avtomatmi\""):
+            self.assertIn(phrase, skill)
+        self.assertIn("men Shadow AI, egasining yordamchisiman", skill)
+
+    def test_spoken_not_literary_uzbek(self):
+        self.assertIn("Spoken, not literary", assistant.SKILL_PROMPT)
+        self.assertIn("kundalik og‘zaki o‘zbek tilida", assistant.SYSTEM_PROMPT)
+        self.assertNotIn("ravon, tabiiy va zamonaviy", assistant.SYSTEM_PROMPT)
+        for pair in ("ishlar qalay (not \"ishlaringiz qanday\")", "nega (not \"nima uchun\")", "lekin (not \"ammo/biroq\")"):
+            self.assertIn(pair, assistant.SKILL_PROMPT)
+
+    def test_spoken_is_the_main_style_in_every_prompt(self):
+        for prompt in (assistant.SKILL_PROMPT, assistant.PUBLIC_SKILL_PROMPT, assistant.GREETING_STYLE):
+            self.assertIn("Main style: spoken, never literary", prompt)
+
+    def test_no_literary_or_official_style_exception_remains(self):
+        text = assistant.SYSTEM_PROMPT + assistant.SKILL_PROMPT
+        self.assertIn("adabiy, kitobiy yoki rasmiy uslub butunlay yo‘q", assistant.SYSTEM_PROMPT)
+        self.assertIn("no exceptions", assistant.SKILL_PROMPT)
+        self.assertNotIn("literary language only for", text)
+        self.assertNotIn("exception, used only for a lecture", text)
+        self.assertNotIn("an official letter stays formal", text)
+        from shadow.agents import AGENTS
+        for agent in AGENTS:
+            self.assertNotIn("rasmiy uslubda yozing", agent.instructions)
+
+    def test_replies_use_straight_apostrophes(self):
+        from shadow.humanize import phone_text, split_parts
+        self.assertEqual(phone_text("O‘zingizning ish’laringiz ʻbo‘ladi"), "O'zingizning ish'laringiz 'bo'ladi")
+        self.assertEqual(split_parts("o‘zingiz-chi? || bo‘ladi"), ["o'zingiz-chi?", "bo'ladi"])
+        self.assertEqual(phone_text("`code`"), "`code`")
+
     def test_honesty_rules_survive_the_style_change(self):
         self.assertIn("rost ayting", assistant.SYSTEM_PROMPT)
         self.assertIn("inson yoki akkaunt egasining o‘zi deb da’vo qilmang", assistant.SYSTEM_PROMPT)

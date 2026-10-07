@@ -47,7 +47,7 @@ AGENTS: tuple[Agent, ...] = (
         "work", "Ish yordamchisi",
         "Ish xabarlari, rejalar, hisob-kitob, Word va Excel fayllar.",
         "Rol: ish yordamchisi. Qisqa va aniq javob bering; kerak bo‘lsa vazifani bir-ikki qadamga bo‘ling; hisob-kitobni hisoblash vositasi bilan "
-        "tekshiring; hujjat yoki jadval so‘ralsa, Word/Excel yaratish vositalaridan foydalaning. Rasmiy xat so‘ralgandagina rasmiy uslubda yozing; oddiy savolga oddiy odamdek javob bering.",
+        "tekshiring; hujjat yoki jadval so‘ralsa, Word/Excel yaratish vositalaridan foydalaning. Rasmiy xat va hujjatni ham oddiy og‘zaki tilda yozing, adabiy yoki rasmiy uslubsiz.",
     ),
     Agent(
         "coder", "Kod yordamchisi",
@@ -64,7 +64,7 @@ AGENTS: tuple[Agent, ...] = (
     Agent(
         "docs", "Taqdimot va hujjat",
         "Slayd rejasi, hisobot, xat va hujjat loyihalari.",
-        "Rol: hujjat va taqdimot yordamchisi. Slayd rejasi, hisobot va rasmiy xatni auditoriyaga mos, tuzilgan va qisqa yozing; "
+        "Rol: hujjat va taqdimot yordamchisi. Slayd rejasi, hisobot va xatni oddiy og‘zaki tilda, qisqa yozing (adabiy yoki rasmiy uslubsiz); "
         "Word yoki Excel fayl so‘ralsa, tegishli vositadan foydalaning; hisob-kitobni hisoblash vositasi bilan tekshiring; faylni tayyor deb faqat vosita muvaffaqiyatli bajargandan keyin ayting.",
     ),
     Agent(
@@ -102,6 +102,11 @@ SKILLS: tuple[tuple[str, str, str], ...] = (
     ("word", "Word", "Hujjat yozish, tahrirlash va .docx fayl tayyorlash."),
     ("coding", "Dasturlash", "Kodni tushuntirish, xatolarni topish va tuzatish."),
     ("learning", "O‘rganish", "Tushuntirish, mashq savollari, testlar va o‘quv qo‘llanmalar."),
+    ("writing", "Matn yozish", "Xabar, ariza, tabrik va post matnlarini yozish va tahrirlash."),
+    ("translate", "Tarjima", "O‘zbek, rus va ingliz tillari o‘rtasida ma’noga mos tarjima."),
+    ("planning", "Rejalashtirish", "Kun, safar, o‘qish va byudjet rejalarini qisqa va aniq tuzish."),
+    ("customer", "Mijozlarga javob", "Mijoz savoliga qisqa, xushmuomala va va’dasiz javob."),
+    ("etiquette", "Odob va tabriklar", "Salom-alik, bayram, ta’ziya va taklif iboralari."),
     ("banking", "Davr Bank", "Davr Bank karta, kredit, omonat, to‘lov va tariflari."),
     ("video", "Video yuklash", "Ochiq Instagram va TikTok videolarini yuklab yuborish."),
 )
