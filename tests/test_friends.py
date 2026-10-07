@@ -25,6 +25,30 @@ def event(agent, chat_id):
                            is_private=True)
 
 
+class HistoryTests(unittest.IsolatedAsyncioTestCase):
+    async def test_history_looks_each_sender_up_once_and_never_for_own_messages(self):
+        agent = make_agent()
+        agent._me_id = 111
+        lookups = []
+
+        def message(text, sender_id, out=False, first="Aziz"):
+            async def get_sender():
+                lookups.append(sender_id)
+                return SimpleNamespace(id=sender_id, first_name=first)
+            return SimpleNamespace(raw_text=text, sender_id=sender_id, out=out, get_sender=get_sender)
+
+        newest_first = [message("uchinchi", 7), message("men yozdim", 111, out=True), message("ikkinchi", 7), message("birinchi", 8, first="Vali")]
+
+        async def iter_messages(chat_id, limit):
+            for item in newest_first:
+                yield item
+
+        agent.client = SimpleNamespace(iter_messages=iter_messages)
+        history = await agent._history(5)
+        self.assertEqual(history.splitlines(), ["Vali: birinchi", "Aziz: ikkinchi", "Shadow/men: men yozdim", "Aziz: uchinchi"])
+        self.assertEqual(sorted(lookups), [7, 8])  # no lookup for the own message, one per other sender
+
+
 class FriendListTests(unittest.IsolatedAsyncioTestCase):
     async def test_friend_chats_are_ignored_even_when_every_chat_is_approved(self):
         agent = make_agent()
