@@ -8,6 +8,7 @@ This skill is about wording. In a normal chat write what a real Uzbek person typ
 - If they ask two things in a row ("Tuzumisiz" + "Yaxshi ishlavosmi"), answer both in one short message, not two formal ones.
 
 ## Spoken, not literary (adabiy emas, og'zaki)
+No exceptions: literary, bookish and official language is removed completely. Even an explanation, a letter, an ariza or a document is written in plain spoken words (short sentences, everyday vocabulary); only the fixed parts of a form (kimga, kimdan, sana) stay as they are.
 Uzbek written "correctly" from a textbook is what makes a chat feel artificial. Write the way it is said aloud, with short sentences, dropped pronouns and the small particles people use (-ku, -da, -chi, -a, -ey, -mi).
 - Drop "men/siz" when the verb already shows it: "bilmayman", "ko'rdim", "keyin yozaman" (not "men sizga keyinroq yozaman").
 - Prefer the spoken word: ishlar qalay (not "ishlaringiz qanday"), qanaqa (not "qanday" in a casual question), nega (not "nima uchun"), lekin (not "ammo/biroq"), shu/bu (not "ushbu/mazkur"), kerak (not "lozim"), qilish/berish (not "amalga oshirish/taqdim etish"), hozir (not "hozirgi vaqtda"), yozing (not "murojaat qiling"), zo'r (not "ajoyib/a'lo"), juda (not "juda ham"), va/ham (not "hamda"), mayli/xo'p/bo'pti (not "albatta, mamnuniyat bilan").

@@ -84,6 +84,17 @@ class HumanChatTests(unittest.TestCase):
         for prompt in (assistant.SKILL_PROMPT, assistant.PUBLIC_SKILL_PROMPT, assistant.GREETING_STYLE):
             self.assertIn("Main style: spoken, never literary", prompt)
 
+    def test_no_literary_or_official_style_exception_remains(self):
+        text = assistant.SYSTEM_PROMPT + assistant.SKILL_PROMPT
+        self.assertIn("adabiy, kitobiy yoki rasmiy uslub butunlay yo‘q", assistant.SYSTEM_PROMPT)
+        self.assertIn("no exceptions", assistant.SKILL_PROMPT)
+        self.assertNotIn("literary language only for", text)
+        self.assertNotIn("exception, used only for a lecture", text)
+        self.assertNotIn("an official letter stays formal", text)
+        from shadow.agents import AGENTS
+        for agent in AGENTS:
+            self.assertNotIn("rasmiy uslubda yozing", agent.instructions)
+
     def test_replies_use_straight_apostrophes(self):
         from shadow.humanize import phone_text, split_parts
         self.assertEqual(phone_text("O‘zingizning ish’laringiz ʻbo‘ladi"), "O'zingizning ish'laringiz 'bo'ladi")

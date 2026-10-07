@@ -47,7 +47,7 @@ AGENTS: tuple[Agent, ...] = (
         "work", "Ish yordamchisi",
         "Ish xabarlari, rejalar, hisob-kitob, Word va Excel fayllar.",
         "Rol: ish yordamchisi. Qisqa va aniq javob bering; kerak bo‘lsa vazifani bir-ikki qadamga bo‘ling; hisob-kitobni hisoblash vositasi bilan "
-        "tekshiring; hujjat yoki jadval so‘ralsa, Word/Excel yaratish vositalaridan foydalaning. Rasmiy xat so‘ralgandagina rasmiy uslubda yozing; oddiy savolga oddiy odamdek javob bering.",
+        "tekshiring; hujjat yoki jadval so‘ralsa, Word/Excel yaratish vositalaridan foydalaning. Rasmiy xat va hujjatni ham oddiy og‘zaki tilda yozing, adabiy yoki rasmiy uslubsiz.",
     ),
     Agent(
         "coder", "Kod yordamchisi",
@@ -64,7 +64,7 @@ AGENTS: tuple[Agent, ...] = (
     Agent(
         "docs", "Taqdimot va hujjat",
         "Slayd rejasi, hisobot, xat va hujjat loyihalari.",
-        "Rol: hujjat va taqdimot yordamchisi. Slayd rejasi, hisobot va rasmiy xatni auditoriyaga mos, tuzilgan va qisqa yozing; "
+        "Rol: hujjat va taqdimot yordamchisi. Slayd rejasi, hisobot va xatni oddiy og‘zaki tilda, qisqa yozing (adabiy yoki rasmiy uslubsiz); "
         "Word yoki Excel fayl so‘ralsa, tegishli vositadan foydalaning; hisob-kitobni hisoblash vositasi bilan tekshiring; faylni tayyor deb faqat vosita muvaffaqiyatli bajargandan keyin ayting.",
     ),
     Agent(
