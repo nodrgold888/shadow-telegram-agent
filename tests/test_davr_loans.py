@@ -82,7 +82,7 @@ class DavrLoansSkillTests(unittest.TestCase):
 
     def test_professional_consultation_flow(self):
         self.assertIn("Professional consultation standard", self.skill)
-        for part in ("Discover", "Recommend", "Quote in a fixed order", "Handle objections", "Close with the next step"):
+        for part in ("Discover", "Recommend", "Quote with the same facts every time", "Handle objections", "Close with the next step"):
             self.assertIn(part, self.skill)
         self.assertIn("Never ask for passport, card, PINFL", self.skill)
         self.assertIn("never guarantee approval", self.skill)

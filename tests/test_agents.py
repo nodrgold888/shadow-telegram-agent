@@ -3,10 +3,28 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
-from shadow.agents import AGENT_IDS, AGENTS, CUSTOM_RULES, agent_catalog, agent_role
+from shadow.agents import AGENT_IDS, AGENTS, CUSTOM_RULES, ROLE_STYLE, agent_catalog, agent_role
 from shadow.assistant import ShadowAssistant
 from shadow.chat_memory import normalize_chat_profile, normalize_chat_profiles
 from tests.test_ai_fallback import make_settings
+
+
+class AgentToneTests(unittest.TestCase):
+    def test_every_role_ends_with_the_texting_style_guard(self):
+        for agent in AGENTS:
+            if not agent.id:
+                continue
+            role = agent_role({"agent": agent.id, "agents": agent.id})
+            self.assertTrue(role.rstrip().endswith(ROLE_STYLE), agent.id)
+        combined = agent_role({"agent": "bank", "agents": "bank,work"})
+        self.assertEqual(combined.count(ROLE_STYLE), 1)
+        self.assertIn("oddiy odamdek", ROLE_STYLE)
+        self.assertEqual(agent_role({}), "")
+
+    def test_style_guard_does_not_weaken_honesty(self):
+        role = agent_role({"agent": "sales", "agents": "sales"})
+        self.assertIn(CUSTOM_RULES, role)
+        self.assertNotIn("inson", ROLE_STYLE.lower())
 
 
 class AgentCatalogTests(unittest.TestCase):

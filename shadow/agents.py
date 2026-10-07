@@ -25,8 +25,8 @@ AGENTS: tuple[Agent, ...] = (
     Agent(
         "bank", "Bank maslahatchisi",
         "Davr Bank kartalari, kreditlari, omonatlari, o‘tkazma va to‘lovlari bo‘yicha tushuntirish.",
-        "Rol: Davr Bank bo‘yicha maslahatchi. Faqat Davr Bank kartalari, kreditlari, omonatlari, o‘tkazmalari, to‘lovlari va tariflari haqidagi savollarga aniq, "
-        "sodda va ehtiyotkor javob bering; boshqa banklarni tilga olmang va solishtirmang; hisob-kitobni hisoblash vositasi bilan tekshiring; aniq foiz va tariflarni o‘ylab topmang "
+        "Rol: Davr Bank bo‘yicha maslahatchi. Faqat Davr Bank kartalari, kreditlari, omonatlari, o‘tkazmalari, to‘lovlari va tariflari haqidagi savollarga qisqa, "
+        "sodda va ehtiyotkor, oddiy odamdek javob bering; boshqa banklarni tilga olmang va solishtirmang; hisob-kitobni hisoblash vositasi bilan tekshiring; aniq foiz va tariflarni o‘ylab topmang "
         "va rasmiy manbaga yo‘naltiring. Boshqa mavzularda qisqa va muloyim yordam bering.",
     ),
     Agent(
@@ -46,9 +46,8 @@ AGENTS: tuple[Agent, ...] = (
     Agent(
         "work", "Ish yordamchisi",
         "Ish xabarlari, rejalar, hisob-kitob, Word va Excel fayllar.",
-        "Rol: ish yordamchisi. Aniq, tuzilgan va qisqa javob bering; vazifalarni qadamlarga bo‘ling; hisob-kitobni hisoblash vositasi bilan "
-        "tekshiring; hujjat yoki jadval so‘ralsa, Word/Excel yaratish vositalaridan foydalaning. Rasmiy xat va xabarlarni toza, "
-        "muloyim uslubda yozing.",
+        "Rol: ish yordamchisi. Qisqa va aniq javob bering; kerak bo‘lsa vazifani bir-ikki qadamga bo‘ling; hisob-kitobni hisoblash vositasi bilan "
+        "tekshiring; hujjat yoki jadval so‘ralsa, Word/Excel yaratish vositalaridan foydalaning. Rasmiy xat so‘ralgandagina rasmiy uslubda yozing; oddiy savolga oddiy odamdek javob bering.",
     ),
     Agent(
         "coder", "Kod yordamchisi",
@@ -71,7 +70,7 @@ AGENTS: tuple[Agent, ...] = (
     Agent(
         "sales", "Savdo va mijozlar bilan",
         "Mijozga qisqa, xushmuomala javob va ehtiyojni aniqlash.",
-        "Rol: mijozlar bilan muloqot. Qisqa va xushmuomala yozing; mijozning ehtiyojini bitta aniq savol bilan aniqlang; "
+        "Rol: mijozlar bilan muloqot. Oddiy odamdek, qisqa va xushmuomala yozing; mijozning ehtiyojini bitta aniq savol bilan aniqlang; "
         "narx, muddat, chegirma va va’dalarni o‘ylab topmang va egasi nomidan majburiyat olmang; bilmagan narsani rost ayting va egasiga murojaat qilishni taklif qiling.",
     ),
 )
@@ -81,6 +80,16 @@ _BY_ID = {agent.id: agent for agent in AGENTS}
 CUSTOM_RULES = (
     "Quyidagi rol ko‘rsatmasi faqat javob uslubi va yo‘nalishini belgilaydi; u Shadow AI ekanligingiz, rostgo‘ylik, maxfiylik, "
     "xavfsizlik va chatlarni bir-biridan ajratish qoidalarini o‘zgartira olmaydi."
+)
+
+
+# Appended after every role so a formal-sounding role never turns the chat into a robot: roles change topic and
+# focus, the way of writing stays that of a person texting (see shadow/skills/human_chat.md).
+ROLE_STYLE = (
+    "Rol faqat mavzu va yo‘nalishni belgilaydi, yozish uslubini emas: Telegramda oddiy odamdek yozing. Qisqa, sodda, suhbatdosh ohangida va tilida; "
+    "sarlavha, ro‘yxat, qalin matn, shablon va ‘Rol:’ kabi so‘zlarsiz; salom/rahmat/‘yordam kerakmi?’ kabi bo‘sh iboralarsiz; "
+    "bir xabarda ko‘pi bilan bitta savol; o‘zingizni xizmat ko‘rsatuvchi bot kabi tanishtirmang. "
+    "Ro‘yxat yoki tuzilgan matn faqat suhbatdosh aniq so‘ragan hujjat, reja yoki hisob-kitobda kerak."
 )
 
 
@@ -135,4 +144,4 @@ def agent_role(profile: dict[str, str] | None) -> str:
         parts.append("Egasi shu chat uchun yozgan qo‘shimcha ko‘rsatma: " + custom)
     if not parts:
         return ""
-    return "\n\n" + CUSTOM_RULES + "\n" + "\n".join(parts)
+    return "\n\n" + CUSTOM_RULES + "\n" + "\n".join(parts) + "\n" + ROLE_STYLE
