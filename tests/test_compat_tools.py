@@ -62,7 +62,7 @@ class CompatToolTests(unittest.IsolatedAsyncioTestCase):
         class NoTools(Exception):
             status_code = 400
         assistant, compat = build([NoTools(), completion("Oddiy matnli javob.")])
-        answer, files = await assistant.reply_with_files(chat_title="Chat", history="", message="Salom", directory=Path("."))
+        answer, files = await assistant.reply_with_files(chat_title="Chat", history="", message="2 + 2 ni hisobla", directory=Path("."))
         self.assertEqual((answer, files), ("Oddiy matnli javob.", []))
         retry = compat.chat.completions.create.call_args_list[1].kwargs
         self.assertNotIn("tools", retry)
@@ -72,7 +72,7 @@ class CompatToolTests(unittest.IsolatedAsyncioTestCase):
             completion(calls=[tool_call("c1", "calculate", {"wrong": 1})]),
             completion("Hisoblab bo‘lmadi."),
         ])
-        answer, _ = await assistant.reply_with_files(chat_title="Chat", history="", message="?", directory=Path("."))
+        answer, _ = await assistant.reply_with_files(chat_title="Chat", history="", message="2 + 2 ni hisobla", directory=Path("."))
         self.assertEqual(answer, "Hisoblab bo‘lmadi.")
         tool_message = compat.chat.completions.create.call_args_list[1].kwargs["messages"][-1]
         self.assertIn("error", tool_message["content"])

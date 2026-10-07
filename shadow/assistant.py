@@ -174,6 +174,8 @@ def is_small_talk(message: str, *, has_document: bool = False, has_files: bool =
     text = " ".join((message or "").split())
     if not text or len(text) > SMALL_TALK_MAX_CHARS or any(ch.isdigit() for ch in text):
         return False
+    if needs_reasoning_model(text):
+        return False  # explicit multi-step requests keep the advanced model and the full prompt
     lowered = text.lower()
     if any(hint in lowered for hint in _TASK_HINTS) or any(hint in lowered for hint in BANK_HINTS):
         return False

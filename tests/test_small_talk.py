@@ -15,7 +15,7 @@ class DetectorTests(unittest.TestCase):
 
     def test_tasks_numbers_links_documents_and_long_texts_are_not(self):
         for text in ("5 ta 12 mingdan nechpul", "excel jadval tuz", "kod xatosini top", "https://youtu.be/x", "kredit foizi qancha",
-                     "o'zbekchadan ruschaga tarjima qil", "x" * 120, "", "bugun 3 ta uchrashuv bor"):
+                     "o'zbekchadan ruschaga tarjima qil", "Bu tenglamani qadam-baqadam yech", "x" * 120, "", "bugun 3 ta uchrashuv bor"):
             self.assertFalse(is_small_talk(text), text)
         self.assertFalse(is_small_talk("salom", has_document=True))
         self.assertFalse(is_small_talk("salom", has_files=True))
