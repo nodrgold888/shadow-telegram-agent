@@ -90,14 +90,15 @@ class VoiceAssistantTests(unittest.IsolatedAsyncioTestCase):
 
 
 class VideoNoteTests(unittest.IsolatedAsyncioTestCase):
-    def test_ordinary_videos_only_count_when_asked_for_and_gifs_never_do(self):
+    def test_videos_and_gifs_only_count_when_asked_for(self):
         from shadow.telegram_agent import spoken_media
         video = SimpleNamespace(duration=5)
         message = SimpleNamespace(voice=None, video_note=None, video=video, gif=None)
         self.assertEqual(spoken_media(message), (None, None))
         self.assertEqual(spoken_media(message, include_video=True), ("video", video))
-        message.gif = object()
-        self.assertEqual(spoken_media(message, include_video=True), (None, None))
+        message.gif = video  # a GIF is also stored as a video document: it must be recognised as a GIF first
+        self.assertEqual(spoken_media(message), (None, None))
+        self.assertEqual(spoken_media(message, include_video=True), ("gif", video))
 
     def test_spoken_media_recognises_voice_and_round_video(self):
         from shadow.telegram_agent import spoken_media
@@ -172,6 +173,32 @@ class VideoNoteTests(unittest.IsolatedAsyncioTestCase):
         quiet._work_reply.assert_not_awaited()
         event2.reply.assert_not_awaited()
 
+    async def test_gif_is_looked_at_as_a_reaction(self):
+        describe = AsyncMock(return_value=("Ko'rinishi: mushuk raqsga tushmoqda. Ma'nosi: quvonch", True))
+        agent = self._agent(describe)
+        event = self._video_event()
+        event.message.video_note = None
+        event.message.gif = SimpleNamespace(duration=3)
+        await agent._work_voice_reply(event, "Test", gif=True)
+        describe.assert_awaited_once()
+        self.assertTrue(describe.await_args.kwargs["gif"])
+        message = agent._work_reply.await_args.args[2]
+        self.assertIn("GIF (qisqa animatsiya)", message)
+        self.assertIn("mushuk", message)
+        self.assertIn("tasvirlab bermang", message)
+
+    async def test_unseen_gif_without_caption_gets_no_answer_and_with_caption_no_invention(self):
+        agent = self._agent(AsyncMock(return_value=("", False)))
+        event = self._video_event()
+        event.message.video_note = None
+        await agent._work_voice_reply(event, "Test", gif=True)
+        agent._work_reply.assert_not_awaited()
+        event.reply.assert_not_awaited()
+        await agent._work_voice_reply(event, "Test", gif=True, caption="mana")
+        message = agent._work_reply.await_args.args[2]
+        self.assertIn("o‘ylab topmang", message)
+        self.assertIn("Videoga yozilgan matn: mana", message)
+
     async def test_gemini_fallback_gets_the_video_mime_type(self):
         from shadow.assistant import ShadowAssistant
         from tests.test_voice_fallback import gemini_settings
@@ -207,6 +234,35 @@ class DescribeVideoTests(unittest.IsolatedAsyncioTestCase):
         with patch("shadow.assistant.gemini_audio.describe_video", AsyncMock(side_effect=RuntimeError("boom"))), \
                 patch.object(assistant, "transcribe_audio", AsyncMock(side_effect=RuntimeError("x"))):
             self.assertEqual(await assistant.describe_video(clip), ("", False))
+
+    async def test_gif_prompt_is_used_and_there_is_no_sound_fallback(self):
+        assistant = self._assistant()
+        clip = Path(tempfile.mkdtemp()) / "video.mp4"
+        clip.write_bytes(b"gif")
+        gem = AsyncMock(return_value="Ko'rinishi: x")
+        with patch("shadow.assistant.gemini_audio.describe_video", gem):
+            self.assertEqual(await assistant.describe_video(clip, gif=True), ("Ko'rinishi: x", True))
+        self.assertTrue(gem.await_args.kwargs["gif"])
+        failing = AsyncMock(side_effect=RuntimeError("boom"))
+        transcribe = AsyncMock(return_value="shovqin")
+        with patch("shadow.assistant.gemini_audio.describe_video", failing), patch.object(assistant, "transcribe_audio", transcribe):
+            self.assertEqual(await assistant.describe_video(clip, gif=True), ("", False))
+        transcribe.assert_not_awaited()
+
+    async def test_gemini_audio_helper_sends_the_gif_prompt_for_gifs(self):
+        from shadow import gemini_audio
+        clip = Path(tempfile.mkdtemp()) / "video.mp4"
+        clip.write_bytes(b"gif")
+        seen = []
+
+        def call(key, model, data, mime, *prompt):
+            seen.append(prompt)
+            return "Ko'rinishi: x"
+
+        await gemini_audio.describe_video("k", ["a"], clip, call=call, gif=True)
+        await gemini_audio.describe_video("k", ["a"], clip, call=call)
+        self.assertEqual(seen, [(gemini_audio.GIF_PROMPT,), ()])
+        self.assertIn("GIF", gemini_audio.GIF_PROMPT)
 
     async def test_gemini_audio_helper_tries_the_next_model_and_rejects_big_files(self):
         from shadow import gemini_audio

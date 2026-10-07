@@ -28,6 +28,14 @@ VIDEO_PROMPT = (
     "Aytilgani: nutq bo‘lsa so‘zma-so‘z ko‘chiring (o‘zbekcha bo‘lsa lotin yozuvida, tilini o‘zgartirmang); nutq bo‘lmasa \"nutq yo‘q\" deb yozing.\n"
     "Faqat shu ikki qismni qaytaring, boshqa izoh qo‘shmang."
 )
+GIF_PROMPT = (
+    "Bu Telegramdagi GIF (ovozsiz qisqa animatsiya). Qisqa yozing.\n"
+    "Ko‘rinishi: nima ko‘rinadi va nima bo‘layotganini aniq tasvirlang (kim yoki nima, harakat, ko‘rinadigan yozuv). "
+    "Ko‘rinmagan narsani o‘ylab topmang.\n"
+    "Ma’nosi: odamlar bunday GIFni odatda qanday his-tuyg‘u yoki reaksiya uchun yuboradi (masalan kulgi, rahmat, hayrat, "
+    "xafalik, tabrik) — bir-ikki so‘z bilan.\n"
+    "Faqat shu ikki qismni qaytaring, boshqa izoh qo‘shmang."
+)
 VIDEO_TIMEOUT = 90.0
 MAX_VIDEO_BYTES = 10 * 1024 * 1024
 
@@ -74,18 +82,20 @@ async def transcribe(api_key: str, models: list[str], path: Path, mime: str = "a
     return ""
 
 
-def _describe_sync(api_key: str, model: str, data: bytes, mime: str) -> str:
+def _describe_sync(api_key: str, model: str, data: bytes, mime: str, prompt: str = VIDEO_PROMPT) -> str:
     from google import genai  # imported lazily: only needed for video understanding
     from google.genai import types
 
     client = genai.Client(api_key=api_key)
     response = client.models.generate_content(
-        model=model, contents=[types.Part.from_bytes(data=data, mime_type=mime), VIDEO_PROMPT],
+        model=model, contents=[types.Part.from_bytes(data=data, mime_type=mime), prompt],
     )
     return (response.text or "").strip()
 
 
-async def describe_video(api_key: str, models: list[str], path: Path, mime: str = "video/mp4", call=_describe_sync) -> str:
+async def describe_video(
+    api_key: str, models: list[str], path: Path, mime: str = "video/mp4", call=_describe_sync, *, gif: bool = False,
+) -> str:
     """What happens in a short video and what is said in it ("Ko‘rinishi: ... Aytilgani: ..."), from the first
     Gemini model that answers. Raises the last error if every model failed; '' if they answered with nothing."""
     data = await asyncio.to_thread(path.read_bytes)
@@ -94,7 +104,8 @@ async def describe_video(api_key: str, models: list[str], path: Path, mime: str 
     last: Exception | None = None
     for model in models:
         try:
-            text = await asyncio.wait_for(asyncio.to_thread(call, api_key, model, data, mime), VIDEO_TIMEOUT)
+            args = (api_key, model, data, mime) + ((GIF_PROMPT,) if gif else ())
+            text = await asyncio.wait_for(asyncio.to_thread(call, *args), VIDEO_TIMEOUT)
         except Exception as exc:  # log only the class: SDK messages can echo request details
             last = exc
             log.warning("Gemini video understanding with %s failed (%s)", model, type(exc).__name__)

@@ -43,7 +43,7 @@ SETUP_NETWORK_TIMEOUT_SECONDS = 20
 
 def spoken_media(message, *, include_video: bool = False) -> tuple[str | None, object | None]:
     """The voice or video attachment of a message: ("voice", media), ("video_note", media) for a round video
-    message, and with include_video also ("video", media) for an ordinary video (not a GIF); else (None, None).
+    message, and with include_video also ("gif", media) for a GIF and ("video", media) for an ordinary video; else (None, None).
     Round video messages are not `message.voice`, so they used to be ignored."""
     voice = getattr(message, "voice", None)
     if voice:
@@ -51,7 +51,10 @@ def spoken_media(message, *, include_video: bool = False) -> tuple[str | None, o
     video_note = getattr(message, "video_note", None)
     if video_note:
         return "video_note", video_note
-    if include_video and not getattr(message, "gif", None):
+    if include_video:
+        gif = getattr(message, "gif", None)
+        if gif:
+            return "gif", gif
         video = getattr(message, "video", None)
         if video:
             return "video", video
@@ -363,9 +366,10 @@ class TelegramAgent:
         is_voice = spoken_kind is not None
         is_video_note = spoken_kind == "video_note"
         is_video = spoken_kind == "video"
-        caption = text if is_video else ""
+        is_gif = spoken_kind == "gif"
+        caption = text if (is_video or is_gif) else ""
         if is_voice and not text:
-            text = {"video_note": "Video xabar", "video": "Video"}.get(spoken_kind, "Ovozli xabar")
+            text = {"video_note": "Video xabar", "video": "Video", "gif": "GIF"}.get(spoken_kind, "Ovozli xabar")
         attachment = getattr(event, "file", None)
         extension = Path(getattr(attachment, "name", "") or "").suffix.lower()
         if not extension:
@@ -405,7 +409,7 @@ class TelegramAgent:
                 async with _WORK_SLOTS:
                     async with asyncio.timeout(180):
                         if is_voice:
-                            await self._work_voice_reply(event, title, video_note=is_video_note, video=is_video, caption=caption)
+                            await self._work_voice_reply(event, title, video_note=is_video_note, video=is_video, gif=is_gif, caption=caption)
                         else:
                             await self._work_reply(event, title, text, extension if office_attachment else "")
                 self.reply_count += 1
@@ -501,6 +505,8 @@ class TelegramAgent:
                 body = "🎥 video xabar"
             elif spoken_kind == "video":
                 body = "🎬 video"
+            elif spoken_kind == "gif":
+                body = "🎞 GIF"
             elif spoken_kind == "voice":
                 body = "🎤 ovozli xabar"
             elif text:
@@ -724,13 +730,13 @@ class TelegramAgent:
                     and chat_is_approved(chat_id, self.settings.approved_chat_ids))
 
     async def _work_voice_reply(
-        self, event, title: str, *, video_note: bool = False, video: bool = False, caption: str = "",
+        self, event, title: str, *, video_note: bool = False, video: bool = False, gif: bool = False, caption: str = "",
     ) -> None:
         assert self.client is not None and self.assistant is not None
         chat_id = event.chat_id
         _kind, media = spoken_media(event.message, include_video=True)
-        watched = video_note or video
-        label = "Video xabar" if video_note else "Video" if video else "Ovozli xabar"
+        watched = video_note or video or gif
+        label = "Video xabar" if video_note else "GIF" if gif else "Video" if video else "Ovozli xabar"
         duration = getattr(media, "duration", None)
         attachment = getattr(event, "file", None)
         size = getattr(attachment, "size", None)
@@ -753,12 +759,19 @@ class TelegramAgent:
                     return
                 await self._work_reply(event, title, transcript, "", voice_reply=True)  # a voice message is answered by voice
                 return
-            seen, saw = await self.assistant.describe_video(source)
+            seen, saw = await (self.assistant.describe_video(source, gif=True) if gif else self.assistant.describe_video(source))
             if not seen and not caption:
                 if video_note and self._can_reply(chat_id):
                     await event.reply(f"{label}ni tushunib bo‘lmadi. Iltimos, yana bir bor yuboring.")
                 return  # an ordinary video nobody described and nobody captioned: nothing to answer
-            if seen and saw:
+            if gif and seen and saw:
+                message = (
+                    "Suhbatdosh GIF (qisqa animatsiya) yubordi. Odatda bu reaksiya: GIFni tasvirlab bermang, "
+                    f"oddiy odamdek unga mos qisqa javob bering. Mazmuni (avtomatik tahlil):\n{seen}"
+                )
+            elif gif:
+                message = "Suhbatdosh GIF yubordi, lekin uni ko‘ra olmadingiz. GIF mazmunini o‘ylab topmang."
+            elif seen and saw:
                 message = f"Suhbatdosh video yubordi. Videoning mazmuni (avtomatik tahlil natijasi):\n{seen}"
             elif seen:
                 message = (

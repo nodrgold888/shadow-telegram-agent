@@ -268,18 +268,20 @@ class ShadowAssistant:
             return await gemini_audio.transcribe(key, gemini_audio.gemini_models(self.settings), path, mime)
         return await self._transcribe_openai(path)  # raises the "OpenAI key not set" error
 
-    async def describe_video(self, path: Path) -> tuple[str, bool]:
+    async def describe_video(self, path: Path, *, gif: bool = False) -> tuple[str, bool]:
         """(text, saw_video). With a Gemini key the video itself is analysed: what is shown and what is said.
         Without one (or when Gemini fails) only the sound is transcribed and saw_video is False, so the reply
         must not pretend to have seen the picture."""
         key = gemini_api_key(self.settings)
         if key:
             try:
-                text = await gemini_audio.describe_video(key, gemini_audio.gemini_models(self.settings), path)
+                text = await gemini_audio.describe_video(key, gemini_audio.gemini_models(self.settings), path, gif=gif)
                 if text:
                     return text, True
             except Exception as exc:
                 log.warning("Video understanding failed (%s); falling back to the sound only", type(exc).__name__)
+        if gif:
+            return "", False  # a GIF has no sound to fall back on
         try:
             return await self.transcribe_audio(path), False
         except Exception as exc:
