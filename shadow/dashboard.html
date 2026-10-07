@@ -770,6 +770,46 @@ fieldset.agent-picker{margin:13px 0;padding:0;border:0}fieldset.agent-picker leg
 :root[data-theme] .system-list strong{font-weight:550}
 :root[data-theme] .btn,:root[data-theme] .theme-toggle{border-radius:6px}
 @media(max-width:420px){:root[data-theme] .login-wrap{padding:16px}:root[data-theme] .login{padding:24px 20px}}
+/* Workspace navigation and account context */
+:root[data-theme] .shell{grid-template-columns:258px minmax(0,1fr)}
+:root[data-theme] .side{z-index:2;gap:0;padding:22px 14px 16px;border-right:1px solid var(--v-line);background:var(--v-side)}
+:root[data-theme] .side .brand{padding:0 7px 22px}
+:root[data-theme] .side .brand .mark{width:36px;height:36px;border-radius:9px}
+:root[data-theme] .workspace-card{margin:0 2px 22px;padding:13px;border:1px solid var(--v-line);border-radius:8px;background:var(--v-surface)}
+:root[data-theme] .workspace-card-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+:root[data-theme] .workspace-symbol{display:grid;place-items:center;width:27px;height:27px;border:1px solid var(--v-line2);border-radius:6px;background:var(--v-surface2);color:var(--v-accent);font-size:12px;font-weight:750}
+:root[data-theme] .workspace-live,:root[data-theme] .workspace-card-foot i{width:7px;height:7px;border-radius:50%;background:var(--v-accent)}
+:root[data-theme] .workspace-card>small{display:block;color:var(--v-muted);font-size:9px;font-weight:650;letter-spacing:.1em}
+:root[data-theme] .workspace-card>strong{display:block;margin-top:5px;color:var(--v-ink);font-size:12px;font-weight:650}
+:root[data-theme] .workspace-card>span:not(.workspace-symbol):not(.workspace-live){display:block;margin-top:3px;overflow:hidden;color:var(--v-muted);font-size:10px;text-overflow:ellipsis;white-space:nowrap}
+:root[data-theme] .workspace-card-foot{display:flex;align-items:center;gap:7px;margin-top:12px;padding-top:10px;border-top:1px solid var(--v-line);color:var(--v-accent);font-size:10px}
+:root[data-theme] .workspace-card-foot.disconnected{color:var(--v-warn)}
+:root[data-theme] .workspace-card-foot.disconnected i{background:var(--v-warn)}
+:root[data-theme] .workspace-nav{display:grid;gap:15px;margin:0;padding:0 1px}
+:root[data-theme] .nav-group{display:grid;gap:2px}
+:root[data-theme] .workspace-nav .nav-label{margin:0 0 5px;padding:0 10px;color:var(--v-muted);font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase}
+:root[data-theme] .workspace-nav .nav{height:38px;padding:0 10px;border-radius:6px;color:var(--v-muted);font-size:12px;font-weight:520}
+:root[data-theme] .workspace-nav .nav b{width:18px;height:18px;color:inherit}
+:root[data-theme] .workspace-nav .nav b svg{width:17px;height:17px}
+:root[data-theme] .workspace-nav .nav.active{background:var(--v-surface2);color:var(--v-ink)}
+:root[data-theme] .workspace-nav .nav.active:before{left:-1px;top:8px;bottom:8px;width:2px}
+:root[data-theme] .workspace-nav .nav.active b{color:var(--v-accent)}
+:root[data-theme] .side-note{margin-top:auto;padding:13px 8px 2px;border-top:1px solid var(--v-line);font-size:10px;line-height:1.6}
+:root[data-theme] .side-note .secure{margin-bottom:6px;font-size:10px}
+:root[data-theme] .content{padding-top:26px}
+:root[data-theme] .top{padding-bottom:17px;margin-bottom:20px}
+:root[data-theme] .top .eyebrow{font-size:9px;letter-spacing:.12em}
+:root[data-theme] .top h1{font-size:25px;font-weight:650;letter-spacing:-.025em}
+:root[data-theme] .top p{font-size:12px}
+:root[data-theme] .overview-metrics{gap:10px}
+:root[data-theme] .overview-metric{min-height:126px}
+:root[data-theme] .overview-metric strong{font-size:28px}
+:root[data-theme] .overview-duo{gap:12px}
+:root[data-theme] .overview-panel-head p{font-size:10px}
+:root[data-theme] .recent-row{min-height:43px}
+:root[data-theme] .recent-row:not(.recent-head){font-size:11px}
+@media(max-width:900px){:root[data-theme] .shell{grid-template-columns:220px minmax(0,1fr)}:root[data-theme] .side{padding-right:11px;padding-left:11px}}
+@media(max-width:680px){:root[data-theme] .shell{display:block}:root[data-theme] .side{display:grid;grid-template-columns:1fr;gap:12px;padding:12px 14px}:root[data-theme] .side .brand{padding:0}:root[data-theme] .workspace-card{display:grid;grid-template-columns:32px minmax(0,1fr) auto;align-items:center;gap:0 10px;margin:0;padding:9px 10px}:root[data-theme] .workspace-card-top{grid-column:1;grid-row:1 / span 3;margin:0}:root[data-theme] .workspace-card-top .workspace-live{display:none}:root[data-theme] .workspace-card>small{grid-column:2;grid-row:1;margin:0;font-size:8px}:root[data-theme] .workspace-card>strong{grid-column:2;grid-row:2;margin:1px 0}:root[data-theme] .workspace-card>span:not(.workspace-symbol):not(.workspace-live){grid-column:2;grid-row:3;margin:0;font-size:9px}:root[data-theme] .workspace-card-foot{grid-column:3;grid-row:1 / span 3;margin:0;padding:0;border:0;font-size:9px}:root[data-theme] .workspace-nav{display:flex!important;gap:0;overflow-x:auto;flex-basis:auto;margin:0;padding:0 0 2px}:root[data-theme] .nav-group{display:contents}:root[data-theme] .workspace-nav .nav-label{display:none}:root[data-theme] .workspace-nav .nav{flex:0 0 auto;width:auto;height:36px;margin-right:3px;padding:0 10px}:root[data-theme] .side-note{display:none}}
 </style>
 </head>
 <body>
@@ -808,10 +848,12 @@ groups:{title:'Guruhlar va kanallar',sub:'Faqat guruh va kanallar · faqat o‘q
 function listLabel(){return listLabels[currentView]||listLabels.overview}
 function applyListLabels(){const l=listLabel();$('#chatListTitle').textContent=l.title;$('#chatListSub').textContent=l.sub;$('#chatSearch').placeholder=l.search;$('#chatFilter').options[0].textContent=l.all;$('#chatTable').setAttribute('aria-label',l.title);$('#chatHeadName').textContent=l.head;const empty=document.getElementById('noMatches');if(empty)empty.textContent=l.none}
 const views={overview:['Umumiy ko‘rinish','Tizim holati va asosiy ko‘rsatkichlar'],chats:['Suhbatlar','Suhbatlarni qidirish va ruxsat holatini tekshirish'],groups:['Guruhlar va kanallar','Guruh va kanal suhbatlari'],replies:['Avtomatik javoblar','Yuborish holati va javob berish qoidalari'],providers:['AI provayderlar','Model va zaxira xizmatlar tartibi'],capabilities:['Imkoniyatlar','Shadow ishlata oladigan vositalar'],settings:['Sozlamalar','Panel ko‘rinishi va Telegram sessiyasi']};
-const navigation=document.createElement('nav');navigation.className='workspace-nav';navigation.setAttribute('aria-label','Asosiy menyu');navigation.innerHTML='<div class="nav-label">Ish maydoni</div>';
+const navigation=document.createElement('nav');navigation.className='workspace-nav';navigation.setAttribute('aria-label','Asosiy menyu');
 const labels={overview:'◈|Umumiy ko‘rinish',chats:'◌|Suhbatlar',groups:'⊞|Guruhlar va kanallar',replies:'↗|Avtomatik javoblar',providers:'◎|AI provayderlar',capabilities:'▤|Imkoniyatlar',settings:'⚙|Sozlamalar'};
-for(const key of Object.keys(labels)){const button=document.createElement('button');button.type='button';button.className='nav';button.dataset.view=key;const parts=labels[key].split('|');button.innerHTML='<b aria-hidden="true">'+parts[0]+'</b>'+parts[1];button.addEventListener('click',()=>switchView(key));navigation.append(button)}
-$('.side>div:nth-child(2)').replaceWith(navigation);
+const navGroups=[['Bosh sahifa',['overview']],['Telegram',['chats','groups']],['Avtomatlashtirish',['replies','providers','capabilities']],['Tizim',['settings']]];
+for(const [title,keys] of navGroups){const group=document.createElement('div');group.className='nav-group';const heading=document.createElement('div');heading.className='nav-label';heading.textContent=title;group.append(heading);for(const key of keys){const button=document.createElement('button');button.type='button';button.className='nav';button.dataset.view=key;const parts=labels[key].split('|');button.innerHTML='<b aria-hidden="true">'+parts[0]+'</b><span>'+parts[1]+'</span>';button.addEventListener('click',()=>switchView(key));group.append(button)}navigation.append(group)}
+const workspace=document.createElement('section');workspace.className='workspace-card';workspace.setAttribute('aria-label','Ish maydoni');workspace.innerHTML='<div class="workspace-card-top"><span class="workspace-symbol">S</span><span class="workspace-live" aria-hidden="true"></span></div><small>SHADOW WORKSPACE</small><strong>Asosiy ish maydoni</strong><span id="workspaceAccount">Telegram akkaunti</span><div class="workspace-card-foot"><i></i><span id="workspaceStatus">Holat tekshirilmoqda</span></div>';
+$('.side').insertBefore(navigation,$('.side-note'));$('.side').insertBefore(workspace,navigation);$('.side>div:nth-child(2)').remove();
 const main=$('.content'),overview=$('#overviewPanel');
 $('.warning').id='replyPanel';
 
@@ -960,7 +1002,7 @@ function renderOverview(s,chats){
   state('#systemReplies',s.reply_enabled,'Yoqilgan','O‘chirilgan');
   state('#systemSession',s.session_persisted,'Saqlangan','Saqlanmagan');
   const badge=$('#systemBadge');const ready=!!(s.connected&&s.openai_configured);badge.textContent=ready?'Tizim ulangan':'Sozlash kerak';badge.classList.toggle('ok',ready);
-  $('#systemAccount').textContent=s.account?'Akkaunt: '+s.account:'Telegram akkaunti ulanmagan';
+  $('#systemAccount').textContent=s.account?'Akkaunt: '+s.account:'Telegram akkaunti ulanmagan';$('#workspaceAccount').textContent=s.account||'Telegram akkaunti ulanmagan';$('#workspaceStatus').textContent=s.connected?'Telegram bilan ulangan':'Telegram ulanmagan';$('#workspaceStatus').parentElement.classList.toggle('disconnected',!s.connected);
   const order=$('#overviewAiList');order.replaceChildren();
   const providers=(info.primary?[]:[{name:'OpenAI',model:s.openai_model||'Asosiy model',enabled:s.openai_configured}]).concat(backups.map(p=>({name:p.name,model:p.model,enabled:true})),info.primary?[{name:'OpenAI',model:s.openai_model||'Asosiy model',enabled:s.openai_configured}]:[]);
   if(!providers.length){const item=document.createElement('li');item.textContent='AI xizmatlari sozlanmagan';order.append(item)}
