@@ -137,13 +137,25 @@ class SkillCatalogTests(unittest.TestCase):
         from pathlib import Path
         from shadow.agents import skill_catalog
         catalog = skill_catalog()
-        self.assertGreaterEqual(len(catalog), 9)
+        self.assertGreaterEqual(len(catalog), 14)
         self.assertEqual(len({item["id"] for item in catalog}), len(catalog))
         for item in catalog:
             self.assertTrue(item["label"] and item["description"])
         skills = Path(__file__).resolve().parents[1] / "shadow" / "skills"
-        for name in ("coding", "learning", "math", "excel", "word", "human_chat"):
+        for name in ("coding", "learning", "math", "excel", "word", "human_chat", "writing_uz", "translate", "planning",
+                     "customer_replies", "uz_etiquette", "real_chat_uz"):
             self.assertTrue((skills / f"{name}.md").exists(), name)
+
+    def test_new_skills_are_in_the_prompt_and_stay_honest(self):
+        from shadow import assistant
+        prompt = assistant.SKILL_PROMPT
+        for title in ("Writing help in Uzbek", "Translation (Uzbek, Russian, English)", "Planning and everyday organising",
+                      "Replying to customers for the owner", "Uzbek everyday etiquette and phrases"):
+            self.assertIn(title, prompt)
+        self.assertIn("Never invent price, discount, stock", prompt)
+        self.assertIn("you cannot send a reminder later", prompt)
+        self.assertIn("Never confirm attendance", prompt)
+        self.assertTrue(prompt.rstrip().endswith("> Good: ha, shunaqa"))
 
 
 class AgentPromptTests(unittest.IsolatedAsyncioTestCase):

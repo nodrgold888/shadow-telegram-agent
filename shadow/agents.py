@@ -102,6 +102,11 @@ SKILLS: tuple[tuple[str, str, str], ...] = (
     ("word", "Word", "Hujjat yozish, tahrirlash va .docx fayl tayyorlash."),
     ("coding", "Dasturlash", "Kodni tushuntirish, xatolarni topish va tuzatish."),
     ("learning", "O‘rganish", "Tushuntirish, mashq savollari, testlar va o‘quv qo‘llanmalar."),
+    ("writing", "Matn yozish", "Xabar, ariza, tabrik va post matnlarini yozish va tahrirlash."),
+    ("translate", "Tarjima", "O‘zbek, rus va ingliz tillari o‘rtasida ma’noga mos tarjima."),
+    ("planning", "Rejalashtirish", "Kun, safar, o‘qish va byudjet rejalarini qisqa va aniq tuzish."),
+    ("customer", "Mijozlarga javob", "Mijoz savoliga qisqa, xushmuomala va va’dasiz javob."),
+    ("etiquette", "Odob va tabriklar", "Salom-alik, bayram, ta’ziya va taklif iboralari."),
     ("banking", "Davr Bank", "Davr Bank karta, kredit, omonat, to‘lov va tariflari."),
     ("video", "Video yuklash", "Ochiq Instagram va TikTok videolarini yuklab yuborish."),
 )
