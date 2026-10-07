@@ -15,6 +15,7 @@ from telethon.sessions import StringSession
 from .agents import profile_agent_ids
 from .assistant import ShadowAssistant
 from .chat_memory import normalize_chat_profile
+from .gemini_audio import MAX_STICKER_BYTES
 from .office_files import OfficeFileError, MAX_UPLOAD_BYTES, inspect_office
 
 _WORK_SLOTS = asyncio.Semaphore(2)
@@ -43,7 +44,7 @@ SETUP_NETWORK_TIMEOUT_SECONDS = 20
 
 def spoken_media(message, *, include_video: bool = False) -> tuple[str | None, object | None]:
     """The voice or video attachment of a message: ("voice", media), ("video_note", media) for a round video
-    message, and with include_video also ("gif", media) for a GIF and ("video", media) for an ordinary video; else (None, None).
+    message, and with include_video also ("gif", media) for a GIF, ("sticker", media) for a sticker and ("video", media) for an ordinary video; else (None, None).
     Round video messages are not `message.voice`, so they used to be ignored."""
     voice = getattr(message, "voice", None)
     if voice:
@@ -55,6 +56,9 @@ def spoken_media(message, *, include_video: bool = False) -> tuple[str | None, o
         gif = getattr(message, "gif", None)
         if gif:
             return "gif", gif
+        sticker = getattr(message, "sticker", None)
+        if sticker:
+            return "sticker", sticker
         video = getattr(message, "video", None)
         if video:
             return "video", video
@@ -367,9 +371,10 @@ class TelegramAgent:
         is_video_note = spoken_kind == "video_note"
         is_video = spoken_kind == "video"
         is_gif = spoken_kind == "gif"
+        is_sticker = spoken_kind == "sticker"
         caption = text if (is_video or is_gif) else ""
         if is_voice and not text:
-            text = {"video_note": "Video xabar", "video": "Video", "gif": "GIF"}.get(spoken_kind, "Ovozli xabar")
+            text = {"video_note": "Video xabar", "video": "Video", "gif": "GIF", "sticker": "Stiker"}.get(spoken_kind, "Ovozli xabar")
         attachment = getattr(event, "file", None)
         extension = Path(getattr(attachment, "name", "") or "").suffix.lower()
         if not extension:
@@ -408,7 +413,9 @@ class TelegramAgent:
                     return
                 async with _WORK_SLOTS:
                     async with asyncio.timeout(180):
-                        if is_voice:
+                        if is_sticker:
+                            await self._work_sticker_reply(event, title)
+                        elif is_voice:
                             await self._work_voice_reply(event, title, video_note=is_video_note, video=is_video, gif=is_gif, caption=caption)
                         else:
                             await self._work_reply(event, title, text, extension if office_attachment else "")
@@ -507,6 +514,8 @@ class TelegramAgent:
                 body = "🎬 video"
             elif spoken_kind == "gif":
                 body = "🎞 GIF"
+            elif spoken_kind == "sticker":
+                body = "🏷 stiker"
             elif spoken_kind == "voice":
                 body = "🎤 ovozli xabar"
             elif text:
@@ -783,6 +792,35 @@ class TelegramAgent:
             if caption:
                 message += f"\nVideoga yozilgan matn: {caption}"
             await self._work_reply(event, title, message, "")  # video and round video messages are answered in text
+
+    async def _work_sticker_reply(self, event, title: str) -> None:
+        """A sticker is a reaction: look at it when it is a picture or a video sticker, use its emoji always,
+        then answer briefly like a person. Animated (.tgs) stickers are known by their emoji only."""
+        assert self.client is not None and self.assistant is not None
+        attachment = getattr(event, "file", None)
+        emoji = (getattr(attachment, "emoji", None) or "").strip()
+        mime = (getattr(attachment, "mime_type", None) or "").lower()
+        size = getattr(attachment, "size", None)
+        seen = ""
+        if mime in {"image/webp", "video/webm"} and (size is None or size <= MAX_STICKER_BYTES):
+            with TemporaryDirectory(prefix="shadow-sticker-") as temporary:
+                source = Path(temporary) / ("sticker.webm" if mime == "video/webm" else "sticker.webp")
+                downloaded = await self.client.download_media(event.message, file=str(source))
+                if downloaded and source.exists():
+                    seen, _saw = await self.assistant.describe_sticker(source, mime)
+        if not seen and not emoji:
+            return  # nothing known about this sticker: stay quiet instead of inventing a reaction
+        if seen:
+            message = (
+                "Suhbatdosh stiker yubordi" + (f" (emoji: {emoji})" if emoji else "") + ". Odatda bu reaksiya: stikerni "
+                f"tasvirlab bermang, oddiy odamdek unga mos juda qisqa javob bering. Mazmuni (avtomatik tahlil):\n{seen}"
+            )
+        else:
+            message = (
+                f"Suhbatdosh stiker yubordi (emoji: {emoji}), lekin tasvirini ko‘ra olmadingiz, faqat emojisi ma’lum. "
+                "Stiker mazmunini o‘ylab topmang; oddiy odamdek juda qisqa javob bering."
+            )
+        await self._work_reply(event, title, message, "")
 
     async def _work_reply(self, event, title: str, text: str, extension: str, *, voice_reply: bool = False) -> None:
         assert self.client is not None and self.assistant is not None
