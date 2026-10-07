@@ -11,33 +11,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - run: python -m pip install -r requirements.txt
-      - run: python -m unittest discover -s tests -p 'test_work_tools.py'
-      - run: python -m unittest discover -s tests -p 'test_office_assistant.py'
-      - run: python -m unittest discover -s tests -p 'test_model_routing.py'
-      - run: python -m unittest discover -s tests -p 'test_model_selection.py'
-      - run: python -m unittest discover -s tests -p 'test_voice.py'
-      - run: python -m unittest discover -s tests -p 'test_chat_memory.py'
-      - run: python -m unittest discover -s tests -p 'test_local_persistence.py'
-      - run: python -m unittest discover -s tests -p 'test_keepalive.py'
-      - run: python -m unittest discover -s tests -p 'test_panel_login.py'
-      - run: python -m unittest discover -s tests -p 'test_human_chat.py'
-      - run: python -m unittest discover -s tests -p 'test_presence.py'
-      - run: python -m unittest discover -s tests -p 'test_public_bank.py'
-      - run: python -m unittest discover -s tests -p 'test_diagnostics.py'
-      - run: python -m unittest discover -s tests -p 'test_model_catalog.py'
-      - run: python -m unittest discover -s tests -p 'test_ai_fallback.py'
-      - run: python -m unittest discover -s tests -p 'test_compat_tools.py'
-      - run: python -m unittest discover -s tests -p 'test_multi_providers.py'
-      - run: python -m unittest discover -s tests -p 'test_agents.py'
-      - run: python -m unittest discover -s tests -p 'test_freellmapi_protocol.py'
-      - run: python -m unittest discover -s tests -p 'test_gemini_backup.py'
-      - run: python -m unittest discover -s tests -p 'test_ai_slots.py'
-      - run: python -m unittest discover -s tests -p 'test_image_gen.py'
-      - run: python -m unittest discover -s tests -p 'test_voice_fallback.py'
-      - run: python -m unittest discover -s tests -p 'test_friends.py'
-      - run: python -m unittest discover -s tests -p 'test_greeting.py'
-      - run: python -m unittest discover -s tests -p 'test_video_unknown.py'
-      - run: python -m unittest discover -s tests -p 'test_davr_loans.py'
-      - run: python -m unittest discover -s tests -p 'test_stranger_features.py'
-      - run: python -m unittest discover -s tests -p 'test_setup_timeout.py'
+          cache: pip
+          cache-dependency-path: requirements.txt
+      - run: python -m pip install -r requirements.txt pytest
+      # One run picks up every tests/test_*.py file automatically (unittest- and pytest-style).
+      - run: python -m pytest -q tests

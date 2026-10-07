@@ -14,8 +14,8 @@ deployed on Render. The owner speaks Uzbek: user-facing strings are Uzbek, code 
 
 ## Working here
 - Tests: `PYTHONPATH=<stub dir containing an empty pyaes.py> python -m pytest -q tests` in the sandbox where
-  telethon's `pyaes` dependency cannot be built (CI installs requirements normally). New test files must also be
-  added to `.github/workflows/office-tests.yml`.
+  telethon's `pyaes` dependency cannot be built (CI installs requirements normally). CI runs `python -m pytest -q tests`,
+  so new `tests/test_*.py` files are picked up automatically; the job keeps the name `office`.
 - Dashboard JS is one inline script: syntax-check it with node and drive it with Playwright (Chromium at
   `/opt/pw-browsers/chromium`) using stubbed `/dashboard/api/*` routes; fastapi cannot be run in the sandbox.
 - Every change goes through a PR from a `claude/...` branch; the owner says "merge qil" to merge (squash).

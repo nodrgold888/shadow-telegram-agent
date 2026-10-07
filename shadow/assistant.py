@@ -110,10 +110,38 @@ Qoidalar:
 
 
 SKILL_DIR = Path(__file__).with_name("skills")
-SKILL_PROMPT = "\n\n".join(
-    (SKILL_DIR / name).read_text(encoding="utf-8")
-    for name in ("assistant.md", "math.md", "excel.md", "word.md", "coding.md", "learning.md", "writing_uz.md", "translate.md", "planning.md", "customer_replies.md", "uz_etiquette.md", "banking_uz.md", "davrbank_uz.md", "davr_loans_uz.md", "video_download.md", "human_chat.md", "real_chat_uz.md")
+SKILL_FILES = (
+    "assistant.md", "math.md", "excel.md", "word.md", "coding.md", "learning.md", "writing_uz.md", "translate.md",
+    "planning.md", "customer_replies.md", "uz_etiquette.md", "banking_uz.md", "davrbank_uz.md", "davr_loans_uz.md",
+    "video_download.md", "human_chat.md", "real_chat_uz.md",
 )
+SKILL_PROMPT = "\n\n".join((SKILL_DIR / name).read_text(encoding="utf-8") for name in SKILL_FILES)
+BANK_SKILL_FILES = ("banking_uz.md", "davrbank_uz.md", "davr_loans_uz.md")
+# The Davr Bank guides are about half of the skill text; small talk does not need them, so they are only
+# added when the chat (or the chat's role) is about banking. SKILL_PROMPT stays the complete text.
+SKILL_PROMPT_NO_BANK = "\n\n".join(
+    (SKILL_DIR / name).read_text(encoding="utf-8")
+    for name in SKILL_FILES if name not in BANK_SKILL_FILES
+)
+BANK_HINTS = (
+    "bank", "davr", "kredit", "кредит", "qarz", "қарз", "foiz", "фоиз", "процент", "karta", "карта", "omonat", "омонат",
+    "депозит", "вклад", "ipoteka", "ипотека", "to'lov", "tolov", "тўлов", "humo", "uzcard", "visa", "o'tkazma",
+    "перевод", "overdraft", "lizing", "лизинг", "рассрочк", "muddatli", "taksit", "oylik to'lov", "1284",
+)
+
+
+def wants_bank_skills(text: str, role: str = "") -> bool:
+    """True when the conversation (history + new message) or the chat role is about banking."""
+    if "Davr Bank" in role:
+        return True
+    lowered = (text or "").lower().translate({ord(c): "'" for c in "‘’ʻʼ`´"})
+    return any(hint in lowered for hint in BANK_HINTS)
+
+
+def skill_prompt_for(text: str, role: str = "") -> str:
+    return SKILL_PROMPT if wants_bank_skills(text, role) else SKILL_PROMPT_NO_BANK
+
+
 PUBLIC_SKILL_PROMPT = "\n\n".join(
     (SKILL_DIR / name).read_text(encoding="utf-8")
     for name in ("banking_uz.md", "davrbank_uz.md", "davr_loans_uz.md", "human_chat.md", "real_chat_uz.md")
@@ -511,7 +539,7 @@ class ShadowAssistant:
         """Backup-provider reply with the same calculator/Word/Excel tools (function calling).
 
         Providers are tried in order. A provider that rejects tools is retried once as plain text."""
-        base = SYSTEM_PROMPT + "\n\n" + SKILL_PROMPT + role
+        base = SYSTEM_PROMPT + "\n\n" + skill_prompt_for(prompt, role) + role
         tools = [
             {"type": "function", "function": {"name": t["name"], "description": t["description"], "parameters": t["parameters"]}}
             for t in (WORK_TOOLS if directory is not None else WORK_TOOLS[:1])
@@ -576,7 +604,7 @@ class ShadowAssistant:
         for turn in range(6):
             request = {
                 "model": selected_model,
-                "instructions": SYSTEM_PROMPT + "\n\n" + SKILL_PROMPT + role,
+                "instructions": SYSTEM_PROMPT + "\n\n" + skill_prompt_for(prompt, role) + role,
                 "input": items,
                 "tools": tools,
                 "parallel_tool_calls": False,

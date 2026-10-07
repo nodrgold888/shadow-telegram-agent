@@ -92,7 +92,7 @@ class HumanizeTests(unittest.TestCase):
 
     def test_delays_are_short_and_bounded(self):
         for _ in range(100):
-            self.assertTrue(0.5 <= read_delay() <= 1.6)
+            self.assertTrue(0.3 <= read_delay() <= 1.0)
             self.assertTrue(0.3 <= human_typing_delay("salom") <= 4.5)
 
     def test_skill_keeps_the_honesty_rule_and_the_split_protocol(self):
