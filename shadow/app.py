@@ -18,7 +18,7 @@ from .agents import agent_catalog, skill_catalog
 from .chat_memory import normalize_chat_profile
 from .keepalive import build_keepalive
 from .panel_login import PanelLogin, LoginError
-from .telegram_agent import TelegramAgent
+from .telegram_agent import TelegramAgent, TelegramSetupTimeout
 
 logging.basicConfig(
     level=logging.INFO,
@@ -70,10 +70,6 @@ def _dashboard_allowed(cookie: str | None, authorization: str | None = None) -> 
         for supplied in (cookie, bearer)
         for expected in (settings.setup_token, settings.admin_token)
     )
-
-
-def _setup_allowed(cookie: str | None) -> bool:
-    return bool(settings.setup_token and cookie and secrets.compare_digest(cookie, settings.setup_token))
 
 
 def _setup_allowed(cookie: str | None) -> bool:
@@ -475,7 +471,10 @@ async def telegram_setup_code(request: Request, shadow_setup: str | None = Cooki
     phone = str((await request.json()).get("phone", "")).strip()
     if not phone.startswith("+") or len(phone) < 8:
         raise HTTPException(status_code=400, detail="Telefon raqamini xalqaro formatda kiriting")
-    await agent.request_login_code(phone)
+    try:
+        await agent.request_login_code(phone)
+    except TelegramSetupTimeout as exc:
+        raise HTTPException(status_code=504, detail=str(exc)) from exc
     return {"ok": True}
 
 
@@ -483,7 +482,10 @@ async def telegram_setup_code(request: Request, shadow_setup: str | None = Cooki
 async def telegram_setup_verify(request: Request, shadow_setup: str | None = Cookie(default=None)) -> dict[str, object]:
     _require_setup(shadow_setup)
     code = str((await request.json()).get("code", "")).strip()
-    status = await agent.complete_login(code)
+    try:
+        status = await agent.complete_login(code)
+    except TelegramSetupTimeout as exc:
+        raise HTTPException(status_code=504, detail=str(exc)) from exc
     return {"status": status, **(agent.setup_result() if status == "connected" else {})}
 
 
@@ -491,5 +493,8 @@ async def telegram_setup_verify(request: Request, shadow_setup: str | None = Coo
 async def telegram_setup_password(request: Request, shadow_setup: str | None = Cookie(default=None)) -> dict[str, object]:
     _require_setup(shadow_setup)
     password = str((await request.json()).get("password", ""))
-    await agent.complete_password(password)
+    try:
+        await agent.complete_password(password)
+    except TelegramSetupTimeout as exc:
+        raise HTTPException(status_code=504, detail=str(exc)) from exc
     return {"status": "connected", **agent.setup_result()}
