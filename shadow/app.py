@@ -76,10 +76,6 @@ def _setup_allowed(cookie: str | None) -> bool:
     return bool(settings.setup_token and cookie and secrets.compare_digest(cookie, settings.setup_token))
 
 
-def _setup_allowed(cookie: str | None) -> bool:
-    return bool(settings.setup_token and cookie and secrets.compare_digest(cookie, settings.setup_token))
-
-
 def _dashboard_page() -> HTMLResponse:
     # no-store: a redeploy must show up on the next page load, never a stale cached dashboard
     return HTMLResponse(_DASHBOARD_FILE.read_text(encoding="utf-8"), headers={"Cache-Control": "no-store"})

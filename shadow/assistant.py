@@ -372,11 +372,6 @@ class ShadowAssistant:
             return (response.choices[0].message.content or "").strip()
         return await self._try_providers(call)
 
-    @property
-    def compat(self):
-        """First backup client (None when no backup provider is configured)."""
-        return self.compat_clients[0][1] if self.compat_clients else None
-
     def _use_compat_first(self) -> bool:
         return bool(self.compat_clients) and (self.settings.ai_primary or not self.settings.openai_api_key)
 

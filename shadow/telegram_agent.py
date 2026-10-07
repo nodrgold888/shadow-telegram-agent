@@ -5,7 +5,6 @@ import io
 import logging
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from contextlib import asynccontextmanager
 from dataclasses import replace
 from datetime import datetime, timezone
 
@@ -947,11 +946,3 @@ class TelegramAgent:
                 "unread_count": dialog.unread_count,
             })
         return result
-
-@asynccontextmanager
-async def telegram_lifespan(agent: TelegramAgent):
-    await agent.start()
-    try:
-        yield
-    finally:
-        await agent.stop()
