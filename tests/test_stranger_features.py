@@ -115,12 +115,15 @@ class VoiceReplyTests(unittest.IsolatedAsyncioTestCase):
     async def test_round_video_message_from_a_stranger_is_handled_like_voice(self):
         agent = make_agent()
         agent.voice_unknown = True
+        agent.assistant.describe_video = mock.AsyncMock(return_value=("Ko'rinishi: odam salom bermoqda", True))
         ev = event(agent, voice=None)
         ev.message = SimpleNamespace(voice=None, video_note=VOICE, media=VOICE)
         ev.file = SimpleNamespace(size=2000)
         with mock.patch("asyncio.sleep", new=mock.AsyncMock()):
             await agent._on_message(ev)
-        agent.assistant.transcribe_audio.assert_awaited_once()
+        agent.assistant.describe_video.assert_awaited_once()
+        agent.assistant.transcribe_audio.assert_not_called()
+        self.assertIn("avtomatik tahlil", agent.assistant.reply_greeting.await_args.kwargs["message"])
         self.assertEqual(agent.client.sent, [(9, "Salom! Qanday ish bilan yozdingiz?")])
 
     async def test_round_video_message_in_an_approved_chat_is_not_ignored_any_more(self):
@@ -139,6 +142,31 @@ class VoiceReplyTests(unittest.IsolatedAsyncioTestCase):
         await agent._on_message(ev)
         agent._work_voice_reply.assert_awaited_once()
         self.assertTrue(agent._work_voice_reply.await_args.kwargs["video_note"])
+
+    async def test_ordinary_video_in_an_approved_chat_is_looked_at_but_not_from_strangers(self):
+        agent = make_agent()
+        agent.voice_unknown = True
+        agent.assistant.describe_video = mock.AsyncMock(return_value=("x", True))
+        stranger = event(agent, chat_id=9, voice=None)
+        stranger.message = SimpleNamespace(voice=None, video_note=None, video=VOICE, gif=None, media=VOICE)
+        with mock.patch("asyncio.sleep", new=mock.AsyncMock()):
+            await agent._on_message(stranger)
+        agent.assistant.describe_video.assert_not_called()
+        ev = event(agent, chat_id=5, text="Mana qarang", voice=None)
+        ev.message = SimpleNamespace(voice=None, video_note=None, video=VOICE, gif=None, media=VOICE, mentioned=False)
+        ev.file = SimpleNamespace(size=2000, name=None, ext=".mp4")
+
+        async def get_chat():
+            return SimpleNamespace(first_name="Aziz")
+
+        ev.get_chat = get_chat
+        ev.is_reply = False
+        agent._work_voice_reply = mock.AsyncMock()
+        agent.client.send_read_acknowledge = mock.AsyncMock()
+        await agent._on_message(ev)
+        kwargs = agent._work_voice_reply.await_args.kwargs
+        self.assertTrue(kwargs["video"])
+        self.assertEqual(kwargs["caption"], "Mana qarang")
 
     async def test_switch_off_long_oversized_friend_group_and_bot_are_ignored(self):
         agent = make_agent()

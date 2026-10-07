@@ -90,6 +90,15 @@ class VoiceAssistantTests(unittest.IsolatedAsyncioTestCase):
 
 
 class VideoNoteTests(unittest.IsolatedAsyncioTestCase):
+    def test_ordinary_videos_only_count_when_asked_for_and_gifs_never_do(self):
+        from shadow.telegram_agent import spoken_media
+        video = SimpleNamespace(duration=5)
+        message = SimpleNamespace(voice=None, video_note=None, video=video, gif=None)
+        self.assertEqual(spoken_media(message), (None, None))
+        self.assertEqual(spoken_media(message, include_video=True), ("video", video))
+        message.gif = object()
+        self.assertEqual(spoken_media(message, include_video=True), (None, None))
+
     def test_spoken_media_recognises_voice_and_round_video(self):
         from shadow.telegram_agent import spoken_media
         voice, note = SimpleNamespace(duration=3), SimpleNamespace(duration=9)
@@ -98,44 +107,70 @@ class VideoNoteTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(spoken_media(SimpleNamespace(voice=None, video_note=None, video=object())), (None, None))
         self.assertEqual(spoken_media(SimpleNamespace()), (None, None))
 
-    async def test_video_note_is_downloaded_as_mp4_transcribed_and_answered_in_text(self):
+    def _video_event(self, **message):
+        return SimpleNamespace(
+            chat_id=123, id=7, message=SimpleNamespace(voice=None, video_note=SimpleNamespace(duration=12), **message),
+            file=SimpleNamespace(size=5), reply=AsyncMock(),
+        )
+
+    def _agent(self, describe, seen_name=None):
         agent = TelegramAgent(settings())
-        seen = {}
 
         async def download(message, file):
-            seen["name"] = Path(file).name
+            if seen_name is not None:
+                seen_name.append(Path(file).name)
             Path(file).write_bytes(b"video")
             return file
 
         agent.client = SimpleNamespace(download_media=download)
-        agent.assistant = SimpleNamespace(transcribe_audio=AsyncMock(return_value="Salom, kreditni so'ramoqchiman"))
+        agent.assistant = SimpleNamespace(describe_video=describe, transcribe_audio=AsyncMock())
         agent._work_reply = AsyncMock()
-        event = SimpleNamespace(
-            chat_id=123, id=7, message=SimpleNamespace(voice=None, video_note=SimpleNamespace(duration=12)),
-            file=SimpleNamespace(size=5), reply=AsyncMock(),
-        )
-        await agent._work_voice_reply(event, "Test", video_note=True)
-        self.assertEqual(seen["name"], "videonote.mp4")
-        agent._work_reply.assert_awaited_once_with(event, "Test", "Salom, kreditni so'ramoqchiman", "", voice_reply=False)
-
-    async def test_silent_video_note_gets_a_clear_message(self):
-        agent = TelegramAgent(settings())
-
-        async def download(message, file):
-            Path(file).write_bytes(b"video")
-            return file
-
-        agent.client = SimpleNamespace(download_media=download)
-        agent.assistant = SimpleNamespace(transcribe_audio=AsyncMock(return_value=""))
-        agent._work_reply = AsyncMock()
-        event = SimpleNamespace(
-            chat_id=123, id=7, message=SimpleNamespace(voice=None, video_note=SimpleNamespace(duration=12)),
-            file=SimpleNamespace(size=5), reply=AsyncMock(),
-        )
         agent._can_reply = lambda chat_id: True
+        return agent
+
+    async def test_video_note_is_analysed_and_answered_in_text(self):
+        names = []
+        agent = self._agent(AsyncMock(return_value=("Ko'rinishi: odam qo'l silkitmoqda. Aytilgani: salom", True)), names)
+        event = self._video_event()
+        await agent._work_voice_reply(event, "Test", video_note=True)
+        self.assertEqual(names, ["video.mp4"])
+        args = agent._work_reply.await_args
+        self.assertEqual(args.args[:2], (event, "Test"))
+        self.assertIn("avtomatik tahlil", args.args[2])
+        self.assertIn("odam qo'l silkitmoqda", args.args[2])
+        self.assertNotIn("voice_reply", args.kwargs)  # answered in text, not by voice
+
+    async def test_without_vision_the_reply_is_told_it_did_not_see_the_picture(self):
+        agent = self._agent(AsyncMock(return_value=("salom, qalaysiz", False)))
+        await agent._work_voice_reply(self._video_event(), "Test", video_note=True)
+        message = agent._work_reply.await_args.args[2]
+        self.assertIn("tasvirini ko‘ra olmadingiz", message)
+        self.assertIn("Tasvirni ko‘rgandek javob bermang", message)
+        self.assertIn("salom, qalaysiz", message)
+
+    async def test_silent_unseen_video_note_gets_a_clear_message(self):
+        agent = self._agent(AsyncMock(return_value=("", False)))
+        event = self._video_event()
         await agent._work_voice_reply(event, "Test", video_note=True)
         agent._work_reply.assert_not_awaited()
         self.assertIn("Video xabarni tushunib bo", event.reply.await_args.args[0])
+
+    async def test_ordinary_video_uses_its_caption_and_stays_quiet_when_nothing_is_known(self):
+        agent = self._agent(AsyncMock(return_value=("Ko'rinishi: mashina. Aytilgani: nutq yo'q", True)))
+        event = self._video_event()
+        event.message.video_note = None
+        event.message.video = SimpleNamespace(duration=20)
+        await agent._work_voice_reply(event, "Test", video=True, caption="Shu mashina qanday?")
+        message = agent._work_reply.await_args.args[2]
+        self.assertIn("mashina", message)
+        self.assertIn("Videoga yozilgan matn: Shu mashina qanday?", message)
+        quiet = self._agent(AsyncMock(return_value=("", False)))
+        event2 = self._video_event()
+        event2.message.video_note = None
+        event2.message.video = SimpleNamespace(duration=20)
+        await quiet._work_voice_reply(event2, "Test", video=True)
+        quiet._work_reply.assert_not_awaited()
+        event2.reply.assert_not_awaited()
 
     async def test_gemini_fallback_gets_the_video_mime_type(self):
         from shadow.assistant import ShadowAssistant
@@ -147,6 +182,49 @@ class VideoNoteTests(unittest.IsolatedAsyncioTestCase):
         with patch("shadow.assistant.gemini_audio.transcribe", gem):
             self.assertEqual(await assistant.transcribe_audio(clip), "matn")
         self.assertEqual(gem.await_args.args[3], "video/mp4")
+
+
+class DescribeVideoTests(unittest.IsolatedAsyncioTestCase):
+    def _assistant(self, **over):
+        from tests.test_voice_fallback import gemini_settings
+        return ShadowAssistant(gemini_settings(openai_api_key="", **over))
+
+    async def test_gemini_sees_the_video(self):
+        assistant = self._assistant()
+        clip = Path(tempfile.mkdtemp()) / "video.mp4"
+        clip.write_bytes(b"video")
+        gem = AsyncMock(return_value="Ko'rinishi: it. Aytilgani: nutq yo'q")
+        with patch("shadow.assistant.gemini_audio.describe_video", gem):
+            self.assertEqual(await assistant.describe_video(clip), ("Ko'rinishi: it. Aytilgani: nutq yo'q", True))
+
+    async def test_when_gemini_fails_only_the_sound_is_transcribed(self):
+        assistant = self._assistant()
+        clip = Path(tempfile.mkdtemp()) / "video.mp4"
+        clip.write_bytes(b"video")
+        with patch("shadow.assistant.gemini_audio.describe_video", AsyncMock(side_effect=RuntimeError("boom"))), \
+                patch.object(assistant, "transcribe_audio", AsyncMock(return_value="salom")):
+            self.assertEqual(await assistant.describe_video(clip), ("salom", False))
+        with patch("shadow.assistant.gemini_audio.describe_video", AsyncMock(side_effect=RuntimeError("boom"))), \
+                patch.object(assistant, "transcribe_audio", AsyncMock(side_effect=RuntimeError("x"))):
+            self.assertEqual(await assistant.describe_video(clip), ("", False))
+
+    async def test_gemini_audio_helper_tries_the_next_model_and_rejects_big_files(self):
+        from shadow import gemini_audio
+        clip = Path(tempfile.mkdtemp()) / "video.mp4"
+        clip.write_bytes(b"video")
+        calls = []
+
+        def call(key, model, data, mime):
+            calls.append((model, mime))
+            if model == "a":
+                raise RuntimeError("down")
+            return "Ko'rinishi: x"
+
+        self.assertEqual(await gemini_audio.describe_video("k", ["a", "b"], clip, call=call), "Ko'rinishi: x")
+        self.assertEqual(calls, [("a", "video/mp4"), ("b", "video/mp4")])
+        clip.write_bytes(b"x" * (gemini_audio.MAX_VIDEO_BYTES + 1))
+        with self.assertRaises(ValueError):
+            await gemini_audio.describe_video("k", ["a"], clip, call=call)
 
 
 if __name__ == "__main__":
