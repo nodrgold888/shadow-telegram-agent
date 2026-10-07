@@ -112,11 +112,11 @@ Qoidalar:
 SKILL_DIR = Path(__file__).with_name("skills")
 SKILL_PROMPT = "\n\n".join(
     (SKILL_DIR / name).read_text(encoding="utf-8")
-    for name in ("assistant.md", "math.md", "excel.md", "word.md", "coding.md", "learning.md", "banking_uz.md", "davrbank_uz.md", "davr_loans_uz.md", "human_chat.md", "video_download.md")
+    for name in ("assistant.md", "math.md", "excel.md", "word.md", "coding.md", "learning.md", "banking_uz.md", "davrbank_uz.md", "davr_loans_uz.md", "video_download.md", "human_chat.md", "real_chat_uz.md")
 )
 PUBLIC_SKILL_PROMPT = "\n\n".join(
     (SKILL_DIR / name).read_text(encoding="utf-8")
-    for name in ("banking_uz.md", "davrbank_uz.md", "davr_loans_uz.md", "human_chat.md")
+    for name in ("banking_uz.md", "davrbank_uz.md", "davr_loans_uz.md", "human_chat.md", "real_chat_uz.md")
 )
 PUBLIC_BANK_PROMPT = """Siz Shadow AI — Telegram akkaunt egasining avtomatik yordamchisisiz. Hozir egasi tanlamagan, notanish odam bank yoki to‘lov mavzusida yozdi. Siz inson emassiz va hech qachon akkaunt egasi deb o‘zingizni ko‘rsatmaysiz.
 

@@ -9,11 +9,17 @@ from .policy import typing_delay
 # containing only "||". At most three are sent, one after another, like real texting.
 MESSAGE_BREAK = re.compile(r"\s*\n?\s*\|\|\s*\n?\s*")
 MAX_PARTS = 3
+# Curly apostrophes (o‘zingiz) are a giveaway: phones type the straight one.
+_APOSTROPHES = str.maketrans({"‘": "'", "’": "'", "ʻ": "'", "ʼ": "'"})
+
+
+def phone_text(text: str) -> str:
+    return (text or "").translate(_APOSTROPHES)
 
 
 def split_parts(answer: str, max_parts: int = MAX_PARTS) -> list[str]:
     """Split an answer into the consecutive messages to send. Never returns empty parts."""
-    parts = [part.strip() for part in MESSAGE_BREAK.split(answer or "") if part.strip()]
+    parts = [phone_text(part).strip() for part in MESSAGE_BREAK.split(answer or "") if part.strip()]
     if len(parts) > max_parts:
         parts = parts[: max_parts - 1] + ["\n\n".join(parts[max_parts - 1:])]
     return parts

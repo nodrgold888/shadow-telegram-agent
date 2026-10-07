@@ -63,6 +63,22 @@ class HumanChatTests(unittest.TestCase):
         self.assertIn("Tracker", assistant.SKILL_PROMPT)
         self.assertIn("the make is already known", assistant.SKILL_PROMPT)
 
+    def test_real_uzbek_texting_skill_is_loaded_last(self):
+        skill = assistant.SKILL_PROMPT
+        self.assertIn("Real Uzbek texting", skill)
+        self.assertTrue(skill.rstrip().endswith("> Good: ha, shunaqa"))
+        self.assertIn("Real Uzbek texting", assistant.PUBLIC_SKILL_PROMPT)
+        for phrase in ("tuzukman, ishlar ham joyida. o'zingiz-chi?", "Javob qaytarish", "plain straight apostrophe",
+                       "Never answer \"yo'q\" to \"avtomatmi\""):
+            self.assertIn(phrase, skill)
+        self.assertIn("men Shadow AI, egasining yordamchisiman", skill)
+
+    def test_replies_use_straight_apostrophes(self):
+        from shadow.humanize import phone_text, split_parts
+        self.assertEqual(phone_text("O‘zingizning ish’laringiz ʻbo‘ladi"), "O'zingizning ish'laringiz 'bo'ladi")
+        self.assertEqual(split_parts("o‘zingiz-chi? || bo‘ladi"), ["o'zingiz-chi?", "bo'ladi"])
+        self.assertEqual(phone_text("`code`"), "`code`")
+
     def test_honesty_rules_survive_the_style_change(self):
         self.assertIn("rost ayting", assistant.SYSTEM_PROMPT)
         self.assertIn("inson yoki akkaunt egasining o‘zi deb da’vo qilmang", assistant.SYSTEM_PROMPT)
