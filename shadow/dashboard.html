@@ -3,10 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="theme-color" content="#f3f6f7">
+<meta name="theme-color" content="#0d141b">
 <title>Shadow · Boshqaruv paneli</title>
 <script>
-(function(){var theme='dark';try{var saved=localStorage.getItem('shadow-theme');if(saved==='light'||saved==='dark')theme=saved}catch(e){}document.documentElement.dataset.theme=theme;var st='2d';try{if(localStorage.getItem('shadow-style')==='3d')st='3d'}catch(e){}document.documentElement.dataset.style=st;document.querySelector('meta[name="theme-color"]').content=theme==='dark'?'#0c1218':'#f3f6f7'})()
+(function(){var theme='dark';try{var saved=localStorage.getItem('shadow-theme-b');if(saved==='light'||saved==='dark')theme=saved}catch(e){}document.documentElement.dataset.theme=theme;var st='2d';try{if(localStorage.getItem('shadow-style')==='3d')st='3d'}catch(e){}document.documentElement.dataset.style=st;document.querySelector('meta[name="theme-color"]').content=theme==='dark'?'#0d141b':'#f3f6f7'})()
 </script>
 <style>
 :root{color-scheme:light;--bg:#f3f6f7;--paper:#fff;--ink:#17242a;--muted:#728188;--line:#e3eaeb;--nav:#14242a;--mint:#138d78;--mint-bg:#e7f6f1;--amber:#8a631b;--amber-bg:#fff5df;--shadow:0 10px 30px #1a33370b}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}button,input{font:inherit}button{cursor:pointer}button:focus-visible,input:focus-visible{outline:3px solid #52bda8;outline-offset:2px}
@@ -535,6 +535,135 @@ fieldset.agent-picker{margin:13px 0;padding:0;border:0}fieldset.agent-picker leg
 @keyframes orbit3d{to{rotate:360deg}}
 @media(max-width:900px){:root[data-style="3d"] .core-orb{display:none}}
 @media(prefers-reduced-motion:reduce){:root[data-style="3d"] .card,:root[data-style="3d"] .detail-panel,:root[data-style="3d"] .cap-card,:root[data-style="3d"] .btn{transition:none}:root[data-style="3d"] .ring-one,:root[data-style="3d"] .ring-two{animation:none}}
+
+/* Shadow enterprise console: dark by default, measured emphasis on live controls */
+:root[data-theme="dark"]{
+  --v-bg:#0d141b;--v-side:#101922;--v-surface:#16212b;--v-surface2:#1c2a35;
+  --v-line:#2a3a47;--v-line2:#3a4e5e;--v-ink:#eaf1f4;--v-muted:#a6b8c2;
+  --v-accent:#54d0af;--v-accent2:#54d0af;--v-soft:#17372f;
+  --v-warn:#f0c37d;--v-warn-soft:#352b1e;--v-danger:#f49b96;
+  --v-shadow:0 1px 2px #0002,0 12px 28px #0001;
+  --c-teal:#54d0af;--c-violet:#90a8ba;--c-blue:#90a8ba;--c-amber:#f0c37d;
+  --c-rose:#f49b96;--c-lime:#a6b8c2;--c-cyan:#84c7cf;--c-pink:#a6b8c2;
+}
+:root[data-theme="light"]{
+  --v-bg:#f2f5f6;--v-side:#fff;--v-surface:#fff;--v-surface2:#f7f9fa;
+  --v-line:#dde5e8;--v-line2:#c6d3da;--v-ink:#1c303b;--v-muted:#617883;
+  --v-accent:#087a69;--v-accent2:#087a69;--v-soft:#e5f3ef;
+  --v-warn:#8a5d17;--v-warn-soft:#fff3dc;--v-danger:#b4504b;
+  --v-shadow:0 1px 2px #1a354008,0 10px 26px #1a354008;
+  --c-teal:#087a69;--c-violet:#617883;--c-blue:#617883;--c-amber:#8a5d17;
+  --c-rose:#b4504b;--c-lime:#617883;--c-cyan:#257c85;--c-pink:#617883;
+}
+:root[data-theme] body{background:var(--v-bg);color:var(--v-ink)}
+:root[data-theme] .shell{grid-template-columns:232px minmax(0,1fr);background:linear-gradient(90deg,var(--v-side) 0 232px,var(--v-bg) 232px)}
+:root[data-theme] .side{padding:24px 13px;border-right:1px solid var(--v-line);background:var(--v-side)}
+:root[data-theme] .side .brand{padding:0 9px 28px}
+:root[data-theme] .side .mark{width:38px;height:38px;border-radius:10px;background:var(--v-accent);color:#0b2824;box-shadow:none}
+:root[data-theme] .side .brand strong{font-size:14px;font-weight:750;letter-spacing:.13em}
+:root[data-theme] .nav-label{padding:0 11px;margin-bottom:7px;color:var(--v-muted)}
+:root[data-theme] .workspace-nav{gap:3px}
+:root[data-theme] .workspace-nav .nav{height:42px;border-radius:9px;color:var(--v-muted);font-weight:550}
+:root[data-theme] .workspace-nav .nav b{width:20px;height:20px;border-radius:0;background:transparent;color:inherit}
+:root[data-theme] .workspace-nav .nav:hover{background:var(--v-surface2);color:var(--v-ink)}
+:root[data-theme] .workspace-nav .nav.active{background:var(--v-soft);color:var(--v-ink);font-weight:650}
+:root[data-theme] .workspace-nav .nav.active b{background:transparent;color:var(--v-accent)}
+:root[data-theme] .workspace-nav .nav.active:before{background:var(--v-accent)}
+:root[data-theme] .side-note{padding:14px 10px;border-top:1px solid var(--v-line);color:var(--v-muted)}
+:root[data-theme] .secure{color:var(--v-ink)}
+:root[data-theme] .content{width:min(1370px,100%);padding:27px clamp(22px,3.2vw,50px) 64px;background:none}
+:root[data-theme] .top{align-items:flex-start;gap:15px;margin-bottom:20px;padding-bottom:18px;border-bottom:1px solid var(--v-line)}
+:root[data-theme] .top h1{margin:4px 0 2px;font-size:27px;font-weight:680;letter-spacing:-.035em}
+:root[data-theme] .top p{color:var(--v-muted)}
+:root[data-theme] .eyebrow{color:var(--v-accent);font-size:10px;font-weight:700;letter-spacing:.11em}
+:root[data-theme] .top-actions{gap:7px;flex-wrap:wrap}
+:root[data-theme] .btn,:root[data-theme] .theme-toggle,:root[data-theme] .tool-group .btn,:root[data-theme] .tool-group .theme-toggle{border-color:var(--v-line2);border-radius:9px;background:var(--v-surface);color:var(--v-ink);box-shadow:none}
+:root[data-theme] .btn:hover,:root[data-theme] .theme-toggle:hover,:root[data-theme] .tool-group .btn:hover{background:var(--v-surface2);border-color:var(--v-accent);color:var(--v-ink)}
+:root[data-theme] .quick-pause{border-color:var(--v-warn)!important;background:var(--v-warn-soft)!important;color:var(--v-warn)!important}
+:root[data-theme] .user-btn{border-color:var(--v-line2);background:var(--v-surface)}
+:root[data-theme] .user-avatar{background:var(--v-soft);color:var(--v-accent)}
+:root[data-theme] .user-pop{border-color:var(--v-line2);background:var(--v-surface)}
+:root[data-theme] .hud-hero{display:grid;grid-template-columns:minmax(240px,1fr) minmax(390px,1.1fr);gap:24px;align-items:center;margin-bottom:21px;padding:20px 22px;border:1px solid var(--v-line);border-radius:14px;background:var(--v-surface);box-shadow:var(--v-shadow)}
+:root[data-theme] .hud-hero:before,:root[data-theme] .hud-hero:after{display:none}
+:root[data-theme] .hud-hero .hero-copy h2{margin:6px 0 5px;font-size:23px;font-weight:680;letter-spacing:-.03em;color:var(--v-ink)}
+:root[data-theme] .hud-hero .hero-copy h2 span{background:none;color:var(--v-accent)}
+:root[data-theme] .hud-hero .hero-copy p{max-width:420px;color:var(--v-muted);font-size:12.5px}
+:root[data-theme] .hero-kicker{color:var(--v-accent);font-size:10px;font-weight:700;letter-spacing:.1em}
+:root[data-theme] .hero-tags,:root[data-theme] .core-orb{display:none}
+:root[data-theme] .hero-console{display:block;width:100%}
+:root[data-theme] .console-readouts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;min-width:0;width:100%}
+:root[data-theme] .console-readouts>div,:root[data-theme] .console-readouts>div:last-child{grid-column:auto;min-width:0;padding:10px 11px;border:1px solid var(--v-line);border-radius:9px;background:var(--v-surface2)}
+:root[data-theme] .console-readouts small{display:block;margin-bottom:5px;color:var(--v-muted);font-size:9px;font-weight:650;letter-spacing:.08em}
+:root[data-theme] .console-readouts strong{display:block;overflow-wrap:anywhere;color:var(--v-ink);font-size:11px;font-weight:650;letter-spacing:0}
+:root[data-theme] .section-kicker{margin:21px 0 10px;color:var(--v-muted);font-size:10px;font-weight:700;letter-spacing:.12em}
+:root[data-theme] .section-kicker:before,:root[data-theme] .section-kicker i{background:var(--v-accent)}
+:root[data-theme] .grid{gap:12px}
+:root[data-theme] .grid .card,:root[data-theme] .card,:root[data-theme] .detail-panel,:root[data-theme] .table,:root[data-theme] .warning,:root[data-theme] .module,:root[data-theme] .cap-card{border:1px solid var(--v-line);border-radius:12px;background:var(--v-surface);box-shadow:var(--v-shadow)}
+:root[data-theme] .grid .card{padding:17px 18px}
+:root[data-theme] .grid .card:before{display:none}
+:root[data-theme] .grid .card .value{margin-top:13px;color:var(--v-ink);font-size:25px;font-weight:700;letter-spacing:-.035em}
+:root[data-theme] .grid .card .card-icon{border:1px solid var(--v-line);background:var(--v-surface2);color:var(--v-accent)}
+:root[data-theme] .card-label,:root[data-theme] .sub{color:var(--v-muted)}
+:root[data-theme] .online{color:var(--v-accent)}
+:root[data-theme] .warning{margin:17px 0 22px;padding:14px 17px}
+:root[data-theme] .warning.reply-on{border-color:var(--v-line2);background:var(--v-surface)}
+:root[data-theme] .warning strong,:root[data-theme] .reply-control{color:var(--v-warn)}
+:root[data-theme] .warning.reply-on strong,:root[data-theme] .warning.reply-on .reply-control{color:var(--v-accent)}
+:root[data-theme] .warn-icon{background:var(--v-warn-soft);color:var(--v-warn)}
+:root[data-theme] .warning.reply-on .warn-icon{background:var(--v-soft);color:var(--v-accent)}
+:root[data-theme] .switch[aria-checked="true"]{border-color:var(--v-accent);background:var(--v-accent)}
+:root[data-theme] .section-head{margin:22px 0 12px}
+:root[data-theme] .section-head h2,:root[data-theme] .detail-panel h2{color:var(--v-ink);font-size:16px;font-weight:680}
+:root[data-theme] .section-head p,:root[data-theme] .detail-panel p{color:var(--v-muted)}
+:root[data-theme] .count{border-color:var(--v-line);background:var(--v-surface2);color:var(--v-muted)}
+:root[data-theme] .capabilities{margin:25px 0}
+:root[data-theme] .module-grid{gap:9px}
+:root[data-theme] .module{min-height:83px;padding:12px;border-radius:10px;box-shadow:none}
+:root[data-theme] .module-icon{color:var(--v-accent);background:var(--v-soft)}
+:root[data-theme] .module strong{color:var(--v-ink);font-size:12px;font-weight:650}
+:root[data-theme] .module p{color:var(--v-muted);font-size:11px;line-height:1.4}
+:root[data-theme] .module-state{color:var(--v-muted)}
+:root[data-theme] .detail-panel{padding:19px 20px;border-top:1px solid var(--v-line)}
+:root[data-theme] .detail-panel dl>div,:root[data-theme] .setting-row{border-color:var(--v-line)}
+:root[data-theme] .model-badge,:root[data-theme] .cap-icon{border-color:var(--v-line2);background:var(--v-soft);color:var(--v-accent)}
+:root[data-theme] .model-field input,:root[data-theme] .model-field select,:root[data-theme] .chat-tools input,:root[data-theme] .chat-tools select{min-height:40px;border:1px solid var(--v-line2);border-radius:9px;background:var(--v-surface2);color:var(--v-ink)}
+:root[data-theme] .model-field input::placeholder,:root[data-theme] .chat-tools input::placeholder{color:var(--v-muted)}
+:root[data-theme] #aiProviderList{display:grid;gap:2px;margin-top:14px;color:var(--v-muted)}
+:root[data-theme] #aiProviderList .setting-row{gap:10px;padding:10px 0}
+:root[data-theme] #aiProviderList .setting-row>div:last-child{display:flex;flex-wrap:wrap;gap:6px;justify-content:flex-end}
+:root[data-theme] .cap-card,:root[data-theme] .cap-tab,:root[data-theme] .cap-toggle,:root[data-theme] .cap-skills section{border-color:var(--v-line);background:var(--v-surface);color:var(--v-ink)}
+:root[data-theme] .cap-card:hover,:root[data-theme] button.cap-card:hover{border-color:var(--v-accent);background:var(--v-surface2)}
+:root[data-theme] .cap-card .cap-icon{background:var(--v-soft);color:var(--v-accent)}
+:root[data-theme] .cap-card .cap-tag{border-color:var(--v-line2);color:var(--v-muted)}
+:root[data-theme] .cap-card p{color:var(--v-muted)}
+:root[data-theme] .cap-more{color:var(--v-accent)}
+:root[data-theme] .cap-tab[aria-selected="true"],:root[data-theme] .view-tab[aria-selected="true"]{border:1px solid var(--v-line2);background:var(--v-soft);color:var(--v-accent);font-weight:650}
+:root[data-theme] .cap-tab[aria-selected="true"] small,:root[data-theme] .view-tab[aria-selected="true"] small{color:var(--v-accent)}
+:root[data-theme] .type-card{border:1px solid var(--v-line);background:var(--v-surface2)}
+:root[data-theme] .avatar{background:var(--v-soft);color:var(--v-accent)}
+:root[data-theme] .badge{background:var(--v-soft);color:var(--v-accent)}
+:root[data-theme] .badge.off{background:var(--v-warn-soft);color:var(--v-warn)}
+:root[data-theme] .badge.friend{background:var(--v-surface2);color:var(--v-muted)}
+:root[data-theme] .approval-btn:not(.remove){border-color:var(--v-line2);color:var(--v-accent)}
+:root[data-theme] .row:hover{background:var(--v-surface2)}
+:root[data-theme] .unread{color:var(--v-warn)}
+:root[data-theme] .thead{background:var(--v-surface2);color:var(--v-muted)}
+:root[data-theme] .table{overflow:hidden}
+:root[data-theme] .login-wrap{background:var(--v-bg)}
+:root[data-theme] .login{border-color:var(--v-line);border-radius:16px;background:var(--v-surface);box-shadow:0 16px 44px #0002}
+:root[data-theme] .login h1{color:var(--v-ink);font-size:26px}
+:root[data-theme] .login p{color:var(--v-muted)}
+:root[data-theme] .login input{border-color:var(--v-line2);background:var(--v-surface2);color:var(--v-ink)}
+:root[data-theme] .primary{background:var(--v-accent);color:#082922}
+:root[data-theme] .primary:hover{background:color-mix(in srgb,var(--v-accent) 83%,white)}
+:root[data-theme] .style-switch{display:none!important}
+:root[data-style="3d"] .card,:root[data-style="3d"] .detail-panel,:root[data-style="3d"] .cap-card,:root[data-style="3d"] .hud-hero{transform:none!important;box-shadow:var(--v-shadow)!important}
+:root[data-style="3d"] .ring-one,:root[data-style="3d"] .ring-two{animation:none!important}
+@media(max-width:1150px){:root[data-theme] .top{flex-wrap:wrap}:root[data-theme] .top-actions{width:100%;margin-left:0;justify-content:flex-start}:root[data-theme] .hud-hero{grid-template-columns:1fr}}
+@media(max-width:900px){:root[data-theme] .shell{grid-template-columns:200px minmax(0,1fr);background:var(--v-bg)}:root[data-theme] .console-readouts{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:680px){:root[data-theme] .shell{display:block;background:var(--v-bg)}:root[data-theme] .side{padding:12px 14px;border-right:0;border-bottom:1px solid var(--v-line)}:root[data-theme] .side .brand{padding:0}:root[data-theme] .content{padding:18px 14px 40px}:root[data-theme] .top h1{font-size:23px}:root[data-theme] .top-actions{gap:6px}:root[data-theme] .top-actions .btn{height:auto;min-height:34px;padding:7px 9px;font-size:11px}:root[data-theme] .hud-hero{gap:15px;padding:17px}:root[data-theme] .console-readouts{grid-template-columns:1fr;gap:6px}:root[data-theme] .console-readouts>div{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 10px}:root[data-theme] .console-readouts small{margin:0}:root[data-theme] .console-readouts strong{text-align:right}:root[data-theme] .grid{grid-template-columns:1fr 1fr}:root[data-theme] .card:last-child{grid-column:span 2}:root[data-theme] .module-grid{grid-template-columns:1fr 1fr}:root[data-theme] .row{grid-template-columns:minmax(0,1fr) auto}:root[data-theme] .row>*:nth-child(2),:root[data-theme] .row>*:nth-child(4){display:none}:root[data-theme] .approval-cell{max-width:170px;justify-content:flex-end}}
+@media(max-width:680px){:root[data-theme] .top-actions{max-width:none;width:100%;justify-content:flex-start}:root[data-theme] .top-actions .account-action{order:0;width:auto}}
+@media(max-width:390px){:root[data-theme] .top-actions{display:flex;width:100%;flex-wrap:wrap}:root[data-theme] .top-actions>*{min-width:0}:root[data-theme] .grid,:root[data-theme] .module-grid{grid-template-columns:1fr}:root[data-theme] .card:last-child{grid-column:auto}}
 </style>
 </head>
 <body>
@@ -542,7 +671,7 @@ fieldset.agent-picker{margin:13px 0;padding:0;border:0}fieldset.agent-picker leg
 <div id="app" class="shell" hidden><aside class="side"><div class="brand"><div class="mark">S</div><div><strong>SHADOW</strong><small>SHAXSIY YORDAMCHI</small></div></div><div><div class="nav-label">Ish maydoni</div><div class="nav" aria-current="page"><b>◈</b>Umumiy ko‘rinish</div></div><div class="side-note"><div class="secure"><i></i>Himoyalangan boshqaruv</div>Shaxsiy Telegram akkauntingiz uchun</div></aside>
 <main class="content"><header class="top"><div><div class="eyebrow">TELEGRAM&nbsp; / &nbsp;SHAXSIY</div><h1>Boshqaruv paneli</h1><p>Shadow va Telegram ulanishi holati</p></div><div class="top-actions"><a class="btn account-action" href="/setup/telegram">Telegram akkauntini almashtirish</a><button class="theme-toggle" type="button" data-theme-toggle aria-label="Rang rejimini o‘zgartirish" title="Rang rejimi">☀</button><span class="language"><i></i>UZ&nbsp; O‘zbekcha</span><button id="quickPause" class="btn quick-pause" type="button" hidden>Javoblarni to‘xtatish</button><button id="connectionCheck" class="btn" type="button">Ulanishni tekshirish</button><button id="aiCheck" class="btn" type="button">AI ni tekshirish</button><button id="refresh" class="btn" type="button">↻&nbsp; Yangilash</button><button id="logout" class="btn" type="button">Chiqish</button></div></header><div id="quickNotice" class="quick-notice" role="status" aria-live="polite" hidden></div>
 <section class="hud-hero" aria-label="Shadow yordamchi markazi">
-<div class="hero-copy"><div class="hero-kicker"><i></i> SHADOW SYSTEMS&nbsp; / &nbsp;YORDAMCHI MARKAZI</div><h2>Ko‘p vazifa.<br><span>Bitta markaz.</span></h2><p>Suhbatni tushunadi, kerakli imkoniyatni tanlaydi va natijani siz nazorat qiladigan tartibda bajaradi.</p><div class="hero-tags"><span>O‘ZBEKCHA</span><span>VAZIFAGA MOS TAHLIL</span><span>RUXSAT NAZORATI</span></div></div>
+<div class="hero-copy"><div class="hero-kicker"><i></i> SHADOW&nbsp; / &nbsp;BOSHQARUV MARKAZI</div><h2>Telegram va AI holati</h2><p>Ulanish, avtomatik javoblar va faol modelni bir joydan kuzating.</p><div class="hero-tags"><span>TELEGRAM</span><span>AI</span><span>JAVOB NAZORATI</span></div></div>
 <div class="hero-console"><div class="core-orb" aria-hidden="true"><div class="orb-ring ring-one"></div><div class="orb-ring ring-two"></div><div class="orb-center">S</div></div><div class="console-readouts"><div><small>TELEGRAM</small><strong id="heroConnection">HOLAT TEKSHIRILMOQDA</strong></div><div><small>JAVOB REJIMI</small><strong id="heroReplies">O‘CHIRILGAN</strong></div><div><small>OXIRGI MODEL</small><strong id="heroModel">Hali ishlatilmagan</strong></div></div></div>
 </section>
 <div class="section-kicker">Hisob holati</div><section class="grid" aria-label="Hisob holati">
@@ -567,7 +696,7 @@ const navigation=document.createElement('nav');navigation.className='workspace-n
 const labels={overview:'◈|Umumiy ko‘rinish',chats:'◌|Suhbatlar',groups:'⊞|Guruhlar va kanallar',replies:'↗|Avtomatik javoblar',settings:'⚙|Sozlamalar'};
 for(const key of Object.keys(labels)){const button=document.createElement('button');button.type='button';button.className='nav';button.dataset.view=key;const parts=labels[key].split('|');button.innerHTML='<b aria-hidden="true">'+parts[0]+'</b>'+parts[1];button.addEventListener('click',()=>switchView(key));navigation.append(button)}
 $('.side>div:nth-child(2)').replaceWith(navigation);
-const main=$('.content'),overview=document.createElement('section');overview.id='overviewPanel';main.insertBefore(overview,$('.section-kicker'));overview.append($('.hud-hero'),$('.section-kicker'),$('.grid'),$('.capabilities'));
+const main=$('.content'),overview=document.createElement('section');overview.id='overviewPanel';main.insertBefore(overview,$('.section-kicker'));overview.append($('.hud-hero'),$('.section-kicker'),$('.grid'));
 $('.warning').id='replyPanel';
 
 const capIcons={chat:'<path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/>',mic:'<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/>',math:'<path d="M5 6h14M5 6l7 6-7 6h14"/>',files:'<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h6"/>',video:'<rect x="3" y="5" width="18" height="14" rx="3"/><path d="M10 9l5 3-5 3z"/>',pdf:'<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 12h6M9 16h4"/>',image:'<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="1.6"/><path d="M21 16l-5-5-8 8"/>',translate:'<path d="M4 6h9M8.5 4v2M6 6c.6 3 2.6 5.4 5.5 6.6M11 6c-.6 3-3 5.6-6 6.8M12 20l4-9 4 9M13.4 17h5.2"/>',slides:'<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M12 16v4M8 20h8"/>',web:'<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3.2 3 14.8 0 18M12 3c-3 3.2-3 14.8 0 18"/>',learn:'<path d="M3 9l9-5 9 5-9 5z"/><path d="M7 11.5V16c2.6 2 7.4 2 10 0v-4.5"/>',code:'<path d="M8 8l-5 4 5 4M16 8l5 4-5 4M14 5l-4 14"/>',content:'<path d="M4 20l4-1L19 8a2.1 2.1 0 0 0-3-3L5 16z"/><path d="M14 7l3 3"/>',notes:'<rect x="9" y="3" width="6" height="10" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M8 21h8M12 18v3"/>'};
@@ -598,7 +727,7 @@ const capTabBox=capPanel.querySelector('.cap-tabs');capTabs.forEach(t=>{const b=
 $('#capToggle').addEventListener('click',()=>{capAll=!capAll;renderCaps()});$('#capClose').addEventListener('click',()=>$('#capDialog').close());$('#capDialog').addEventListener('click',e=>{if(e.target===e.currentTarget)e.currentTarget.close()});
 for(const [id,list] of [['#capWord',wordSkills],['#capExcel',excelSkills]])$(id).append(...list.map(t=>Object.assign(document.createElement('li'),{textContent:t})));
 renderCaps();
-const chats=document.createElement('section');chats.id='chatPanel';main.insertBefore(chats,$('.content>section.section-head'));chats.append($('.content>section.section-head'),$('.table'),$('.foot'));
+const chats=document.createElement('section');chats.id='chatPanel';main.insertBefore(chats,$('.content>section.section-head'));chats.append($('.content>section.section-head'),$('.table'),$('.foot'));chats.after($('.capabilities'));
 const tools=document.createElement('div');tools.className='chat-tools';tools.innerHTML='<input id="chatSearch" type="search" placeholder="Suhbat nomini qidirish…" aria-label="Suhbat nomini qidirish"><select id="chatFilter" aria-label="Suhbatlarni filtrlash"><option value="all">Barcha suhbatlar</option><option value="approved">Ruxsat berilgan</option><option value="unread">O‘qilmagan xabarli</option><option value="friend">Barcha do‘stlar</option><option value="friend:oila">Do‘st: Oila</option><option value="friend:ish">Do‘st: Ish</option><option value="friend:dostlar">Do‘st: Do‘stlar</option></select>';chats.insertBefore(tools,$('.table'));
 const profileDialog=document.createElement('dialog');
 profileDialog.className='profile-dialog';
@@ -649,7 +778,7 @@ $('#greetSwitch').addEventListener('click',async()=>{const on=$('#greetSwitch').
 
 function syncModelInputs(s){for(const [id,key] of [['#openaiModel','openai_model'],['#complexModel','complex_openai_model']]){const select=$(id);if(document.activeElement===select)continue;const value=s[key];if(!value)continue;if(Array.isArray(s.supported_models)&&s.supported_models.length&&select.options.length!==s.supported_models.length){select.replaceChildren(...s.supported_models.map(m=>Object.assign(document.createElement('option'),{value:m.id,textContent:m.label})))}if(!Array.from(select.options).some(option=>option.value===value)){const option=document.createElement('option');option.value=value;option.textContent='Amaldagi: '+value;select.append(option)}select.value=value}}
 async function saveModels(){const button=$('#saveModels'),notice=$('#modelsNotice');button.disabled=true;notice.textContent='Model tanlovi saqlanmoqda…';try{const result=await api('/dashboard/api/models',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({openai_model:$('#openaiModel').value,complex_openai_model:$('#complexModel').value})});notice.textContent=result.persisted?'Model tanlovi saqlandi va darhol faol.':'Model tanlovi hozirgi ishga tushishda faol, lekin doimiy saqlanmadi. Render’da RENDER_API_KEY sozlamasini tekshiring.';await load()}catch(error){notice.textContent=error.message==='auth'?'Panel sessiyasi tugadi. Qayta kiring.':error.message}finally{button.disabled=false}}
-function switchView(view){if(!views[view])view='overview';currentView=view;applyListLabels();$('.top h1').textContent=views[view][0];$('.top p').textContent=views[view][1];overview.hidden=view!=='overview';$('#replyPanel').hidden=!['overview','replies'].includes(view);chats.hidden=!['overview','chats','groups'].includes(view);$('#replyDetails').hidden=view!=='replies';viewTabs.hidden=view!=='replies';if(view==='replies'&&replyTab==='types')loadTypes();$('#settingsPanel').hidden=view!=='settings';navigation.querySelectorAll('[data-view]').forEach(b=>{b.classList.toggle('active',b.dataset.view===view);if(b.dataset.view===view)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current')});filterChats()}
+function switchView(view){if(!views[view])view='overview';currentView=view;applyListLabels();$('.top h1').textContent=views[view][0];$('.top p').textContent=views[view][1];overview.hidden=view!=='overview';$('.capabilities').hidden=view!=='overview';$('#replyPanel').hidden=!['overview','replies'].includes(view);chats.hidden=!['overview','chats','groups'].includes(view);$('#replyDetails').hidden=view!=='replies';viewTabs.hidden=view!=='replies';if(view==='replies'&&replyTab==='types')loadTypes();$('#settingsPanel').hidden=view!=='settings';navigation.querySelectorAll('[data-view]').forEach(b=>{b.classList.toggle('active',b.dataset.view===view);if(b.dataset.view===view)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current')});filterChats()}
 function filterChats(){const query=$('#chatSearch').value.trim().toLocaleLowerCase('uz'),filter=$('#chatFilter').value;let visible=0;const rows=$('#chats').querySelectorAll('.row');rows.forEach(row=>{row.hidden=!(row.dataset.title.includes(query)&&(currentView==='groups'?(row.dataset.kind==='Guruh'||row.dataset.kind==='Kanal'):currentView==='chats'?row.dataset.kind==='Shaxsiy chat':true)&&(filter!=='approved'||row.dataset.approved==='true')&&(filter!=='unread'||Number(row.dataset.unread)>0)&&(!filter.startsWith('friend')||(filter==='friend'?row.dataset.friend!=='':row.dataset.friend===filter.slice(7))));if(!row.hidden)visible++});$('#chatCount').textContent=visible+' ta '+listLabel().unit;noMatches.hidden=visible>0||rows.length===0}
 
 /* Design v3 wiring: tool groups, Avtomatik javoblar tabs, chat types and skills */
@@ -711,7 +840,7 @@ switchView('overview');
 
 
 function updateThemeButtons(){const dark=document.documentElement.dataset.theme==='dark';document.querySelectorAll('[data-theme-toggle]').forEach(button=>{button.textContent=dark?'☀':'☾';button.setAttribute('aria-label',dark?'Yorug‘ rejimga o‘tish':'Qorong‘i rejimga o‘tish');button.title=dark?'Yorug‘ rejim':'Qorong‘i rejim'})}
-document.querySelectorAll('[data-theme-toggle]').forEach(button=>button.addEventListener('click',()=>{const theme=document.documentElement.dataset.theme==='dark'?'light':'dark';document.documentElement.dataset.theme=theme;document.querySelector('meta[name="theme-color"]').content=theme==='dark'?'#0c1218':'#f3f6f7';try{localStorage.setItem('shadow-theme',theme)}catch(e){}updateThemeButtons()}));updateThemeButtons();
+document.querySelectorAll('[data-theme-toggle]').forEach(button=>button.addEventListener('click',()=>{const theme=document.documentElement.dataset.theme==='dark'?'light':'dark';document.documentElement.dataset.theme=theme;document.querySelector('meta[name="theme-color"]').content=theme==='dark'?'#0d141b':'#f3f6f7';try{localStorage.setItem('shadow-theme-b',theme)}catch(e){}updateThemeButtons()}));updateThemeButtons();
 
 let dashboardToken='';async function api(path,options={}){const headers=new Headers(options.headers||{});if(dashboardToken)headers.set('authorization','Bearer '+dashboardToken);const r=await fetch(path,{credentials:'same-origin',...options,headers});if(r.status===401)throw Error('auth');const j=await r.json();if(!r.ok)throw Error(j.detail||'Xatolik');return j}
 function showApp(){$('#login').hidden=true;$('#app').hidden=false}
