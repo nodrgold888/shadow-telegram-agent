@@ -8,7 +8,7 @@ from dataclasses import replace
 from pathlib import Path
 
 from fastapi import Cookie, FastAPI, Header, HTTPException, Request
-from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse
+from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, Response
 
 from .config import Settings
 from .ai_slots import apply_provider, free_slot, parse_provider, provider_env, remove_slot, set_first, slot_env_names
@@ -194,6 +194,30 @@ async def dashboard_chats(
         raise HTTPException(status_code=401, detail="Kirish kerak")
     return {"chats": await agent.dialogs()}
 
+
+
+@app.get("/dashboard/api/chats/{chat_id}/photo")
+async def dashboard_chat_photo(
+    chat_id: int,
+    shadow_setup: str | None = Cookie(default=None),
+    authorization: str | None = Header(default=None),
+) -> Response:
+    if not _dashboard_allowed(shadow_setup, authorization):
+        raise HTTPException(status_code=401, detail="Kirish kerak")
+    if not agent.connected or not agent.client:
+        raise HTTPException(status_code=404, detail="Rasm topilmadi")
+    try:
+        entity = await agent.client.get_entity(chat_id)
+        photo = await agent.client.download_profile_photo(entity, file=bytes)
+    except Exception:
+        raise HTTPException(status_code=404, detail="Rasm topilmadi") from None
+    if not photo:
+        raise HTTPException(status_code=404, detail="Rasm topilmadi")
+    return Response(
+        content=photo,
+        media_type="image/jpeg",
+        headers={"Cache-Control": "private, max-age=300"},
+    )
 
 
 @app.get("/dashboard/api/agents")
