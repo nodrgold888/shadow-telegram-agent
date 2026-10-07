@@ -27,17 +27,29 @@ COMPAT_NOTE = (
 )
 
 
+class EmptyProviderReply(Exception):
+    """HTTP 200 without any choices: OpenRouter-style gateways put the real error (rate limit, upstream
+    outage) in the body. 502 makes the failover treat it like an overloaded provider."""
+    status_code = 502
+
+
+def _checked(response):
+    if hasattr(response, "choices") and not response.choices:
+        raise EmptyProviderReply("provider answered without choices")
+    return response
+
+
 async def chat_create(client, **request):
     """chat.completions.create that tolerates providers which reject max_tokens.
 
     Some OpenAI-compatible providers answer 400 for the parameter (they want another name or none);
     retrying once without it keeps the provider usable, at the cost of an unbounded answer length."""
     try:
-        return await client.chat.completions.create(**request)
+        return _checked(await client.chat.completions.create(**request))
     except Exception as exc:
         if getattr(exc, "status_code", None) == 400 and "max_tokens" in request and "max_tokens" in str(exc).lower():
             request = {key: value for key, value in request.items() if key != "max_tokens"}
-            return await client.chat.completions.create(**request)
+            return _checked(await client.chat.completions.create(**request))
         raise
 
 

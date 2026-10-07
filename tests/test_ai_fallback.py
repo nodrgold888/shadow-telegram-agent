@@ -4,7 +4,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
-from shadow.assistant import ShadowAssistant, should_fall_back
+from shadow.assistant import EmptyProviderReply, ShadowAssistant, should_fall_back
 from shadow.config import Settings
 
 
@@ -91,6 +91,14 @@ class FallbackTests(unittest.IsolatedAsyncioTestCase):
         assistant, openai_client, _ = build(make_settings(ai_primary=True))
         await self.ask(assistant)
         openai_client.responses.create.assert_not_called()
+
+    async def test_backup_answering_200_without_choices_counts_as_a_failure(self):
+        assistant, _, compat = build(make_settings(openai_api_key=""))
+        compat.chat.completions.create.return_value = SimpleNamespace(choices=None, error={"code": 429})
+        with self.assertRaises(EmptyProviderReply):
+            await self.ask(assistant)
+        result = await assistant.check()
+        self.assertEqual(result["models"][-1]["error"], "EmptyProviderReply")
 
     async def test_backup_only_setup_works_without_openai_key(self):
         assistant, openai_client, _ = build(make_settings(openai_api_key=""))
