@@ -739,6 +739,37 @@ fieldset.agent-picker{margin:13px 0;padding:0;border:0}fieldset.agent-picker leg
 :root[data-theme] .login .error{min-height:14px}
 @media(max-width:760px){:root[data-theme] .login-wrap{grid-template-columns:minmax(0,480px);justify-content:center;gap:20px;padding:30px 20px}:root[data-theme] .login-aside{padding:0 4px}:root[data-theme] .login-aside .brand{margin-bottom:27px}:root[data-theme] .login-aside h2{font-size:30px}:root[data-theme] .login-aside>p{margin-top:10px;font-size:13px}:root[data-theme] .login-assurances{margin-top:15px}:root[data-theme] .login-aside .brand{display:none}:root[data-theme] .login>.brand{display:flex;margin:0 0 24px}:root[data-theme] .login{padding:28px 24px}}
 @media(max-width:420px){:root[data-theme] .login-wrap{padding:18px 14px}:root[data-theme] .login{padding:25px 20px}:root[data-theme] .login-aside h2{font-size:27px}}
+/* Neutral admin styling: clear hierarchy, flat surfaces and no decorative effects. */
+:root[data-theme] .login-wrap{display:grid;grid-template-columns:minmax(0,440px);place-content:center;gap:0;width:100%;min-height:100vh;margin:0;padding:24px;background:var(--v-bg)}
+:root[data-theme] .login-wrap:before,:root[data-theme] .login-wrap:after{display:none}
+:root[data-theme] .login-aside{display:none}
+:root[data-theme] .login{width:100%;padding:32px;border:1px solid var(--v-line);border-radius:10px;background:var(--v-surface);box-shadow:none}
+:root[data-theme] .login>.brand{display:flex;margin:0 0 30px}
+:root[data-theme] .login .theme-toggle{top:24px;right:24px}
+:root[data-theme] .login h1{margin:0 42px 8px 0;font-size:23px;font-weight:650;letter-spacing:-.025em}
+:root[data-theme] .login>p{max-width:360px;font-size:12px;line-height:1.65}
+:root[data-theme] .login input{border-radius:7px}
+:root[data-theme] .login .primary{border-radius:7px}
+:root[data-theme] .login .alt-btn{border-radius:7px}
+:root[data-theme] .overview-metric,:root[data-theme] .overview-panel{border-radius:8px;background:var(--v-surface);box-shadow:none}
+:root[data-theme] .overview-metric{min-height:132px;padding:16px}
+:root[data-theme] .metric-label i,:root[data-theme] .metric-bottom{display:none}
+:root[data-theme] .metric-label{font-size:12px;font-weight:550}
+:root[data-theme] .overview-metric strong{margin-top:20px;font-size:30px;font-weight:650;letter-spacing:-.025em}
+:root[data-theme] .overview-metric small{margin-top:7px}
+:root[data-theme] .overview-panel-head{min-height:66px;padding:15px 16px}
+:root[data-theme] .overview-panel-head h2{font-size:14px;font-weight:650}
+:root[data-theme] .state-pill,:root[data-theme] .recent-status{border:1px solid var(--v-line);border-radius:4px;background:transparent;color:var(--v-muted);font-weight:550}
+:root[data-theme] .state-pill.ok{border-color:color-mix(in srgb,var(--v-accent) 35%,var(--v-line));background:transparent;color:var(--v-accent)}
+:root[data-theme] .recent-status.off{border-color:color-mix(in srgb,var(--v-warn) 35%,var(--v-line));background:transparent;color:var(--v-warn)}
+:root[data-theme] .overview-ai-list li:before{border:1px solid var(--v-line);border-radius:4px;background:transparent}
+:root[data-theme] .overview-ai-list li em{font-weight:500}
+:root[data-theme] .panel-link{border-radius:6px}
+:root[data-theme] .recent-head{background:var(--v-surface2)}
+:root[data-theme] .system-list>div{min-height:40px}
+:root[data-theme] .system-list strong{font-weight:550}
+:root[data-theme] .btn,:root[data-theme] .theme-toggle{border-radius:6px}
+@media(max-width:420px){:root[data-theme] .login-wrap{padding:16px}:root[data-theme] .login{padding:24px 20px}}
 </style>
 </head>
 <body>
