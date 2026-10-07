@@ -73,6 +73,13 @@ class HumanChatTests(unittest.TestCase):
             self.assertIn(phrase, skill)
         self.assertIn("men Shadow AI, egasining yordamchisiman", skill)
 
+    def test_spoken_not_literary_uzbek(self):
+        self.assertIn("Spoken, not literary", assistant.SKILL_PROMPT)
+        self.assertIn("kundalik og‘zaki o‘zbek tilida", assistant.SYSTEM_PROMPT)
+        self.assertNotIn("ravon, tabiiy va zamonaviy", assistant.SYSTEM_PROMPT)
+        for pair in ("ishlar qalay (not \"ishlaringiz qanday\")", "nega (not \"nima uchun\")", "lekin (not \"ammo/biroq\")"):
+            self.assertIn(pair, assistant.SKILL_PROMPT)
+
     def test_replies_use_straight_apostrophes(self):
         from shadow.humanize import phone_text, split_parts
         self.assertEqual(phone_text("O‘zingizning ish’laringiz ʻbo‘ladi"), "O'zingizning ish'laringiz 'bo'ladi")
