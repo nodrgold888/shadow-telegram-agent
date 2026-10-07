@@ -70,6 +70,19 @@ def is_transient(exc: BaseException) -> bool:
 
 DEFAULT_COOLDOWN = 300.0
 MAX_COOLDOWN = 3600.0
+# A provider that timed out, was unreachable or answered 5xx is sent to the back of the line for a short while,
+# so the next messages go straight to a provider that works instead of waiting on the dead ones again.
+UNHEALTHY_COOLDOWN = 120.0
+# Total time the provider chain may spend on one reply: it must fail before the 180 s limit of the whole reply.
+CHAIN_BUDGET = 110.0
+
+
+def is_unhealthy(exc: BaseException) -> bool:
+    """Timeout, dropped connection or a 5xx answer: the provider is down or overloaded right now."""
+    status = getattr(exc, "status_code", None)
+    if isinstance(status, int) and status >= 500:
+        return True
+    return type(exc).__name__ in {"APITimeoutError", "APIConnectionError", "TimeoutError"}
 
 
 def is_rate_limit(exc: BaseException) -> bool:
@@ -240,6 +253,9 @@ class ShadowAssistant:
             wait = cooldown_seconds(exc)
             self._cooldowns[key] = time.monotonic() + wait
             log.warning("%s hit a usage limit; skipping it for %d s", key, int(wait))
+        elif is_unhealthy(exc):
+            self._cooldowns[key] = max(self._cooldowns.get(key, 0.0), time.monotonic() + UNHEALTHY_COOLDOWN)
+            log.warning("%s is down or slow (%s); trying it last for %d s", key, type(exc).__name__, int(UNHEALTHY_COOLDOWN))
 
     def update_settings(self, settings: Settings) -> None:
         """Swap settings and rebuild the backup clients (dashboard added a provider)."""
@@ -403,7 +419,11 @@ class ShadowAssistant:
         empty = None
         # Providers that recently hit a usage limit go last, so the others answer first.
         ordered = sorted(self.compat_clients, key=lambda pc: self._cooling(f"{pc[0].slot}:{pc[0].name}"))
+        started = time.monotonic()
         for provider, client in ordered:
+            if last is not None and time.monotonic() - started > CHAIN_BUDGET:
+                log.warning("AI provider chain used its %d s budget; giving up", int(CHAIN_BUDGET))
+                break
             try:
                 result = await self._retry_once(lambda: call(provider, client))
             except Exception as exc:

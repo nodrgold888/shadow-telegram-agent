@@ -174,12 +174,51 @@ class CooldownTests(unittest.IsolatedAsyncioTestCase):
         with self.assertRaises(RateLimited):
             await self.ask(assistant)
 
-    async def test_other_errors_do_not_start_a_cooldown(self):
+    async def test_client_errors_do_not_start_a_cooldown(self):
         class Boom(Exception):
-            status_code = 500
+            status_code = 400
         assistant, _ = build(settings_with_two(), {"backup-model": Boom(), "model-2": "Ikkinchi"})
         await self.ask(assistant)
         self.assertEqual(assistant._cooldowns, {})
+
+
+class APITimeoutError(Exception):
+    """Named like the openai SDK's timeout error."""
+
+
+class DownProviderTests(unittest.IsolatedAsyncioTestCase):
+    async def ask(self, assistant):
+        return await assistant.reply_with_files(chat_title="C", history="", message="Salom", directory=Path("."))
+
+    async def test_a_provider_that_times_out_or_answers_5xx_is_tried_last_next_time(self):
+        from shadow.assistant import is_unhealthy
+        self.assertTrue(is_unhealthy(APITimeoutError()))
+        self.assertTrue(is_unhealthy(type("E", (Exception,), {"status_code": 503})()))
+        self.assertFalse(is_unhealthy(type("E", (Exception,), {"status_code": 400})()))
+        self.assertFalse(is_unhealthy(ValueError()))
+        assistant, clients = build(settings_with_two(), {"backup-model": APITimeoutError(), "model-2": "Ikkinchi"})
+        answer, _ = await self.ask(assistant)
+        self.assertEqual(answer, "Ikkinchi")
+        first = next(c for url, c in clients.items() if "second" not in url)
+        calls_before = first.chat.completions.create.await_count
+        answer, _ = await self.ask(assistant)
+        self.assertEqual(answer, "Ikkinchi")
+        self.assertEqual(first.chat.completions.create.await_count, calls_before)  # the dead one was not asked first
+
+    async def test_the_dead_provider_is_still_tried_when_it_is_the_only_one_left(self):
+        assistant, _ = build(settings_with_two(), {"backup-model": APITimeoutError(), "model-2": APITimeoutError()})
+        with self.assertRaises(APITimeoutError):
+            await self.ask(assistant)
+        with self.assertRaises(APITimeoutError):
+            await self.ask(assistant)  # both cooling, but they are still asked
+
+    async def test_the_chain_gives_up_when_its_time_budget_is_used(self):
+        assistant, clients = build(settings_with_two(), {"backup-model": APITimeoutError(), "model-2": "Ikkinchi"})
+        with patch("shadow.assistant.CHAIN_BUDGET", -1.0):
+            with self.assertRaises(APITimeoutError):
+                await self.ask(assistant)
+        second = next(c for url, c in clients.items() if "second" in url)
+        second.chat.completions.create.assert_not_awaited()
 
 
 class Overloaded(Exception):
