@@ -1,6 +1,6 @@
 # Shadow
 
-Shadow is a private Telegram assistant for one personal account. It can stay connected while its host is running and replies in Uzbek inside approved chats and groups, using the OpenAI Responses API.
+Shadow is a private Telegram assistant for personal accounts. It can stay connected while its host is running and replies in Uzbek inside approved chats and groups, using the OpenAI Responses API.
 
 New deployments start in read-only connection mode with `REPLY_ENABLED=false`. In this mode Shadow connects to Telegram but does not register a message handler, mark messages read, show typing activity, or send replies.
 
@@ -106,6 +106,8 @@ Open <http://localhost:10000/healthz>.
 ## Signing in to the dashboard
 
 `/dashboard` accepts either token (`ADMIN_TOKEN` or `SETUP_TOKEN`) or a **Telegram login code**. The login screen lists saved Telegram account nicknames; choose one before requesting a code. Shadow sends the one-time code to that account’s own Saved Messages, then switches the active account after the code is verified. The code expires after 5 minutes, allows 5 wrong guesses (then 15 minutes lockout), and can be requested once per minute. Sessions last 12 hours and live in memory, so a restart signs you out. Add another account from the login page or dashboard → Akkauntlar.
+
+Each Telegram account has its own approved chats, chat memory, reply and group rules, model selection, AI provider credentials, and account activity. Switching accounts reloads the dashboard for that account; adding an account does not switch the active one.
 
 ## When does Shadow reply?
 

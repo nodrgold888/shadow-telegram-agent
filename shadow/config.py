@@ -39,8 +39,8 @@ AVAILABLE_MODELS = MODEL_CATALOG + _extra_models()
 SUPPORTED_OPENAI_MODELS = tuple(model_id for model_id, _ in AVAILABLE_MODELS)
 
 
-def _integer(name: str, default: int | None = None) -> int | None:
-    raw = os.getenv(name, "").strip()
+def _integer(name: str, default: int | None = None, value: str | None = None) -> int | None:
+    raw = (os.getenv(name, "") if value is None else value).strip()
     if not raw:
         return default
     try:
@@ -105,19 +105,20 @@ class AIProvider:
     slot: int = 0
 
 
-def _extra_providers() -> tuple[AIProvider, ...]:
+def _extra_providers(local: dict[str, str] | None = None) -> tuple[AIProvider, ...]:
     """Backup providers 2..8 from AI_BASE_URL_n / AI_API_KEY_n / AI_MODEL_n (+ optional AI_NAME_n).
 
     A slot with only some of its three values set is ignored, so a half-filled slot cannot
     break startup; an invalid URL still fails loudly like slot 1."""
     providers = []
+    local = local or {}
     for number in range(2, MAX_BACKUP_PROVIDERS + 1):
-        base = os.getenv(f"AI_BASE_URL_{number}", "").strip()
-        key = os.getenv(f"AI_API_KEY_{number}", "").strip()
-        model = os.getenv(f"AI_MODEL_{number}", "").strip()
+        base = local.get(f"AI_BASE_URL_{number}", os.getenv(f"AI_BASE_URL_{number}", "")).strip()
+        key = local.get(f"AI_API_KEY_{number}", os.getenv(f"AI_API_KEY_{number}", "")).strip()
+        model = local.get(f"AI_MODEL_{number}", os.getenv(f"AI_MODEL_{number}", "")).strip()
         if not (base and key and model):
             continue
-        name = re.sub(r"[^A-Za-z0-9 ._-]", "", os.getenv(f"AI_NAME_{number}", "")).strip()[:30]
+        name = re.sub(r"[^A-Za-z0-9 ._-]", "", local.get(f"AI_NAME_{number}", os.getenv(f"AI_NAME_{number}", ""))).strip()[:30]
         providers.append(AIProvider(name or f"zaxira {number}", _ai_base_url(base), key, model, number))
     return tuple(providers)
 
@@ -177,26 +178,26 @@ class Settings:
             telegram_api_id=_integer("TELEGRAM_API_ID"),
             telegram_api_hash=os.getenv("TELEGRAM_API_HASH", "").strip(),
             telegram_session=local.get("TELEGRAM_SESSION", os.getenv("TELEGRAM_SESSION", "")).strip(),
-            openai_api_key=os.getenv("OPENAI_API_KEY", "").strip(),
+            openai_api_key=local.get("OPENAI_API_KEY", os.getenv("OPENAI_API_KEY", "")).strip(),
             openai_model=model_selection.get("openai_model", local.get("OPENAI_MODEL", os.getenv("OPENAI_MODEL", "gpt-5-mini"))).strip(),
             complex_openai_model=model_selection.get("complex_openai_model", local.get("OPENAI_COMPLEX_MODEL", os.getenv("OPENAI_COMPLEX_MODEL", "gpt-6-luna"))).strip() or "gpt-6-luna",
             approved_chat_ids=_chat_ids(local.get("APPROVED_CHAT_IDS", os.getenv("APPROVED_CHAT_IDS", ""))),
             reply_enabled=_boolean("REPLY_ENABLED", False, local.get("REPLY_ENABLED")),
             group_reply_mode=mode,
             group_reply_enabled=_boolean("GROUP_REPLY_ENABLED", True, local.get("GROUP_REPLY_ENABLED")),
-            context_messages=max(2, min(_integer("CONTEXT_MESSAGES", 12) or 12, 30)),
-            max_reply_chars=max(500, min(_integer("MAX_REPLY_CHARS", 3800) or 3800, 4000)),
+            context_messages=max(2, min(_integer("CONTEXT_MESSAGES", 12, local.get("CONTEXT_MESSAGES")) or 12, 30)),
+            max_reply_chars=max(500, min(_integer("MAX_REPLY_CHARS", 3800, local.get("MAX_REPLY_CHARS")) or 3800, 4000)),
             admin_token=os.getenv("ADMIN_TOKEN", "").strip(),
             setup_token=os.getenv("SETUP_TOKEN", "").strip(),
             always_online=_boolean("ALWAYS_ONLINE", True, local.get("ALWAYS_ONLINE")),
             public_bank_reply=_boolean("PUBLIC_BANK_REPLY", False, local.get("PUBLIC_BANK_REPLY")),
-            ai_base_url=_ai_base_url(os.getenv("AI_BASE_URL", "")),
-            ai_api_key=os.getenv("AI_API_KEY", "").strip(),
-            ai_model=os.getenv("AI_MODEL", "").strip(),
+            ai_base_url=_ai_base_url(local.get("AI_BASE_URL", os.getenv("AI_BASE_URL", ""))),
+            ai_api_key=local.get("AI_API_KEY", os.getenv("AI_API_KEY", "")).strip(),
+            ai_model=local.get("AI_MODEL", os.getenv("AI_MODEL", "")).strip(),
             ai_primary=_boolean("AI_PRIMARY", False, local.get("AI_PRIMARY")),
-            ai_name=re.sub(r"[^A-Za-z0-9 ._-]", "", os.getenv("AI_NAME", "")).strip()[:30] or "zaxira",
-            ai_extra_providers=_extra_providers(),
-            ai_first_slot=_first_slot(os.getenv("AI_FIRST_SLOT", "")),
+            ai_name=re.sub(r"[^A-Za-z0-9 ._-]", "", local.get("AI_NAME", os.getenv("AI_NAME", ""))).strip()[:30] or "zaxira",
+            ai_extra_providers=_extra_providers(local),
+            ai_first_slot=_first_slot(local.get("AI_FIRST_SLOT", os.getenv("AI_FIRST_SLOT", ""))),
         )
 
     @property

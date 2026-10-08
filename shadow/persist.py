@@ -29,7 +29,15 @@ SCOPED_DEFAULTS = {
     "APPROVED_CHAT_IDS": "", "FRIEND_CHAT_IDS": "", "SHADOW_CHAT_PROFILES": "", "SHADOW_MODEL_SELECTION": "",
     "REPLY_ENABLED": "false", "GROUP_REPLY_ENABLED": "true", "GROUP_REPLY_MODE": "mentions",
     "GREET_UNKNOWN": "false", "VIDEO_UNKNOWN": "false", "VOICE_UNKNOWN": "false", "NOTIFY_UNKNOWN": "false",
+    # AI credentials and provider order are private to the Telegram account too.
+    "OPENAI_API_KEY": "", "OPENAI_MODEL": "gpt-5-mini", "OPENAI_COMPLEX_MODEL": "gpt-6-luna",
+    "AI_BASE_URL": "", "AI_API_KEY": "", "AI_MODEL": "", "AI_NAME": "", "AI_PRIMARY": "", "AI_FIRST_SLOT": "",
+    "ALWAYS_ONLINE": "true", "PUBLIC_BANK_REPLY": "false", "CONTEXT_MESSAGES": "12", "MAX_REPLY_CHARS": "3800",
 }
+for _slot in range(2, 9):
+    for _field in ("BASE_URL", "API_KEY", "MODEL", "NAME"):
+        SCOPED_DEFAULTS[f"AI_{_field}_{_slot}"] = ""
+_LOCAL_KEYS.update(SCOPED_DEFAULTS)
 _scope: str | None = None
 _scope_checked = False
 _bundles: dict[str, dict[str, str]] | None = None
@@ -60,7 +68,8 @@ def _parse_bundles(raw: str) -> dict[str, dict[str, str]]:
     if not isinstance(data, dict):
         return {}
     return {
-        str(account): {key: value for key, value in bundle.items() if key in SCOPED_DEFAULTS and isinstance(value, str)}
+        str(account): {key: value for key, value in bundle.items()
+                       if (key in SCOPED_DEFAULTS or key == "__legacy_migrated__") and isinstance(value, str)}
         for account, bundle in data.items() if isinstance(bundle, dict)
     }
 
@@ -84,7 +93,7 @@ def _derive_scope() -> None:
     from .accounts import parse_accounts
     accounts = parse_accounts(raw.get("TELEGRAM_ACCOUNTS", os.getenv("TELEGRAM_ACCOUNTS", "")))
     for account_id, saved in accounts.items():
-        if saved["session"] == session and account_id in _load_bundles():
+        if saved["session"] == session:
             _scope = account_id
             return
 
@@ -112,15 +121,30 @@ async def enter_scope(account_id: str, migrate_globals: bool) -> bool:
     with _scope_lock:
         bundles = _load_bundles()
         created = account_id not in bundles
+        raw = _raw_local_settings()
+        legacy = (
+            {key: raw.get(key, os.getenv(key, "")) for key in SCOPED_DEFAULTS
+             if raw.get(key, os.getenv(key, "")).strip()} if migrate_globals else {}
+        )
+        changed = False
         if created:
-            raw = _raw_local_settings()
-            bundles[account_id] = (
-                {key: raw.get(key, os.getenv(key, "")) for key in SCOPED_DEFAULTS
-                 if raw.get(key, os.getenv(key, "")).strip()} if migrate_globals else {}
-            )
+            bundles[account_id] = legacy
+            changed = True
+        bundle = bundles[account_id]
+        if migrate_globals and bundle.get("__legacy_migrated__") != "1":
+            # Before per-account settings existed, the live session's values were global.
+            # Adopt missing values only for that live account, and do it once.
+            for key, value in legacy.items():
+                bundle.setdefault(key, value)
+            changed = True
+        if bundle.get("__legacy_migrated__") != "1":
+            # Mark secondary accounts too, so they can never inherit another account's
+            # old global settings after a restart makes them the active Telegram session.
+            bundle["__legacy_migrated__"] = "1"
+            changed = True
         _scope, _scope_checked = account_id, True
         snapshot = json.dumps(bundles, ensure_ascii=False, separators=(",", ":"))
-    if not created:
+    if not changed:
         return True
     return await _save_setting("TELEGRAM_ACCOUNT_SETTINGS", snapshot)
 
@@ -478,7 +502,16 @@ async def save_video_unknown(enabled: bool) -> bool:
 
 async def save_env_vars(values: dict[str, str]) -> bool:
     """Write several variables to the Render service (a restart follows). Never logs values."""
-    if os.getenv("SHADOW_STATE_FILE", "").strip() or not persistence_available():
+    local_state = os.getenv("SHADOW_STATE_FILE", "").strip()
+    if local_state:
+        try:
+            for key, value in values.items():
+                await asyncio.to_thread(_save_local, key, value)
+            return True
+        except Exception as exc:
+            log.warning("Could not persist account AI settings locally: %s", type(exc).__name__)
+            return False
+    if not persistence_available():
         return False
     service_id = os.environ["RENDER_SERVICE_ID"].strip()
     api_key = os.environ["RENDER_API_KEY"].strip()
@@ -506,12 +539,38 @@ def _delete_env_var(service_id: str, api_key: str, key: str) -> None:
 
 async def delete_env_vars(keys: list[str]) -> bool:
     """Remove variables from the Render service (a restart follows)."""
-    if os.getenv("SHADOW_STATE_FILE", "").strip() or not persistence_available():
+    local_state = os.getenv("SHADOW_STATE_FILE", "").strip()
+    if local_state:
+        try:
+            for key in keys:
+                if key in SCOPED_DEFAULTS:
+                    await asyncio.to_thread(_save_local, key, "")
+                else:
+                    with _local_lock:
+                        path = Path(local_state).resolve()
+                        data = _raw_local_settings()
+                        data.pop(key, None)
+                        path.write_text(json.dumps(data, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+            return True
+        except Exception as exc:
+            log.warning("Could not remove account AI settings locally: %s", type(exc).__name__)
+            return False
+    if not persistence_available():
         return False
     service_id = os.environ["RENDER_SERVICE_ID"].strip()
     api_key = os.environ["RENDER_API_KEY"].strip()
     try:
+        updates: dict[str, str] = {}
+        global_keys: list[str] = []
         for key in keys:
+            storage_key, value = _scoped_write(key, "")
+            if storage_key == key:
+                global_keys.append(key)
+            else:
+                updates[storage_key] = value
+        for key, value in updates.items():
+            await asyncio.to_thread(_put_env_var, service_id, api_key, key, value)
+        for key in global_keys:
             await asyncio.to_thread(_delete_env_var, service_id, api_key, key)
     except Exception as exc:
         log.warning("Could not remove AI provider: %s", type(exc).__name__)

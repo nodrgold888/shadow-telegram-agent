@@ -209,10 +209,23 @@ class TelegramAgent:
         The first account ever keeps the settings it already had; any other account starts blank
         (replies off, nothing approved) until it is set up in the panel."""
         key = str(account_id)
-        if current_scope() == key:
-            return
-        first = not self.accounts and current_scope() is None
-        await enter_scope(key, migrate_globals=first)
+        previous_scope = current_scope()
+        first = not self.accounts and previous_scope is None
+        # Legacy global settings belong only to the account whose session is already
+        # active. A different account must always start from its own empty bundle.
+        migrate_legacy = first or (previous_scope == key and len(self.accounts) <= 1)
+        await enter_scope(key, migrate_globals=migrate_legacy)
+        if previous_scope != key:
+            self.last_error = None
+            self.last_reply_at = None
+            self.last_reply_seconds = None
+            self.last_reply_error = None
+            self.last_reply_error_detail = None
+            self.reply_count = 0
+            self.presence.ok_count = 0
+            self.presence.fail_count = 0
+            self.presence.last_ok_at = None
+            self.presence.last_error = None
         self._reload_scoped_state()
 
     def _reload_scoped_state(self) -> None:
@@ -222,12 +235,26 @@ class TelegramAgent:
                 "approved_chat_ids": fresh.approved_chat_ids, "reply_enabled": fresh.reply_enabled,
                 "group_reply_enabled": fresh.group_reply_enabled, "group_reply_mode": fresh.group_reply_mode,
                 "openai_model": fresh.openai_model, "complex_openai_model": fresh.complex_openai_model,
+                "openai_api_key": fresh.openai_api_key, "ai_base_url": fresh.ai_base_url,
+                "ai_api_key": fresh.ai_api_key, "ai_model": fresh.ai_model, "ai_name": fresh.ai_name,
+                "ai_primary": fresh.ai_primary, "ai_first_slot": fresh.ai_first_slot,
+                "ai_extra_providers": fresh.ai_extra_providers,
+                "context_messages": fresh.context_messages, "max_reply_chars": fresh.max_reply_chars,
+                "always_online": fresh.always_online, "public_bank_reply": fresh.public_bank_reply,
             }
         except ValueError:
             log.warning("Saved settings of this account are invalid; starting it blank")
-            fields = {"approved_chat_ids": frozenset(), "reply_enabled": False, "group_reply_enabled": True, "group_reply_mode": "mentions"}
+            fields = {
+                "approved_chat_ids": frozenset(), "reply_enabled": False, "group_reply_enabled": True,
+                "group_reply_mode": "mentions", "openai_api_key": "", "openai_model": "gpt-5-mini",
+                "complex_openai_model": "gpt-6-luna", "ai_base_url": "", "ai_api_key": "",
+                "ai_model": "", "ai_name": "zaxira", "ai_primary": False, "ai_first_slot": 0,
+                "ai_extra_providers": (), "context_messages": 12, "max_reply_chars": 3800,
+                "always_online": True, "public_bank_reply": False,
+            }
         self.settings = replace(self.settings, **fields)
         self.reply_enabled = self.settings.reply_enabled
+        self.presence.enabled = self.settings.always_online
         try:
             self.chat_profiles = load_chat_profiles()
         except ValueError:
@@ -410,6 +437,10 @@ class TelegramAgent:
                 if not await asyncio.wait_for(client.is_user_authorized(), timeout=SETUP_NETWORK_TIMEOUT_SECONDS):
                     await client.disconnect()
                     raise ValueError("Bu akkauntning sessiyasi tugagan. Uni o‘chirib, qayta qo‘shing.")
+                me = await asyncio.wait_for(client.get_me(), timeout=SETUP_NETWORK_TIMEOUT_SECONDS)
+                if me is None or str(me.id) != str(account_id):
+                    await client.disconnect()
+                    raise ValueError("Saqlangan akkaunt mos kelmadi. Hozirgi akkaunt o‘zgarishsiz qoldi.")
             except (asyncio.TimeoutError, TimeoutError) as exc:
                 await client.disconnect()
                 raise TelegramSetupTimeout("Telegram serveriga ulanib bo‘lmadi (vaqt tugadi). Qaytadan urinib ko‘ring.") from exc

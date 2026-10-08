@@ -51,7 +51,7 @@ class OnlinePresence:
         log.info("Always-online presence enabled (every ~%ss)", self.interval)
         while True:
             client = get_client()
-            if client is not None and client.is_connected():
+            if self.enabled and client is not None and client.is_connected():
                 if not await self.ping(client):
                     log.warning("Could not update online status: %s", self.last_error)
             await asyncio.sleep(self.next_delay())

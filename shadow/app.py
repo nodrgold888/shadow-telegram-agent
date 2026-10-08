@@ -577,7 +577,7 @@ async def dashboard_add_ai_provider(
         provider = parse_provider(await request.json())
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    slot = free_slot()
+    slot = free_slot(settings=agent.settings)
     if slot is None:
         raise HTTPException(status_code=409, detail="Barcha 8 ta AI joyi band")
     values = provider_env(slot, provider)
@@ -628,7 +628,7 @@ async def dashboard_remove_ai_provider(
     if agent.settings.ai_first_slot == slot:
         keys.append("AI_FIRST_SLOT")
     persisted = await delete_env_vars(keys)
-    updated = remove_slot(agent.settings, slot)
+    updated = remove_slot(agent.settings, slot, env={})
     agent.settings = updated
     if agent.assistant:
         agent.assistant.update_settings(updated)

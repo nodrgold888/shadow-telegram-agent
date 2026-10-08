@@ -15,8 +15,11 @@ def slot_env_names(slot: int) -> dict[str, str]:
     return {part: f"AI_{part}{suffix}" for part in ("BASE_URL", "API_KEY", "MODEL", "NAME")}
 
 
-def free_slot(env: dict[str, str] | None = None) -> int | None:
+def free_slot(env: dict[str, str] | None = None, settings: Settings | None = None) -> int | None:
     """First backup slot (1..8) whose URL, key and model are not all set."""
+    if settings is not None:
+        occupied = {provider.slot for provider in settings.backup_providers}
+        return next((slot for slot in range(1, MAX_BACKUP_PROVIDERS + 1) if slot not in occupied), None)
     env = os.environ if env is None else env
     for slot in range(1, MAX_BACKUP_PROVIDERS + 1):
         names = slot_env_names(slot)
