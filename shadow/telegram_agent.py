@@ -1332,10 +1332,11 @@ class TelegramAgent:
             entity = dialog.entity
             is_group = bool(dialog.is_group or getattr(entity, "megagroup", False) or getattr(entity, "gigagroup", False))
             is_channel = bool(dialog.is_channel or getattr(entity, "broadcast", False)) and not is_group
+            is_bot = bool(getattr(entity, "bot", False))
             result.append({
                 "id": dialog.id,
                 "title": dialog.name or "Telegram chat",
-                "kind": "Kanal" if is_channel else "Guruh" if is_group else "Shaxsiy chat",
+                "kind": "Bot" if is_bot else "Kanal" if is_channel else "Guruh" if is_group else "Shaxsiy chat",
                 "approved": approved == "*" or dialog.id in approved,
                 "friend": dialog.id in self.friend_ids,
                 "friend_category": self.friend_ids.get(dialog.id, ""),
