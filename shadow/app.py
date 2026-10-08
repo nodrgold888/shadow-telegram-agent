@@ -16,6 +16,7 @@ from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, Res
 from .config import Settings
 from .development import DevelopmentError, DevelopmentStudio
 from .ai_slots import apply_provider, free_slot, parse_provider, provider_env, remove_slot, set_first, slot_env_names
+from .accounts import mask_label
 from .persist import delete_env_vars, save_env_vars, save_model_selection, save_reply_enabled, save_group_reply_enabled, save_group_reply_mode
 from .policy import parse_group_reply_update
 from .config import MAX_BACKUP_PROVIDERS, SUPPORTED_OPENAI_MODELS
@@ -199,6 +200,16 @@ async def dashboard_auth(request: Request) -> JSONResponse:
     response = JSONResponse({"ok": True})
     response.set_cookie("shadow_setup", token, httponly=True, secure=_secure_cookie(request), samesite="lax", max_age=43200)
     return response
+
+
+@app.get("/dashboard/auth/info")
+async def dashboard_auth_info() -> dict[str, object]:
+    """What the sign-in screen may show before login: which account would get the code, in masked form."""
+    return {
+        "connected": bool(agent.connected),
+        "account": mask_label(agent.account_label) if agent.connected else None,
+        "accounts": len(agent.accounts),
+    }
 
 
 @app.post("/dashboard/auth/telegram/request")

@@ -56,3 +56,16 @@ def public_view(accounts: dict[str, dict[str, str]], active_id: int | str | None
     """What the dashboard may see: id, label and which one is active. Never the session."""
     return [{"id": key, "label": value["label"], "active": active_id is not None and key == str(active_id)}
             for key, value in accounts.items()]
+
+
+def mask_label(label: str | None) -> str | None:
+    """A recognisable but not searchable form of the account name, for the sign-in screen: @no•••k."""
+    text = (label or "").strip()
+    if not text:
+        return None
+    if text.isdigit():
+        return "ID •••" + text[-4:]
+    name = text.removeprefix("@")
+    if len(name) <= 3:
+        return "@" + name[:1] + "•••"
+    return "@" + name[:2] + "•••" + name[-1:]

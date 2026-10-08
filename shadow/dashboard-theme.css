@@ -503,3 +503,9 @@
 .acc-actions{display:flex;gap:10px;flex-wrap:wrap}
 .acc-actions .btn{text-decoration:none;display:inline-block}
 @media(max-width:680px){.acc-row{flex-wrap:wrap}}
+
+/* Sign-in screen: account line and the add-account link */
+.alt-login .alt-account{margin:0 0 12px;padding:9px 12px;border:1px solid var(--v-line);border-radius:9px;background:var(--v-surface2);color:var(--v-ink);font-size:12px}
+.alt-link{display:block;margin-top:14px;text-align:center;color:var(--v-accent);font-size:12px;font-weight:650;text-decoration:none}
+.alt-link:hover{text-decoration:underline}
+.alt-hint{margin-top:8px;text-align:center}
