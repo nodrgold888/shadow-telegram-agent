@@ -366,3 +366,37 @@
  :root[data-theme] .login{padding:23px 19px}
 }
 @media(prefers-reduced-motion:reduce){:root[data-theme] *,:root[data-theme] *:before,:root[data-theme] *:after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
+
+/* Motion: view transitions, staggered entrances and micro-interactions.
+   Everything below stops under prefers-reduced-motion (see the last rule). */
+:root{--ease-out:cubic-bezier(.22,1,.36,1);--ease-spring:cubic-bezier(.34,1.56,.64,1)}
+@keyframes rise-in{from{opacity:0;transform:translateY(14px) scale(.985)}to{opacity:1;transform:none}}
+@keyframes row-in{from{opacity:0;transform:translateX(-10px)}to{opacity:1;transform:none}}
+@keyframes ring-ping{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--v-accent) 50%,transparent)}100%{box-shadow:0 0 0 12px transparent}}
+.motion-view>*{animation:rise-in .55s var(--ease-out) both}
+.motion-view>*:nth-child(2){animation-delay:.06s}.motion-view>*:nth-child(3){animation-delay:.12s}.motion-view>*:nth-child(4){animation-delay:.18s}
+.motion-view>*:nth-child(5){animation-delay:.24s}.motion-view>*:nth-child(6){animation-delay:.3s}.motion-view>*:nth-child(n+7){animation-delay:.36s}
+.motion-rows .row:not(.thead){animation:row-in .45s var(--ease-out) both}
+.motion-rows .row:nth-child(2){animation-delay:.04s}.motion-rows .row:nth-child(3){animation-delay:.08s}.motion-rows .row:nth-child(4){animation-delay:.12s}
+.motion-rows .row:nth-child(5){animation-delay:.16s}.motion-rows .row:nth-child(6){animation-delay:.2s}.motion-rows .row:nth-child(n+7){animation-delay:.24s}
+:root[data-theme] .btn,:root[data-theme] .approval-btn,:root[data-theme] .command-action,:root[data-theme] .profile-btn,:root[data-theme] .gr-mode{transition:transform .2s var(--ease-out),border-color .2s,background-color .2s,box-shadow .25s,color .2s}
+:root[data-theme] .btn:active,:root[data-theme] .approval-btn:active,:root[data-theme] .command-action:active,:root[data-theme] .profile-btn:active,:root[data-theme] .gr-mode:active{transform:scale(.96)}
+:root[data-theme] .switch{transition:background .3s,border-color .3s,box-shadow .3s}
+:root[data-theme] .switch:after{transition:left .3s var(--ease-spring),transform .2s}
+:root[data-theme] .switch:active:after{transform:scaleX(1.18)}
+:root[data-theme] .switch[aria-checked="true"]{animation:ring-ping .6s var(--ease-out) 1}
+:root[data-theme] .workspace-nav .nav{transition:background .25s,color .25s,transform .25s var(--ease-out)}
+:root[data-theme] .workspace-nav .nav b svg{transition:transform .35s var(--ease-spring)}
+:root[data-theme] .workspace-nav .nav:active{transform:scale(.97)}
+@media (hover:hover){
+  :root[data-theme] .btn:hover,:root[data-theme] .command-action:hover,:root[data-theme] .gr-mode:hover{transform:translateY(-1px)}
+  :root[data-theme] .workspace-nav .nav:hover{transform:translateX(3px)}
+  :root[data-theme] .workspace-nav .nav:hover b svg{transform:scale(1.15) rotate(-6deg)}
+  :root[data-theme] .overview-metric,:root[data-theme] .overview-panel,:root[data-theme] .monitor-card,:root[data-theme] .detail-panel,:root[data-theme] .cap-card{transition:transform .3s var(--ease-out),border-color .3s,box-shadow .3s}
+  :root[data-theme] .overview-metric:hover,:root[data-theme] .monitor-card:hover,:root[data-theme] .cap-card:hover{transform:translateY(-3px);border-color:color-mix(in srgb,var(--v-accent) 50%,var(--v-line));box-shadow:0 14px 34px -14px color-mix(in srgb,var(--v-accent) 45%,transparent)}
+  :root[data-theme] .row:not(.thead){transition:background-color .2s,transform .25s var(--ease-out)}
+  :root[data-theme] .row:not(.thead):hover{transform:translateX(3px)}
+}
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;animation-delay:0s!important;transition-duration:.01ms!important;scroll-behavior:auto!important}
+}
