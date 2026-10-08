@@ -4,7 +4,8 @@
   const el = id => document.getElementById(id);
   const root = '/dashboard/api/development';
   const states = {queued:'Navbatda',inspecting:'Manbalarni o‘qiyapti',building:'Tayyorlayapti',validating:'Tekshiryapti',ready:'Ko‘rib chiqish',failed:'Xatolik',cancelled:'To‘xtatildi',interrupted:'Uzildi',publishing:'PR yaratilmoqda',published:'Draft PR tayyor'};
-  const taskTypes = {analysis:'Tahlil va takliflar',feature:'Yangi imkoniyat',bug_audit:'Xatolarni topish',bugfix:'Xatolarni tuzatish',security_audit:'Xavfsizlik auditi',security_fix:'Xavfsizlikni tuzatish',design:'Dizayn va UX',performance:'Tezlik va samaradorlik',tests:'Test va sifat',docs:'Hujjatlar',integration:'API integratsiyasi',refactor:'Refaktor',reliability:'Ishonchlilik'};
+  const taskTypes = Object.create(null);
+  let taskCatalog = [];
   const running = new Set(['queued','inspecting','building','validating','publishing']);
   let selected = null, detail = null, status = null, refreshing = false, actionBusy = false, feedbackJob = null;
   const text = (id, value) => { el(id).textContent = value || ''; };
@@ -13,6 +14,25 @@
   }
   function node(tag, content, className) {
     const element=document.createElement(tag); element.textContent=content||''; if(className)element.className=className; return element;
+  }
+  function updateTaskHint() {
+    const selectedOption=el('devMode').selectedOptions[0];
+    text('devTypeHint',taskCatalog.find(item=>item.id===selectedOption?.value)?.description||'Vazifa turi tanlang.');
+  }
+  function renderTaskTypes(types) {
+    if(!Array.isArray(types)||!types.length)return;
+    const previous=el('devMode').value, groups=new Map();
+    taskCatalog=types.filter(item=>item&&typeof item.id==='string'&&typeof item.label==='string');
+    Object.keys(taskTypes).forEach(key=>delete taskTypes[key]);
+    taskCatalog.forEach(item=>{taskTypes[item.id]=item.label;const category=item.category||'Boshqa';if(!groups.has(category))groups.set(category,[]);groups.get(category).push(item);});
+    const select=el('devMode');select.replaceChildren();
+    groups.forEach((items,category)=>{
+      const group=node('optgroup','');group.label=category;
+      items.forEach(item=>{const option=node('option',item.label);option.value=item.id;option.dataset.mode=item.mode;option.title=item.description||'';group.append(option);});
+      select.append(group);
+    });
+    select.value=taskCatalog.some(item=>item.id===previous)?previous:(taskCatalog[0]?.id||'');
+    updateTaskHint();
   }
   function json(method, body) { return {method,headers:{'content-type':'application/json'},...(body===undefined?{}:{body:JSON.stringify(body)})}; }
   function errorMessage(error) {return error.message==='auth'?'Panel sessiyasi tugadi. Sahifani yangilab, qayta kiring.':error.message||'So‘rov bajarilmadi.';}
@@ -58,7 +78,7 @@
   async function refresh() {
     if(refreshing)return;refreshing=true;
     try {
-      status=await api(root);text('devAiStatus',status.ai_ready?'AI sozlangan':'AI sozlash kerak');text('devGithubStatus',status.github_ready?'GitHub sozlangan':'GitHub: patch yuklash rejimi');
+      status=await api(root);renderTaskTypes(status.task_types);text('devAiStatus',status.ai_ready?'AI sozlangan':'AI sozlash kerak');text('devGithubStatus',status.github_ready?'GitHub sozlangan':'GitHub: patch yuklash rejimi');
       el('devAiStatus').classList.toggle('ready',status.ai_ready);el('devGithubStatus').classList.toggle('ready',status.github_ready);
       if(!status.jobs.some(j=>j.id===selected))selected=status.jobs[0]?.id||null;
       showJobs(status.jobs);controls();await loadDetail();
@@ -69,7 +89,8 @@
     try{await work();if(success)notice(success);}catch(error){notice(errorMessage(error),true);}finally{actionBusy=false;await refresh();controls();}
   }
   el('devForm').addEventListener('submit',event=>{event.preventDefault();action(async()=>{const type=el('devMode').value,mode=el('devMode').selectedOptions[0]?.dataset.mode||'audit';const job=await api(root,json('POST',{objective:el('devObjective').value.trim(),mode,task_type:type}));selected=job.id;},'Vazifa boshlandi. Natija shu ish maydonida ko‘rinadi.');});
-  document.querySelectorAll('[data-dev-preset]').forEach(button=>button.addEventListener('click',()=>{el('devObjective').value=button.dataset.devPreset;el('devMode').value=button.dataset.devType;el('devObjective').focus();}));
+  el('devMode').addEventListener('change',updateTaskHint);
+  document.querySelectorAll('[data-dev-preset]').forEach(button=>button.addEventListener('click',()=>{el('devObjective').value=button.dataset.devPreset;el('devMode').value=button.dataset.devType;updateTaskHint();el('devObjective').focus();}));
   el('devRefresh').addEventListener('click',()=>{notice('');refresh();});
   el('devCancel').addEventListener('click',()=>{const id=selected;action(()=>api(root+'/'+id+'/cancel',json('POST')),'Vazifa to‘xtatildi.');});
   el('devPublish').addEventListener('click',()=>{const id=selected;action(async()=>{const job=await api(root+'/'+id+'/publish',json('POST'));if(selected===id)render(job);},'Draft PR yaratildi. Havola orqali tekshirib chiqing.');});

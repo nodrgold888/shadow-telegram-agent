@@ -26,19 +26,33 @@ MAX_JOBS = 30
 SUFFIXES = {".py", ".html", ".css", ".js", ".md", ".json"}
 PROTECTED = {"shadow/development.py", "shadow/development.js"}
 TASK_TYPES = {
-    "analysis": ("audit", "Inspect the request and relevant source. Return evidence-based findings and prioritized recommendations; make no edits."),
-    "feature": ("build", "Design and implement one complete, bounded capability that fits existing architecture."),
-    "bug_audit": ("audit", "Trace likely defects to source evidence, explain user impact and reproduction clues, and propose fixes without editing."),
-    "bugfix": ("build", "Trace the reported defect to its source, fix the underlying cause, and add or update focused coverage where appropriate."),
-    "security_audit": ("audit", "Review authentication, authorization, secrets, data isolation, input handling, and unsafe actions. Report concrete evidence and risk; do not edit."),
-    "security_fix": ("build", "Fix the stated security weakness with the smallest safe change. Preserve authentication and access boundaries; do not expose secrets."),
-    "design": ("build", "Improve visual hierarchy, responsive behavior, accessibility, and interaction details while preserving existing workflows."),
-    "performance": ("build", "Find a measured or source-grounded performance bottleneck and improve it without changing behavior."),
-    "tests": ("build", "Add or improve focused automated checks for the requested behavior. Do not claim checks were run."),
-    "docs": ("build", "Improve user or developer documentation with accurate, source-grounded instructions and examples."),
-    "integration": ("build", "Implement or repair the requested API or service integration, including validation, error handling, and safe configuration."),
-    "refactor": ("build", "Refactor the requested code for clarity and maintainability while preserving behavior and public interfaces."),
-    "reliability": ("build", "Improve failure handling, recovery, observability, or deployment reliability without weakening safety controls."),
+    "analysis": {"mode": "audit", "category": "Tahlil va rejalashtirish", "label": "Kod bazasini tahlil qilish", "description": "Tuzilma, asosiy bog‘liqliklar va yaxshilash imkoniyatlarini aniqlaydi.", "guidance": "Inspect relevant source and return evidence-based findings, impact, and prioritized recommendations; make no edits."},
+    "bug_audit": {"mode": "audit", "category": "Tahlil va rejalashtirish", "label": "Xato va nuqsonlarni topish", "description": "Muammo sababini manba kodi bilan asoslaydi, ta’siri va takrorlash yo‘lini ko‘rsatadi.", "guidance": "Trace likely defects to exact source evidence, explain user impact and reproduction clues, and propose fixes without editing."},
+    "architecture": {"mode": "audit", "category": "Tahlil va rejalashtirish", "label": "Arxitektura va texnik qarz", "description": "Modullar, ma’lumot oqimi va texnik qarz bo‘yicha bosqichli reja beradi.", "guidance": "Review module boundaries, data flow, coupling, and technical debt. Cite source evidence and propose an incremental architecture plan without editing."},
+    "code_review": {"mode": "audit", "category": "Tahlil va rejalashtirish", "label": "Kod ko‘rigi", "description": "Mantiqiy xatolar, regressiya va chekka holatlarni tekshiradi.", "guidance": "Perform a source-grounded code review focused on correctness, regressions, edge cases, and maintainability. Report findings by severity; do not edit."},
+    "release_readiness": {"mode": "audit", "category": "Tahlil va rejalashtirish", "label": "Relizga tayyorlik", "description": "Konfiguratsiya, migratsiya, orqaga qaytarish va kuzatuv ehtiyojlarini baholaydi.", "guidance": "Assess release readiness, configuration, migration safety, rollback plan, observability, and user impact. List blockers and checks; make no edits."},
+    "test_strategy": {"mode": "audit", "category": "Tahlil va rejalashtirish", "label": "Test strategiyasi", "description": "Muhim oqimlar uchun test qatlamlari va ustuvor holatlarni rejalashtiradi.", "guidance": "Map critical behavior to focused unit, API, and UI checks. Identify missing coverage and high-risk cases without editing or claiming tests ran."},
+    "security_audit": {"mode": "audit", "category": "Xavfsizlik va moslik", "label": "Xavfsizlik auditi", "description": "Kirish, ruxsatlar, tokenlar, sessiyalar va xabar yuborish chegaralarini ko‘radi.", "guidance": "Review authentication, authorization, secrets, session handling, input validation, and unsafe actions. Report concrete evidence and severity; do not edit."},
+    "privacy_audit": {"mode": "audit", "category": "Xavfsizlik va moslik", "label": "Maxfiylik va ma’lumotlar izolyatsiyasi", "description": "Akkauntlararo ma’lumot oqishi, loglar va saqlash muddatlarini tekshiradi.", "guidance": "Review account and tenant isolation, data minimization, logs, persistence, and deletion flows. Identify any cross-account exposure with source evidence; do not edit."},
+    "dependency_audit": {"mode": "audit", "category": "Xavfsizlik va moslik", "label": "Kutubxona va bog‘liqliklar auditi", "description": "Bog‘liqliklar, versiyalar va ta’minot zanjiri xavflarini baholaydi.", "guidance": "Review declared dependencies and configuration for maintenance, security, and supply-chain risks. Do not invent vulnerability advisories; provide source-grounded follow-up checks."},
+    "accessibility_audit": {"mode": "audit", "category": "Xavfsizlik va moslik", "label": "Accessibility va mobil audit", "description": "Klaviatura, kontrast, ekran o‘quvchi va kichik ekran holatlarini ko‘rib chiqadi.", "guidance": "Audit semantic HTML, keyboard access, focus, labels, contrast cues, and responsive source. Give actionable findings; no edits."},
+    "performance_audit": {"mode": "audit", "category": "Xavfsizlik va moslik", "label": "Ishlash tezligi auditi", "description": "Manba asosida sekinlashish ehtimoli va o‘lchash usullarini topadi.", "guidance": "Find source-grounded performance risks, expensive work, and missing measurement. Separate confirmed evidence from hypotheses; propose benchmarks without editing."},
+    "integration_audit": {"mode": "audit", "category": "Xavfsizlik va moslik", "label": "API va integratsiya auditi", "description": "Tashqi API xatolari, timeout, retry, limit va maxfiy ma’lumotlar oqimini tekshiradi.", "guidance": "Review external API integration boundaries, timeouts, retries, rate limits, validation, and secret handling. Cite exact source and recommend resilient behavior without editing."},
+    "feature": {"mode": "build", "category": "Yaratish va yaxshilash", "label": "Yangi funksiya yaratish", "description": "Mavjud arxitekturaga mos, yakunlangan va ko‘rib chiqiladigan imkoniyat yaratadi.", "guidance": "Design and implement one complete, bounded capability that fits existing architecture and preserves permissions and current workflows."},
+    "bugfix": {"mode": "build", "category": "Yaratish va yaxshilash", "label": "Xatoni tuzatish", "description": "Asosiy sababni tuzatib, kerak bo‘lsa shu holat uchun test qo‘shadi.", "guidance": "Trace the reported defect to its cause, fix it, and add or update focused coverage where appropriate."},
+    "security_fix": {"mode": "build", "category": "Yaratish va yaxshilash", "label": "Xavfsizlik muammosini tuzatish", "description": "Aniq zaiflikni eng kichik xavfsiz o‘zgarish bilan bartaraf etadi.", "guidance": "Fix the stated security weakness with the smallest safe change. Preserve authentication, account isolation, and access boundaries; never expose secrets."},
+    "design": {"mode": "build", "category": "Yaratish va yaxshilash", "label": "Dizayn va foydalanuvchi tajribasi", "description": "Vizual ierarxiya, mobil ko‘rinish, formalar va foydalanish qulayligini yaxshilaydi.", "guidance": "Improve visual hierarchy, responsive behavior, accessibility, and interaction details while preserving existing workflows."},
+    "performance": {"mode": "build", "category": "Yaratish va yaxshilash", "label": "Tezlik va resurs sarfi", "description": "Asoslangan sekin joyni optimallashtirib, xulqni o‘zgartirmaydi.", "guidance": "Improve a measured or source-grounded performance bottleneck without changing behavior; state the expected trade-offs and verification."},
+    "tests": {"mode": "build", "category": "Yaratish va yaxshilash", "label": "Avtomatik testlar qo‘shish", "description": "Muhim muvaffaqiyatli, xato va chekka holatlar uchun test yozadi.", "guidance": "Add focused automated checks for the requested behavior and important edge cases. Do not claim checks were run."},
+    "docs": {"mode": "build", "category": "Yaratish va yaxshilash", "label": "Hujjat va yo‘riqnoma", "description": "Foydalanuvchi yoki dasturchi uchun aniq, yangilangan qo‘llanma tayyorlaydi.", "guidance": "Improve documentation with accurate, source-grounded setup steps, behavior, examples, and troubleshooting."},
+    "integration": {"mode": "build", "category": "Yaratish va yaxshilash", "label": "API yoki xizmat integratsiyasi", "description": "Validatsiya, xatolar, timeout va xavfsiz sozlash bilan ulaydi.", "guidance": "Implement or repair the requested API/service integration, including validation, safe configuration, timeouts, and useful error handling."},
+    "data_migration": {"mode": "build", "category": "Yaratish va yaxshilash", "label": "Ma’lumot migratsiyasi", "description": "Eski formatdan yangi sxemaga xavfsiz va qayta ishga tushiriladigan o‘tish yaratadi.", "guidance": "Implement an idempotent, backward-conscious data migration with validation and a rollback or recovery path. Preserve existing user data."},
+    "refactor": {"mode": "build", "category": "Yaratish va yaxshilash", "label": "Refaktor va kod sifati", "description": "Takroriy yoki murakkab kodni xulq va ommaviy interfeysni saqlab tartiblaydi.", "guidance": "Refactor for clarity and maintainability while preserving behavior, public interfaces, and existing permission checks."},
+    "reliability": {"mode": "build", "category": "Yaratish va yaxshilash", "label": "Ishonchlilik va tiklanish", "description": "Xato holatlari, qayta ulanish va tiklanish oqimlarini yaxshilaydi.", "guidance": "Improve failure handling, recovery, and operational reliability without weakening safety controls."},
+    "observability": {"mode": "build", "category": "Yaratish va yaxshilash", "label": "Log va monitoring", "description": "Maxfiy ma’lumot chiqarmaydigan foydali holat va xato kuzatuvini qo‘shadi.", "guidance": "Improve structured, privacy-safe logging and operational status so failures can be diagnosed without recording secrets or personal message content."},
+    "localization": {"mode": "build", "category": "Yaratish va yaxshilash", "label": "Til va lokalizatsiya", "description": "O‘zbekcha matn, tarjima, format va ko‘p tilli interfeysni yaxshilaydi.", "guidance": "Improve localization, language consistency, date/number formatting, and translation quality while preserving accessible labels."},
+    "compatibility": {"mode": "build", "category": "Yaratish va yaxshilash", "label": "Brauzer va qurilma mosligi", "description": "Mobil, planshet va turli brauzerlarda barqaror ishlashni yaxshilaydi.", "guidance": "Improve responsive and browser compatibility using progressive enhancement; preserve keyboard and touch interactions."},
+    "devops": {"mode": "build", "category": "Yaratish va yaxshilash", "label": "Deploy va runtime sozlamalari", "description": "Ishga tushirish, muhit o‘zgaruvchilari va health-check oqimini yaxshilaydi.", "guidance": "Improve deployment/runtime configuration, startup validation, health checks, or safe rollback while preserving secrets and production data."},
 }
 SYSTEM = """You are Shadow's development agent, operated by its owner.
 Inspect the supplied repository source and improve it for the owner's objective.
@@ -263,6 +277,8 @@ class DevelopmentStudio:
         return {"ai_ready": settings.ai_ready, "github_ready": bool(os.getenv("SHADOW_DEV_GITHUB_TOKEN", "").strip()),
                 "repository": os.getenv("SHADOW_DEV_GITHUB_REPO", "nodrgold888/shadow-telegram-agent"),
                 "busy": bool(self.task and not self.task.done()), "history_limit": MAX_JOBS,
+                "task_types": [{"id": key, **{field: value[field] for field in ("mode", "category", "label", "description")}}
+                               for key, value in TASK_TYPES.items()],
                 "jobs": [self.public(j) for j in sorted(self.jobs.values(), key=lambda j: j["created_at"], reverse=True)]}
 
     def event(self, job: dict, state: str, message: str):
@@ -277,7 +293,8 @@ class DevelopmentStudio:
             raise DevelopmentError("A development task is already running")
         if task_type is None:
             task_type = "feature" if mode == "build" else "analysis"
-        expected_mode = TASK_TYPES.get(task_type, (None,))[0]
+        task_spec = TASK_TYPES.get(task_type)
+        expected_mode = task_spec["mode"] if task_spec else None
         if mode not in {"audit", "build"} or mode != expected_mode or not isinstance(objective, str) or not 10 <= len(objective.strip()) <= 3000:
             raise DevelopmentError("Choose a valid work type and describe the objective in 10–3000 characters")
         if not settings.ai_ready:
@@ -303,7 +320,7 @@ class DevelopmentStudio:
                           if j.get("feedback", {}).get("decision")][:6]
                 system = {"role": "system", "content": SYSTEM}
                 request = {"objective": job["objective"], "mode": job["mode"], "task_type": job["task_type"],
-                           "task_guidance": TASK_TYPES[job["task_type"]][1], "previous_owner_feedback": memory,
+                           "task_guidance": TASK_TYPES[job["task_type"]]["guidance"], "previous_owner_feedback": memory,
                            "runtime": {key: runtime[key] for key in ("connected", "reply_enabled", "reply_ready", "has_reply_error", "reply_count") if key in runtime and isinstance(runtime[key], (bool, int))},
                            "inventory": [{"path": p, "bytes": len(t.encode())} for p, t in sources.items()],
                            "instruction": "Select up to 6 relevant existing files to read, totaling at most 600000 bytes. Return {\"files\":[\"path\"]}."}

@@ -121,10 +121,7 @@ def development_auth(shadow_setup: str | None = Cookie(default=None),
 class DevelopmentTask(BaseModel):
     objective: str = Field(min_length=10, max_length=3000)
     mode: Literal["audit", "build"] = "audit"
-    task_type: Literal[
-        "analysis", "feature", "bug_audit", "bugfix", "security_audit", "security_fix",
-        "design", "performance", "tests", "docs", "integration", "refactor", "reliability",
-    ] | None = None
+    task_type: str | None = Field(default=None, max_length=40)
 
 
 class DevelopmentFeedback(BaseModel):
