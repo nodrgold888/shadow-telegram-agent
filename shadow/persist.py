@@ -18,7 +18,7 @@ RENDER_API = "https://api.render.com/v1"
 
 
 _local_lock = threading.Lock()
-_LOCAL_KEYS = {"TELEGRAM_SESSION", "APPROVED_CHAT_IDS", "REPLY_ENABLED", "SHADOW_MODEL_SELECTION", "SHADOW_CHAT_PROFILES", "FRIEND_CHAT_IDS", "GREET_UNKNOWN", "VIDEO_UNKNOWN", "VOICE_UNKNOWN", "NOTIFY_UNKNOWN"}
+_LOCAL_KEYS = {"TELEGRAM_SESSION", "APPROVED_CHAT_IDS", "REPLY_ENABLED", "GROUP_REPLY_ENABLED", "SHADOW_MODEL_SELECTION", "SHADOW_CHAT_PROFILES", "FRIEND_CHAT_IDS", "GREET_UNKNOWN", "VIDEO_UNKNOWN", "VOICE_UNKNOWN", "NOTIFY_UNKNOWN"}
 
 
 def load_local_settings() -> dict[str, str]:
@@ -315,6 +315,11 @@ async def _save_flag(key: str, enabled: bool) -> bool:
         log.warning("Could not persist %s: %s", key, type(exc).__name__)
         return False
     return True
+
+
+async def save_group_reply_enabled(enabled: bool) -> bool:
+    """Persist the independent group-reply switch when persistence is configured."""
+    return await _save_flag("GROUP_REPLY_ENABLED", enabled)
 
 
 def load_greet_unknown() -> bool:

@@ -47,7 +47,7 @@ Public Instagram/TikTok video downloading also runs locally.
 ## Safety model
 
 - No chat is handled until its numeric Telegram chat ID is listed in `APPROVED_CHAT_IDS`.
-- Group replies default to mentions and direct replies to Shadow. Set `GROUP_REPLY_MODE=all` only for groups where every message should receive an answer.
+- Group replies have an independent dashboard switch and default to enabled. In approved groups, replies default to mentions and direct replies to Shadow; set `GROUP_REPLY_MODE=all` only for groups where every message should receive an answer.
 - Passwords, Telegram codes, API keys, and the session string stay in Render secrets.
 - Shadow refuses irreversible or high-risk actions and escalates them to the account owner.
 - Do not use Shadow for spam, unsolicited outreach, artificial engagement, or other Telegram Terms violations.
@@ -109,7 +109,7 @@ Open <http://localhost:10000/healthz>.
 
 ## When does Shadow reply?
 
-Shadow answers only when **all** of these are true: Telegram is connected, the dashboard reply switch is on, `OPENAI_API_KEY` is set, and the chat is in the approved list (dashboard → chats). Messages from chats that are not approved are ignored on purpose, including private chats from people you did not approve. In approved private chats it answers every message; in approved groups it answers only when mentioned or replied to, unless `GROUP_REPLY_MODE=all`.
+Shadow answers only when Telegram is connected, the dashboard reply switch is on, `OPENAI_API_KEY` is set, and the chat is approved (dashboard → chats). The separate group-reply switch must also be on for groups. In approved private chats it answers every message; in approved groups it answers only when mentioned or replied to, unless `GROUP_REPLY_MODE=all`. Unapproved chats are ignored.
 
 Replies are written like a real person texting (`shadow/skills/human_chat.md`): short, in the other person's language, script and register, no assistant boilerplate. A reply can be sent as up to three consecutive short messages (the model separates them with a `||` line), with a brief "read" pause and a typing pause before each one. Shadow never claims to be human and says it is Shadow AI if someone sincerely asks.
 

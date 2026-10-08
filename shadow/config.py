@@ -146,6 +146,7 @@ class Settings:
     ai_name: str = "zaxira"
     ai_extra_providers: tuple["AIProvider", ...] = ()
     ai_first_slot: int = 0
+    group_reply_enabled: bool = True
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -179,6 +180,7 @@ class Settings:
             approved_chat_ids=_chat_ids(local.get("APPROVED_CHAT_IDS", os.getenv("APPROVED_CHAT_IDS", ""))),
             reply_enabled=_boolean("REPLY_ENABLED", False, local.get("REPLY_ENABLED")),
             group_reply_mode=mode,
+            group_reply_enabled=_boolean("GROUP_REPLY_ENABLED", True, local.get("GROUP_REPLY_ENABLED")),
             context_messages=max(2, min(_integer("CONTEXT_MESSAGES", 12) or 12, 30)),
             max_reply_chars=max(500, min(_integer("MAX_REPLY_CHARS", 3800) or 3800, 4000)),
             admin_token=os.getenv("ADMIN_TOKEN", "").strip(),

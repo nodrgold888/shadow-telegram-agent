@@ -367,6 +367,8 @@ class TelegramAgent:
             if not await self._maybe_public_bank_reply(event):
                 await self._maybe_greet_unknown(event)
             return
+        if not event.is_private and not self.settings.group_reply_enabled:
+            return
         text = (event.raw_text or "").strip()
         spoken_kind, _spoken = spoken_media(event.message, include_video=True)
         is_voice = spoken_kind is not None
@@ -921,6 +923,7 @@ class TelegramAgent:
             "openai_configured": self.settings.ai_ready,
             "reply_ready": bool(self.connected and self.client and self.settings.ai_ready and approved),
             "group_reply_mode": self.settings.group_reply_mode,
+            "group_reply_enabled": self.settings.group_reply_enabled,
             "last_ai_model": self.assistant.last_model if self.assistant else None,
             "openai_model": self.settings.openai_model,
             "ai_backup": {"configured": self.settings.compat_ai_ready, "model": self.settings.ai_model or None, "primary": self.settings.ai_primary, "first_slot": self.settings.ai_first_slot, "last_provider": self.assistant.last_provider if self.assistant else None, "providers": [{"name": p.name, "model": p.model, "slot": p.slot} for p in self.settings.backup_providers]},
