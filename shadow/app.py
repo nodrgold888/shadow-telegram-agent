@@ -154,6 +154,16 @@ async def dashboard_status(
     return {**agent.status(), "keepalive": keepalive.status() if keepalive else {"enabled": False}}
 
 
+@app.post("/dashboard/api/repair-agent")
+async def dashboard_repair_agent(
+    shadow_setup: str | None = Cookie(default=None),
+    authorization: str | None = Header(default=None),
+) -> dict[str, object]:
+    if not _dashboard_allowed(shadow_setup, authorization):
+        raise HTTPException(status_code=401, detail="Kirish kerak")
+    return await agent.run_repair_agent()
+
+
 @app.post("/dashboard/api/models")
 async def dashboard_models(
     request: Request,

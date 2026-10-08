@@ -92,6 +92,7 @@ class TelegramAgent:
         self._login_phone: str | None = None
         self._login_hash: str | None = None
         self._setup_lock = asyncio.Lock()
+        self._recovery_lock = asyncio.Lock()
         self._approval_lock = asyncio.Lock()
         self._profile_lock = asyncio.Lock()
         self.chat_profiles = load_chat_profiles()
@@ -120,6 +121,7 @@ class TelegramAgent:
         self._watchdog_task = asyncio.create_task(self._watchdog())
 
     async def _connect_saved_session(self) -> None:
+        client: TelegramClient | None = None
         try:
             client = TelegramClient(
                 StringSession(self.settings.telegram_session),
@@ -135,7 +137,19 @@ class TelegramAgent:
                 self.session_revoked = True
                 raise RuntimeError("The Telegram session is not authorized")
             await self._activate_client(client)
+        except asyncio.CancelledError:
+            if client is not None:
+                try:
+                    await client.disconnect()
+                except Exception:
+                    pass
+            raise
         except Exception as exc:
+            if client is not None:
+                try:
+                    await client.disconnect()
+                except Exception:
+                    pass
             self.connected = False
             self.last_error = type(exc).__name__
             log.exception("Telegram connection failed")
@@ -152,14 +166,17 @@ class TelegramAgent:
             if self.session_revoked:
                 return
             try:
-                if self.client is None:
-                    await self._connect_saved_session()
-                elif not self.client.is_connected():
-                    await self.client.connect()
-                    self.connected = self.client.is_connected()
-                    if self.connected:
-                        self.last_error = None
-                        log.info("Telegram connection restored")
+                async with self._recovery_lock:
+                    if self.session_revoked:
+                        return
+                    if self.client is None:
+                        await self._connect_saved_session()
+                    elif not self.client.is_connected():
+                        await self.client.connect()
+                        self.connected = self.client.is_connected()
+                        if self.connected:
+                            self.last_error = None
+                            log.info("Telegram connection restored")
             except Exception as exc:
                 self.connected = False
                 self.last_error = type(exc).__name__
@@ -910,6 +927,81 @@ class TelegramAgent:
         if not self.connected or not self.client:
             raise RuntimeError("Telegram is not connected")
         await self.client.send_message("me", text)
+
+    async def run_repair_agent(self) -> dict[str, object]:
+        """Diagnose runtime issues and apply only safe connection/listener repairs."""
+        fixed: list[dict[str, str]] = []
+        issues: list[dict[str, str]] = []
+        async with self._recovery_lock:
+            if not self.connected or not self.client or not self.client.is_connected():
+                if self.session_revoked:
+                    issues.append({"title": "Telegram sessiyasi bekor qilingan", "action": "Telegram akkauntini qayta ulang."})
+                elif not self.settings.telegram_api_ready or not self.settings.telegram_session:
+                    issues.append({"title": "Telegram ulanish ma’lumotlari topilmadi", "action": "Telegram akkauntini ulash bo‘limidan qayta kiring."})
+                else:
+                    try:
+                        async with asyncio.timeout(20):
+                            if self.client is None:
+                                await self._connect_saved_session()
+                            else:
+                                await self.client.connect()
+                                if self.client.is_connected():
+                                    if await self.client.is_user_authorized():
+                                        self.connected = True
+                                        self.last_error = None
+                                    else:
+                                        self.connected = False
+                                        self.session_revoked = True
+                        if self.connected and self.client and self.client.is_connected():
+                            fixed.append({"title": "Telegram ulanishi tiklandi", "action": "Saqlangan sessiya qayta ulandi."})
+                        elif self.session_revoked:
+                            issues.append({"title": "Telegram sessiyasi ishlamayapti", "action": "Telegram akkauntini qayta ulang."})
+                        else:
+                            issues.append({"title": "Telegram serveriga ulanib bo‘lmadi", "action": "Tarmoqni tekshirib, qayta urinib ko‘ring."})
+                    except TimeoutError:
+                        self.last_error = "reconnect_timeout"
+                        issues.append({"title": "Telegram ulanishi vaqt tugadi", "action": "Tarmoqni tekshirib, keyin qayta urinib ko‘ring."})
+                    except Exception as exc:
+                        self.connected = False
+                        self.last_error = type(exc).__name__
+                        issues.append({"title": "Telegram ulanishida xatolik", "action": "Akkaunt sessiyasini qayta tekshiring."})
+
+            if (self.connected and self.client and self.client.is_connected() and self.reply_enabled
+                    and self.settings.ai_ready and self.settings.approved_chat_ids):
+                try:
+                    registered = any(callback == self._on_message for callback, _ in self.client.list_event_handlers())
+                except Exception:
+                    registered = False
+                if self.assistant is None:
+                    self.assistant = ShadowAssistant(self.settings)
+                    fixed.append({"title": "AI yordamchi qayta yaratildi", "action": "Faol AI sozlamalari yordamchiga qayta yuklandi."})
+                if not registered:
+                    self.client.add_event_handler(self._on_message, events.NewMessage(incoming=True))
+                    fixed.append({"title": "Avtojavob tinglovchisi tiklandi", "action": "Faol javob sozlamasiga handler qayta ulandi."})
+
+            if self.connected and self.client and self.client.is_connected() and self.presence.enabled and self.presence.last_error:
+                if await self.presence.ping(self.client):
+                    fixed.append({"title": "Telegram onlayn holati yangilandi", "action": "Presence so‘rovi muvaffaqiyatli qayta bajarildi."})
+                else:
+                    issues.append({"title": "Telegram onlayn holatini yangilab bo‘lmadi", "action": "Telegram ulanishi va sessiya ruxsatlarini tekshiring."})
+
+        if not self.settings.ai_ready:
+            issues.append({"title": "AI provayder sozlanmagan", "action": "AI provayderlar bo‘limida API kaliti va modelni sozlang."})
+        if self.reply_enabled and not self.settings.approved_chat_ids:
+            issues.append({"title": "Ruxsatli chatlar tanlanmagan", "action": "Suhbatlar bo‘limida javob berilishi kerak bo‘lgan chatlarni tanlang."})
+        if self.last_reply_error:
+            error = self.last_reply_error
+            advice = self.last_reply_error_detail or "AI provayderi, model va xato tafsilotlarini tekshiring."
+            if error == "openai_authentication_failed":
+                advice = self.last_reply_error_detail or "AI API kalitini tekshiring."
+            elif error == "openai_quota_or_rate_limit":
+                advice = self.last_reply_error_detail or "AI provayder balansini va so‘rov limitini tekshiring."
+            issues.append({"title": "Oxirgi javob xatosi: " + error, "action": advice})
+        elif self.last_error and self.connected:
+            issues.append({"title": "Telegramda oxirgi xatolik qayd etilgan", "action": self.last_error})
+        if not persistence_available():
+            issues.append({"title": "Doimiy saqlash sozlanmagan", "action": "Render API kaliti/xizmat ID sini yoki SHADOW_STATE_FILE ni sozlang."})
+        return {"fixed": fixed, "issues": issues, "status": self.status()}
 
     def status(self) -> dict[str, object]:
         approved = self.settings.approved_chat_ids
