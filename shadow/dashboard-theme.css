@@ -509,3 +509,20 @@
 .alt-link{display:block;margin-top:14px;text-align:center;color:var(--v-accent);font-size:12px;font-weight:650;text-decoration:none}
 .alt-link:hover{text-decoration:underline}
 .alt-hint{margin-top:8px;text-align:center}
+
+/* Login: explicitly choose a saved Telegram account before requesting its code. */
+.alt-account-picker{min-width:0;margin:12px 0 10px;padding:12px;border:1px solid var(--v-line2);border-radius:10px;background:var(--v-surface)}
+.alt-account-picker legend{padding:0 5px;color:var(--v-ink);font-size:11px;font-weight:650}
+.account-picker-help{margin:0 0 8px;color:var(--v-muted);font-size:10px;line-height:1.5}
+.account-picker-list{display:grid;gap:6px;max-height:230px;overflow:auto}
+.login-account-choice{display:grid;grid-template-columns:18px 32px minmax(0,1fr) auto;align-items:center;gap:8px;padding:8px;border:1px solid var(--v-line);border-radius:8px;background:var(--v-surface2);cursor:pointer}
+.login-account-choice:has(input:checked){border-color:var(--v-accent);background:var(--v-soft);box-shadow:0 0 0 1px var(--v-accent) inset}
+:root[data-theme] .login-account-choice input{width:16px;min-width:16px;height:16px;min-height:16px;margin:0;padding:0;border:0;border-radius:50%;background:transparent;box-shadow:none;accent-color:var(--v-accent)}
+.login-account-avatar{display:grid;place-items:center;width:30px;height:30px;border-radius:50%;background:var(--v-soft);color:var(--v-accent);font-size:11px;font-weight:750}
+.login-account-info{display:grid;min-width:0;gap:1px}
+.login-account-info strong,.login-account-info small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.login-account-info strong{color:var(--v-ink);font-size:11px;font-weight:650}
+.login-account-info small{color:var(--v-muted);font-size:9px}
+.login-account-state{color:var(--v-accent);font-size:9px;white-space:nowrap}
+.account-picker-empty{margin:0;padding:10px;border:1px dashed var(--v-line2);border-radius:8px;color:var(--v-muted);font-size:10px;line-height:1.5}
+:root[data-theme] .login #tgRequest:disabled{opacity:.45;cursor:not-allowed}

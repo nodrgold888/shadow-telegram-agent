@@ -258,7 +258,8 @@ class TelegramAgent:
         self.session_revoked = False
         self._me_id = me.id
         self.account_id = me.id
-        self.account_label = f"@{me.username}" if me.username else str(me.id)
+        display_name = " ".join(part for part in (getattr(me, "first_name", None), getattr(me, "last_name", None)) if part).strip()
+        self.account_label = f"@{me.username}" if me.username else display_name or str(me.id)
         if self.reply_enabled:
             client.add_event_handler(self._on_message, events.NewMessage(incoming=True))
         # Owner commands (/rasm) work whether or not auto-replies are on.
@@ -389,6 +390,30 @@ class TelegramAgent:
     async def forget_account(self, account_id: str) -> None:
         self.accounts = forget(self.accounts, account_id, self.account_id)
         await save_accounts(dump_accounts(self.accounts))
+
+    async def send_login_code(self, account_id: str, text: str) -> None:
+        """Deliver the panel code through the selected saved account without switching early."""
+        saved = self.accounts.get(str(account_id))
+        if saved is None:
+            raise ValueError("Bunday Telegram akkaunti saqlanmagan")
+        if self.connected and self.client and str(self.account_id) == str(account_id):
+            await self.send_to_self(text)
+            return
+        if not self.settings.telegram_api_ready:
+            raise RuntimeError("Telegram API credentials are missing")
+        client = TelegramClient(StringSession(saved["session"]), self.settings.telegram_api_id,
+                                self.settings.telegram_api_hash)
+        try:
+            await asyncio.wait_for(client.connect(), timeout=SETUP_NETWORK_TIMEOUT_SECONDS)
+            if not await asyncio.wait_for(client.is_user_authorized(), timeout=SETUP_NETWORK_TIMEOUT_SECONDS):
+                raise ValueError("Bu akkauntning sessiyasi tugagan. Uni qayta ulang.")
+            me = await asyncio.wait_for(client.get_me(), timeout=SETUP_NETWORK_TIMEOUT_SECONDS)
+            if me is None or str(me.id) != str(account_id):
+                raise ValueError("Saqlangan akkaunt mos kelmadi. Uni qayta ulang.")
+            await asyncio.wait_for(client.send_message(me.id, text), timeout=SETUP_NETWORK_TIMEOUT_SECONDS)
+        finally:
+            if client.is_connected():
+                await client.disconnect()
 
     def setup_result(self) -> dict[str, object]:
         """Return safe account and persistence details after private login."""

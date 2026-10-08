@@ -34,10 +34,10 @@
     <p class="intro">Hisobingizni xavfsiz ulash yoki boshqa hisobga o‘tish.</p>
 
     <form id="authForm">
-      <label for="token">Setup token</label>
+      <label for="token">Boshqaruv tokeni</label>
       <input id="token" type="password" autocomplete="current-password" required>
       <button type="submit">Davom etish</button>
-      <p class="help">Tokenni Render xizmatining Environment bo‘limidan oling. Uni hech kimga yubormang.</p>
+      <p class="help">Boshqaruv panelidagi ADMIN_TOKEN yoki SETUP_TOKEN ni kiriting. Uni hech kimga yubormang.</p>
     </form>
 
     <form id="phoneForm" hidden>
@@ -72,7 +72,8 @@
     document.querySelector('#phoneForm').addEventListener('submit',async event=>{event.preventDefault();const button=forms.phone.querySelector('button');button.disabled=true;try{await post('/setup/telegram/code',{phone:document.querySelector('#phone').value.trim()});show('code');message('Kod Telegram ilovasiga yuborildi.')}catch(error){message(error.message,'error')}finally{button.disabled=false}});
     document.querySelector('#codeForm').addEventListener('submit',async event=>{event.preventDefault();const button=forms.code.querySelector('button');button.disabled=true;try{const result=await post('/setup/telegram/verify',{code:document.querySelector('#code').value.trim()});if(result.status==='password_required'){show('password');message('Ikki bosqichli tasdiqlash parolini kiriting.')}else complete(result)}catch(error){message(error.message,'error')}finally{button.disabled=false}});
     document.querySelector('#passwordForm').addEventListener('submit',async event=>{event.preventDefault();const button=forms.password.querySelector('button');button.disabled=true;try{complete(await post('/setup/telegram/password',{password:document.querySelector('#password').value}))}catch(error){message(error.message,'error')}finally{button.disabled=false}});
-    function complete(result){for(const form of Object.values(forms))form.hidden=true;const account=result.account?`${result.account}${result.account_id?` · ID: ${result.account_id}`:''}`:'Telegram akkaunti';const saved=result.session_persisted?'Yangi sessiya Render’da saqlandi.':'Sessiya doimiy saqlanmadi; Render qayta ishga tushsa, qayta kirish kerak bo‘ladi.';message(`${account} ulandi. Xabar yuborish o‘chirilgan. ${saved}`,'success');dashboardLink.hidden=false;}
+    function complete(result){for(const form of Object.values(forms))form.hidden=true;const digits=String(result.account_id||'');const account=[result.account,digits?'ID ····'+digits.slice(-4):''].filter(Boolean).join(' · ')||'Telegram akkaunti';const saved=result.session_persisted?'Yangi sessiya Render’da saqlandi.':'Sessiya doimiy saqlanmadi; Render qayta ishga tushsa, qayta kirish kerak bo‘ladi.';message(`${account} ulandi. Xabar yuborish o‘chirilgan. ${saved}`,'success');dashboardLink.hidden=false;}
+    (async()=>{try{const response=await fetch('/setup/telegram/status',{credentials:'same-origin',cache:'no-store'});if(!response.ok)return;const current=await response.json();forms.auth.hidden=true;show('phone');message(current.connected?`${current.account||'Akkaunt'} faol. Yangi akkaunt uchun Telegram raqamini kiriting.`:'Boshqaruv paneliga kirish tasdiqlandi. Ulanadigan Telegram raqamini kiriting.','success');}catch(_){}})();
   </script>
 </body>
 </html>

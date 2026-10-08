@@ -82,10 +82,6 @@ def _dashboard_allowed(cookie: str | None, authorization: str | None = None) -> 
     )
 
 
-def _setup_allowed(cookie: str | None) -> bool:
-    return bool(settings.setup_token and cookie and secrets.compare_digest(cookie, settings.setup_token))
-
-
 def _dashboard_page() -> HTMLResponse:
     # no-store: a redeploy must show up on the next page load, never a stale cached dashboard
     return HTMLResponse(_DASHBOARD_FILE.read_text(encoding="utf-8"), headers={"Cache-Control": "no-store"})
@@ -203,41 +199,68 @@ async def dashboard_auth(request: Request) -> JSONResponse:
 
 
 @app.get("/dashboard/auth/info")
-async def dashboard_auth_info() -> dict[str, object]:
-    """What the sign-in screen may show before login: which account would get the code, in masked form."""
-    return {
+async def dashboard_auth_info() -> JSONResponse:
+    """List saved Telegram nicknames so the owner can choose where to receive a login code."""
+    accounts = agent.account_list()
+    return JSONResponse({
         "connected": bool(agent.connected),
-        "account": mask_label(agent.account_label) if agent.connected else None,
-        "accounts": len(agent.accounts),
-    }
+        "accounts": [{
+            "key": str(index),
+            "label": mask_label(str(account["label"])) if str(account["label"]).isdigit() else account["label"],
+            "active": bool(agent.connected and account["active"]),
+        } for index, account in enumerate(accounts)],
+    }, headers={"Cache-Control": "no-store"})
 
 
 @app.post("/dashboard/auth/telegram/request")
-async def dashboard_telegram_request() -> dict[str, object]:
-    # Alternative login that needs no token: a one-time code goes to the owner's
-    # own Telegram Saved Messages, so only whoever controls that account can sign in.
-    if not agent.connected:
-        raise HTTPException(status_code=409, detail="Telegram ulanmagan. Token bilan kiring.")
+async def dashboard_telegram_request(request: Request) -> dict[str, object]:
+    # The browser must choose one of the owner's saved sessions before we send a code.
+    body = await request.json()
+    account_key = str(body.get("account_key", "")).strip() if isinstance(body, dict) else ""
+    accounts = agent.account_list()
+    if not account_key.isdigit() or int(account_key) >= len(accounts):
+        raise HTTPException(status_code=400, detail="Avval ulangan Telegram akkauntlaridan birini tanlang.")
+    account_id = str(accounts[int(account_key)]["id"])
     try:
-        code = panel_login.issue_code()
+        code = panel_login.issue_code(account_id=account_id)
     except LoginError as exc:
         raise HTTPException(status_code=exc.status, detail=exc.message) from exc
     try:
-        await agent.send_to_self(
+        await agent.send_login_code(
+            account_id,
             f"Shadow panelga kirish kodi: {code}\n5 daqiqa amal qiladi. Buni siz so‘ramagan bo‘lsangiz, hech kimga bermang."
         )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from None
+    except TelegramSetupTimeout as exc:
+        raise HTTPException(status_code=504, detail=str(exc)) from None
     except Exception as exc:
-        raise HTTPException(status_code=502, detail="Kodni Telegramga yuborib bo‘lmadi.") from exc
+        log.warning("Telegram login code delivery failed: %s", type(exc).__name__)
+        raise HTTPException(status_code=502, detail="Tanlangan akkauntga kod yuborilmadi. Ulanishni tekshiring va qayta urinib ko‘ring.") from None
     return {"ok": True, "expires_in": 300}
 
 
 @app.post("/dashboard/auth/telegram/verify")
 async def dashboard_telegram_verify(request: Request) -> JSONResponse:
     code = str((await request.json()).get("code", ""))
+    account_id = panel_login.code_account_id
     try:
         token = panel_login.verify_code(code)
     except LoginError as exc:
         raise HTTPException(status_code=exc.status, detail=exc.message) from exc
+    if account_id and (not agent.connected or str(agent.account_id) != account_id):
+        try:
+            await agent.switch_account(account_id)
+        except ValueError as exc:
+            panel_login.end_session(token)
+            raise HTTPException(status_code=400, detail=str(exc)) from None
+        except TelegramSetupTimeout as exc:
+            panel_login.end_session(token)
+            raise HTTPException(status_code=504, detail=str(exc)) from None
+        except Exception as exc:
+            panel_login.end_session(token)
+            log.warning("Switching to sign-in Telegram account failed: %s", type(exc).__name__)
+            raise HTTPException(status_code=502, detail="Tanlangan akkauntga ulana olmadik. Qaytadan urinib ko‘ring.") from None
     response = JSONResponse({"ok": True})
     response.set_cookie("shadow_setup", token, httponly=True, secure=_secure_cookie(request), samesite="lax", max_age=43200)
     return response
@@ -699,18 +722,34 @@ async def telegram_setup() -> str:
     return _SETUP_FILE.read_text(encoding="utf-8")
 
 
+@app.get("/setup/telegram/status")
+async def telegram_setup_status(
+    shadow_setup: str | None = Cookie(default=None),
+    authorization: str | None = Header(default=None),
+) -> dict[str, object]:
+    if not _dashboard_allowed(shadow_setup, authorization):
+        raise HTTPException(status_code=401, detail="Akkaunt ulash uchun avval boshqaruv paneliga kiring.")
+    return agent.setup_result() | {"connected": agent.connected}
+
+
 @app.post("/setup/telegram/auth")
-async def telegram_setup_auth(request: Request) -> JSONResponse:
+async def telegram_setup_auth(request: Request,
+                              shadow_setup: str | None = Cookie(default=None)) -> JSONResponse:
     token = str((await request.json()).get("token", "")).strip()
-    if not settings.setup_token or not secrets.compare_digest(token, settings.setup_token):
+    accepted = _dashboard_allowed(shadow_setup) or any(
+        expected and secrets.compare_digest(token, expected)
+        for expected in (settings.setup_token, settings.admin_token)
+    )
+    if not accepted:
         raise HTTPException(status_code=401, detail="Setup token noto‘g‘ri")
     response = JSONResponse({"ok": True})
-    response.set_cookie("shadow_setup", token, httponly=True, secure=_secure_cookie(request), samesite="lax", max_age=43200)
+    if token:
+        response.set_cookie("shadow_setup", token, httponly=True, secure=_secure_cookie(request), samesite="lax", max_age=43200)
     return response
 
 
 def _require_setup(cookie: str | None) -> None:
-    if not _setup_allowed(cookie):
+    if not _dashboard_allowed(cookie):
         raise HTTPException(status_code=401, detail="Setup ruxsati kerak")
 
 

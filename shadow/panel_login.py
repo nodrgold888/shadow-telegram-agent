@@ -36,8 +36,9 @@ class PanelLogin:
     _last_request: float = float("-inf")
     _locked_until: float = 0
     _sessions: dict[str, float] = field(default_factory=dict)
+    _code_account_id: str | None = None
 
-    def issue_code(self, now: float | None = None) -> str:
+    def issue_code(self, now: float | None = None, account_id: str | None = None) -> str:
         now = time.time() if now is None else now
         if now < self._locked_until:
             raise LoginError("Juda ko‘p xato urinish. Birozdan keyin qayta urinib ko‘ring.", 429)
@@ -47,7 +48,12 @@ class PanelLogin:
         self._code = f"{secrets.randbelow(1_000_000):06d}"
         self._code_expires = now + CODE_TTL_SECONDS
         self._attempts = 0
+        self._code_account_id = str(account_id) if account_id is not None else None
         return self._code
+
+    @property
+    def code_account_id(self) -> str | None:
+        return self._code_account_id
 
     def verify_code(self, supplied: str, now: float | None = None) -> str:
         """Return a new session token, or raise LoginError."""
@@ -56,14 +62,17 @@ class PanelLogin:
             raise LoginError("Juda ko‘p xato urinish. Birozdan keyin qayta urinib ko‘ring.", 429)
         if not self._code or now > self._code_expires:
             self._code = None
+            self._code_account_id = None
             raise LoginError("Kod muddati tugagan. Yangi kod so‘rang.", 400)
         self._attempts += 1
         if not secrets.compare_digest(supplied.strip().encode(), self._code.encode()):
             if self._attempts >= MAX_ATTEMPTS_PER_CODE:
                 self._code = None
+                self._code_account_id = None
                 self._locked_until = now + LOCKOUT_SECONDS
             raise LoginError("Kod noto‘g‘ri.", 400)
         self._code = None
+        self._code_account_id = None
         return self._new_session(now)
 
     def _new_session(self, now: float) -> str:

@@ -105,7 +105,7 @@ Open <http://localhost:10000/healthz>.
 
 ## Signing in to the dashboard
 
-`/dashboard` accepts either token (`ADMIN_TOKEN` or `SETUP_TOKEN`) or a **Telegram login code**: press "Telegram orqali kirish" and Shadow sends a 6-digit one-time code to the connected account's own Saved Messages (it never messages anyone else). The code is single use, expires after 5 minutes, allows 5 wrong guesses (then 15 minutes lockout) and can be requested once per minute. Sessions last 12 hours and live in memory, so a restart signs you out. This needs Telegram to be connected; use a token otherwise. The code is only sent when you press the button.
+`/dashboard` accepts either token (`ADMIN_TOKEN` or `SETUP_TOKEN`) or a **Telegram login code**. The login screen lists saved Telegram account nicknames; choose one before requesting a code. Shadow sends the one-time code to that account’s own Saved Messages, then switches the active account after the code is verified. The code expires after 5 minutes, allows 5 wrong guesses (then 15 minutes lockout), and can be requested once per minute. Sessions last 12 hours and live in memory, so a restart signs you out. Add another account from the login page or dashboard → Akkauntlar.
 
 ## When does Shadow reply?
 
