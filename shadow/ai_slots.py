@@ -4,10 +4,72 @@ import os
 import re
 from dataclasses import replace
 
+import httpx
+
 from .config import MAX_BACKUP_PROVIDERS, AIProvider, Settings, _ai_base_url
 
 _NAME_RE = re.compile(r"[^A-Za-z0-9 ._-]")
 _MODEL_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:/@+-]{0,99}$")
+MODEL_CATALOG_BASE_URLS = frozenset({
+    "https://openrouter.ai/api/v1",
+    "https://generativelanguage.googleapis.com/v1beta/openai",
+    "https://api.groq.com/openai/v1",
+    "https://api.deepseek.com",
+    "https://api.mistral.ai/v1",
+    "https://api.together.xyz/v1",
+    "https://api.cerebras.ai/v1",
+    "https://api.fireworks.ai/inference/v1",
+    "https://api.sambanova.ai/v1",
+    "https://integrate.api.nvidia.com/v1",
+    "https://api.x.ai/v1",
+    "https://api.deepinfra.com/v1/openai",
+    "https://api.siliconflow.com/v1",
+    "https://api.novita.ai/v3/openai",
+    "https://api.perplexity.ai",
+    "https://api.cohere.com/compatibility/v1",
+    "https://api.studio.nebius.ai/v1",
+    "https://api.hyperbolic.xyz/v1",
+})
+
+
+async def fetch_provider_models(base_url: str, api_key: str) -> list[str]:
+    """Fetch the authenticated model catalog from one of the dashboard's fixed providers."""
+    if not isinstance(base_url, str):
+        raise ValueError("Provayder manzili noto‘g‘ri")
+    try:
+        base_url = _ai_base_url(base_url)
+    except ValueError:
+        raise ValueError("Provayder manzili noto‘g‘ri") from None
+    if base_url not in MODEL_CATALOG_BASE_URLS:
+        raise ValueError("Bu provayder modeli ro‘yxatini avtomatik bermaydi")
+    api_key = api_key.strip() if isinstance(api_key, str) else ""
+    if not 8 <= len(api_key) <= 500 or re.search(r"\s", api_key):
+        raise ValueError("API kalitni tekshiring")
+    try:
+        async with httpx.AsyncClient(timeout=12, follow_redirects=False) as client:
+            response = await client.get(base_url + "/models", headers={"Authorization": "Bearer " + api_key})
+    except httpx.TimeoutException:
+        raise ValueError("Provayder javob bermadi. Qayta urinib ko‘ring") from None
+    except httpx.HTTPError:
+        raise ValueError("Provayderga ulanib bo‘lmadi") from None
+    if response.status_code in {401, 403}:
+        raise ValueError("API kalit qabul qilinmadi")
+    if response.status_code in {404, 405, 501}:
+        raise ValueError("Bu provayder model ro‘yxatini API orqali bermaydi")
+    if response.status_code >= 400:
+        raise ValueError(f"Provayder model ro‘yxatini bermadi (HTTP {response.status_code})")
+    try:
+        payload = response.json()
+    except ValueError:
+        raise ValueError("Provayder model ro‘yxati noto‘g‘ri formatda") from None
+    items = payload.get("data") if isinstance(payload, dict) else None
+    if not isinstance(items, list):
+        raise ValueError("Provayder mos model ro‘yxatini qaytarmadi")
+    models = sorted({item["id"].strip() for item in items if isinstance(item, dict)
+                     and isinstance(item.get("id"), str) and _MODEL_RE.fullmatch(item["id"].strip())}, key=str.casefold)
+    if not models:
+        raise ValueError("Ushbu API kalit uchun model topilmadi")
+    return models[:2000]
 
 
 def slot_env_names(slot: int) -> dict[str, str]:

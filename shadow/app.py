@@ -15,7 +15,7 @@ from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, Res
 
 from .config import Settings
 from .development import DevelopmentError, DevelopmentStudio
-from .ai_slots import apply_provider, free_slot, parse_provider, provider_env, remove_slot, set_first, slot_env_names
+from .ai_slots import apply_provider, fetch_provider_models, free_slot, parse_provider, provider_env, remove_slot, set_first, slot_env_names
 from .accounts import mask_label
 from .persist import delete_env_vars, save_env_vars, save_model_selection, save_reply_enabled, save_group_reply_enabled, save_group_reply_mode
 from .policy import parse_group_reply_update
@@ -589,6 +589,24 @@ async def dashboard_add_ai_provider(
     if agent.assistant:
         agent.assistant.update_settings(updated)
     return {"ok": True, "slot": slot, "name": provider.name, "model": provider.model, "persisted": persisted}
+
+
+@app.post("/dashboard/api/ai-providers/models")
+async def dashboard_provider_models(
+    request: Request,
+    shadow_setup: str | None = Cookie(default=None),
+    authorization: str | None = Header(default=None),
+) -> dict[str, object]:
+    if not _dashboard_allowed(shadow_setup, authorization):
+        raise HTTPException(status_code=401, detail="Kirish kerak")
+    body = await request.json()
+    if not isinstance(body, dict):
+        raise HTTPException(status_code=400, detail="Forma noto‘g‘ri")
+    try:
+        models = await fetch_provider_models(body.get("base_url"), body.get("api_key"))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"models": models}
 
 
 @app.post("/dashboard/api/ai-first")
