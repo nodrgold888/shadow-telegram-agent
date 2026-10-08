@@ -47,6 +47,7 @@ async def lifespan(_: FastAPI):
 app = FastAPI(title="Shadow", version="0.1.0", lifespan=lifespan)
 
 _DASHBOARD_FILE = Path(__file__).with_name("dashboard.html")
+_DASHBOARD_THEME_FILE = Path(__file__).with_name("dashboard-theme.css")
 _SETUP_FILE = Path(__file__).with_name("setup.html")
 
 
@@ -89,6 +90,15 @@ async def home() -> HTMLResponse:
 @app.get("/dashboard", response_class=HTMLResponse)
 async def dashboard() -> HTMLResponse:
     return _dashboard_page()
+
+
+@app.get("/dashboard/theme.css")
+async def dashboard_theme() -> Response:
+    return Response(
+        _DASHBOARD_THEME_FILE.read_text(encoding="utf-8"),
+        media_type="text/css",
+        headers={"Cache-Control": "no-store"},
+    )
 
 
 @app.post("/dashboard/auth")
