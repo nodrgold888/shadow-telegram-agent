@@ -8,6 +8,10 @@ deployed on Render. The owner speaks Uzbek: user-facing strings are Uzbek, code 
 - `shadow/telegram_agent.py` Telegram client, message handling, status payload, chat approvals/profiles.
 - `shadow/accounts.py` saved Telegram accounts (`TELEGRAM_ACCOUNTS`: id -> label + session). Sessions are full logins:
   only `public_view()` goes to the panel; `TELEGRAM_SESSION` stays the live account and the list fills itself on connect.
+  Per-account state (allowlist, friends, chat memory, reply/stranger switches, model choice) lives in
+  `TELEGRAM_ACCOUNT_SETTINGS` (`persist.SCOPED_DEFAULTS`): `load_local_settings()` layers the active account's
+  bundle over the globals and `_save_local`/`_put_env_var` redirect those keys into it. `_activate_client` enters the
+  scope (first account keeps its old settings, later ones start blank). New per-account setting = add it to SCOPED_DEFAULTS.
 - `shadow/assistant.py` AI calls: OpenAI Responses API first, then the backup provider chain
   (OpenAI-compatible Chat Completions, slots `AI_*`, `AI_*_2`..`_5`), tools (calculator, Word, Excel).
 - `shadow/skills/*.md` prompt skills (human chat, banking, video download); `shadow/agents.py` per-chat agents.

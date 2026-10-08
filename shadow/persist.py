@@ -18,10 +18,25 @@ RENDER_API = "https://api.render.com/v1"
 
 
 _local_lock = threading.Lock()
-_LOCAL_KEYS = {"TELEGRAM_SESSION", "TELEGRAM_ACCOUNTS", "APPROVED_CHAT_IDS", "REPLY_ENABLED", "GROUP_REPLY_ENABLED", "GROUP_REPLY_MODE", "SHADOW_MODEL_SELECTION", "SHADOW_CHAT_PROFILES", "FRIEND_CHAT_IDS", "GREET_UNKNOWN", "VIDEO_UNKNOWN", "VOICE_UNKNOWN", "NOTIFY_UNKNOWN"}
+_LOCAL_KEYS = {"TELEGRAM_SESSION", "TELEGRAM_ACCOUNTS", "TELEGRAM_ACCOUNT_SETTINGS", "APPROVED_CHAT_IDS", "REPLY_ENABLED", "GROUP_REPLY_ENABLED", "GROUP_REPLY_MODE", "SHADOW_MODEL_SELECTION", "SHADOW_CHAT_PROFILES", "FRIEND_CHAT_IDS", "GREET_UNKNOWN", "VIDEO_UNKNOWN", "VOICE_UNKNOWN", "NOTIFY_UNKNOWN"}
 
 
-def load_local_settings() -> dict[str, str]:
+# Per-account state. Each Telegram account keeps its own allowlist, friend list, chat memory, reply
+# switches and model choice. They live in one JSON value (TELEGRAM_ACCOUNT_SETTINGS) keyed by account
+# id; the active account's values are layered over the saved settings, and writes to these keys go
+# into that account's bundle. With no active scope (an older single-account setup) nothing changes.
+SCOPED_DEFAULTS = {
+    "APPROVED_CHAT_IDS": "", "FRIEND_CHAT_IDS": "", "SHADOW_CHAT_PROFILES": "", "SHADOW_MODEL_SELECTION": "",
+    "REPLY_ENABLED": "false", "GROUP_REPLY_ENABLED": "true", "GROUP_REPLY_MODE": "mentions",
+    "GREET_UNKNOWN": "false", "VIDEO_UNKNOWN": "false", "VOICE_UNKNOWN": "false", "NOTIFY_UNKNOWN": "false",
+}
+_scope: str | None = None
+_scope_checked = False
+_bundles: dict[str, dict[str, str]] | None = None
+_scope_lock = threading.RLock()
+
+
+def _raw_local_settings() -> dict[str, str]:
     filename = os.getenv("SHADOW_STATE_FILE", "").strip()
     if not filename:
         return {}
@@ -37,11 +52,105 @@ def load_local_settings() -> dict[str, str]:
     return data
 
 
+def _parse_bundles(raw: str) -> dict[str, dict[str, str]]:
+    try:
+        data = json.loads(raw) if raw and raw.strip() else {}
+    except json.JSONDecodeError:
+        return {}
+    if not isinstance(data, dict):
+        return {}
+    return {
+        str(account): {key: value for key, value in bundle.items() if key in SCOPED_DEFAULTS and isinstance(value, str)}
+        for account, bundle in data.items() if isinstance(bundle, dict)
+    }
+
+
+def _load_bundles() -> dict[str, dict[str, str]]:
+    global _bundles
+    if _bundles is None:
+        raw = _raw_local_settings().get("TELEGRAM_ACCOUNT_SETTINGS", os.getenv("TELEGRAM_ACCOUNT_SETTINGS", ""))
+        _bundles = _parse_bundles(raw)
+    return _bundles
+
+
+def _derive_scope() -> None:
+    """At boot the active account is the saved one whose session is the live TELEGRAM_SESSION."""
+    global _scope, _scope_checked
+    _scope_checked = True
+    raw = _raw_local_settings()
+    session = raw.get("TELEGRAM_SESSION", os.getenv("TELEGRAM_SESSION", "")).strip()
+    if not session:
+        return
+    from .accounts import parse_accounts
+    accounts = parse_accounts(raw.get("TELEGRAM_ACCOUNTS", os.getenv("TELEGRAM_ACCOUNTS", "")))
+    for account_id, saved in accounts.items():
+        if saved["session"] == session and account_id in _load_bundles():
+            _scope = account_id
+            return
+
+
+def current_scope() -> str | None:
+    with _scope_lock:
+        if not _scope_checked:
+            _derive_scope()
+        return _scope
+
+
+def load_local_settings() -> dict[str, str]:
+    data = _raw_local_settings()
+    scope = current_scope()
+    if scope is None:
+        return data
+    bundle = _load_bundles().get(scope, {})
+    return {**data, **{key: bundle.get(key, default) for key, default in SCOPED_DEFAULTS.items()}}
+
+
+async def enter_scope(account_id: str, migrate_globals: bool) -> bool:
+    """Make `account_id` the active account. An account seen for the first time starts from a blank bundle
+    (reply off, nothing approved), except the first account ever, which keeps the settings it already had."""
+    global _scope, _scope_checked
+    with _scope_lock:
+        bundles = _load_bundles()
+        created = account_id not in bundles
+        if created:
+            raw = _raw_local_settings()
+            bundles[account_id] = (
+                {key: raw.get(key, os.getenv(key, "")) for key in SCOPED_DEFAULTS
+                 if raw.get(key, os.getenv(key, "")).strip()} if migrate_globals else {}
+            )
+        _scope, _scope_checked = account_id, True
+        snapshot = json.dumps(bundles, ensure_ascii=False, separators=(",", ":"))
+    if not created:
+        return True
+    return await _save_setting("TELEGRAM_ACCOUNT_SETTINGS", snapshot)
+
+
+def reset_scope() -> None:
+    """For tests: forget the cached scope and bundles."""
+    global _scope, _scope_checked, _bundles
+    with _scope_lock:
+        _scope, _scope_checked, _bundles = None, False, None
+
+
+def _scoped_write(key: str, value: str) -> tuple[str, str]:
+    """A write to a per-account key goes into the active account's bundle (and the bundle is what is stored)."""
+    if key not in SCOPED_DEFAULTS:
+        return key, value
+    with _scope_lock:
+        scope = current_scope()
+        if scope is None:
+            return key, value
+        bundles = _load_bundles()
+        bundles.setdefault(scope, {})[key] = value
+        return "TELEGRAM_ACCOUNT_SETTINGS", json.dumps(bundles, ensure_ascii=False, separators=(",", ":"))
+
+
 def _save_local(key: str, value: str) -> None:
+    key, value = _scoped_write(key, value)
     with _local_lock:
         path = Path(os.environ["SHADOW_STATE_FILE"]).resolve()
         path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
-        data = load_local_settings()
+        data = _raw_local_settings()
         data[key] = value
         fd, temporary = tempfile.mkstemp(dir=path.parent, prefix=".shadow-")
         try:
@@ -60,6 +169,7 @@ def persistence_available() -> bool:
 
 
 def _put_env_var(service_id: str, api_key: str, key: str, value: str) -> None:
+    key, value = _scoped_write(key, value)
     headers = {
         "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json",

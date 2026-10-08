@@ -23,7 +23,7 @@ _WORK_SLOTS = asyncio.Semaphore(2)
 _VIDEO_SLOTS = asyncio.Semaphore(2)
 from .video_download import VideoDownloadError, downloaded_video, find_video_url
 from .config import AVAILABLE_MODELS, Settings
-from .persist import persistence_available, load_greet_unknown, save_greet_unknown, load_video_unknown, save_video_unknown, load_stranger_flags, save_stranger_flag, load_friend_chats, save_friend_chats, format_friend_chats, FRIEND_CATEGORIES, DEFAULT_FRIEND_CATEGORY, load_chat_profiles, save_chat_profiles, save_session, save_approved_chats, save_reply_enabled, load_accounts_raw, save_accounts
+from .persist import persistence_available, load_greet_unknown, save_greet_unknown, load_video_unknown, save_video_unknown, load_stranger_flags, save_stranger_flag, load_friend_chats, save_friend_chats, format_friend_chats, FRIEND_CATEGORIES, DEFAULT_FRIEND_CATEGORY, load_chat_profiles, save_chat_profiles, save_session, save_approved_chats, save_reply_enabled, load_accounts_raw, save_accounts, enter_scope, current_scope
 from .diagnostics import safe_error_detail
 from .image_gen import ImageGenError, gemini_api_key, generate_image, parse_image_command
 from .humanize import human_typing_delay, read_delay, split_parts
@@ -203,8 +203,49 @@ class TelegramAgent:
             await self._login_client.disconnect()
         self.connected = False
 
+    async def _enter_account_scope(self, account_id: int) -> None:
+        """Load this account's own allowlist, friends, chat memory, reply switches and model choice.
+
+        The first account ever keeps the settings it already had; any other account starts blank
+        (replies off, nothing approved) until it is set up in the panel."""
+        key = str(account_id)
+        if current_scope() == key:
+            return
+        first = not self.accounts and current_scope() is None
+        await enter_scope(key, migrate_globals=first)
+        self._reload_scoped_state()
+
+    def _reload_scoped_state(self) -> None:
+        try:
+            fresh = Settings.from_env()
+            fields = {
+                "approved_chat_ids": fresh.approved_chat_ids, "reply_enabled": fresh.reply_enabled,
+                "group_reply_enabled": fresh.group_reply_enabled, "group_reply_mode": fresh.group_reply_mode,
+                "openai_model": fresh.openai_model, "complex_openai_model": fresh.complex_openai_model,
+            }
+        except ValueError:
+            log.warning("Saved settings of this account are invalid; starting it blank")
+            fields = {"approved_chat_ids": frozenset(), "reply_enabled": False, "group_reply_enabled": True, "group_reply_mode": "mentions"}
+        self.settings = replace(self.settings, **fields)
+        self.reply_enabled = self.settings.reply_enabled
+        try:
+            self.chat_profiles = load_chat_profiles()
+        except ValueError:
+            log.warning("Saved chat memory of this account is invalid; starting it empty")
+            self.chat_profiles = {}
+        self.friend_ids = load_friend_chats()
+        self.greet_unknown = load_greet_unknown()
+        self.video_unknown = load_video_unknown()
+        flags = load_stranger_flags()
+        self.voice_unknown, self.notify_unknown = flags["voice_unknown"], flags["notify_unknown"]
+        # Limits and counters belong to the account that produced them.
+        self.greeting, self.voice_state = GreetingState(), GreetingState(max_per_chat=5, global_per_hour=20)
+        self.notes, self.public_bank = NoteState(), PublicBankState()
+        self.assistant = ShadowAssistant(self.settings) if self.reply_enabled else None
+
     async def _activate_client(self, client: TelegramClient) -> None:
         me = await client.get_me()
+        await self._enter_account_scope(me.id)
         previous = self.client if self.client is not client else None
         # Authenticate the new account before detaching the working connection.
         # Then remove its listener before switching to avoid duplicate replies.
