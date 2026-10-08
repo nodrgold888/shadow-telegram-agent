@@ -6,6 +6,8 @@ deployed on Render. The owner speaks Uzbek: user-facing strings are Uzbek, code 
 ## Layout
 - `shadow/app.py` FastAPI routes (dashboard API, `/ping`, `/healthz`, setup), `shadow/dashboard.html` single-file UI.
 - `shadow/telegram_agent.py` Telegram client, message handling, status payload, chat approvals/profiles.
+- `shadow/accounts.py` saved Telegram accounts (`TELEGRAM_ACCOUNTS`: id -> label + session). Sessions are full logins:
+  only `public_view()` goes to the panel; `TELEGRAM_SESSION` stays the live account and the list fills itself on connect.
 - `shadow/assistant.py` AI calls: OpenAI Responses API first, then the backup provider chain
   (OpenAI-compatible Chat Completions, slots `AI_*`, `AI_*_2`..`_5`), tools (calculator, Word, Excel).
 - `shadow/skills/*.md` prompt skills (human chat, banking, video download); `shadow/agents.py` per-chat agents.

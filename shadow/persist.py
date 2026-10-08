@@ -18,7 +18,7 @@ RENDER_API = "https://api.render.com/v1"
 
 
 _local_lock = threading.Lock()
-_LOCAL_KEYS = {"TELEGRAM_SESSION", "APPROVED_CHAT_IDS", "REPLY_ENABLED", "GROUP_REPLY_ENABLED", "GROUP_REPLY_MODE", "SHADOW_MODEL_SELECTION", "SHADOW_CHAT_PROFILES", "FRIEND_CHAT_IDS", "GREET_UNKNOWN", "VIDEO_UNKNOWN", "VOICE_UNKNOWN", "NOTIFY_UNKNOWN"}
+_LOCAL_KEYS = {"TELEGRAM_SESSION", "TELEGRAM_ACCOUNTS", "APPROVED_CHAT_IDS", "REPLY_ENABLED", "GROUP_REPLY_ENABLED", "GROUP_REPLY_MODE", "SHADOW_MODEL_SELECTION", "SHADOW_CHAT_PROFILES", "FRIEND_CHAT_IDS", "GREET_UNKNOWN", "VIDEO_UNKNOWN", "VOICE_UNKNOWN", "NOTIFY_UNKNOWN"}
 
 
 def load_local_settings() -> dict[str, str]:
@@ -318,6 +318,15 @@ async def _save_setting(key: str, value: str) -> bool:
 
 async def _save_flag(key: str, enabled: bool) -> bool:
     return await _save_setting(key, "true" if enabled else "false")
+
+
+def load_accounts_raw() -> str:
+    return load_local_settings().get("TELEGRAM_ACCOUNTS", os.getenv("TELEGRAM_ACCOUNTS", ""))
+
+
+async def save_accounts(value: str) -> bool:
+    """Persist the saved Telegram accounts (they hold sessions, so they live in the same secret store)."""
+    return await _save_setting("TELEGRAM_ACCOUNTS", value)
 
 
 async def save_group_reply_enabled(enabled: bool) -> bool:
