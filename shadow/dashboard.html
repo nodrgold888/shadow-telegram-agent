@@ -847,6 +847,27 @@ fieldset.agent-picker{margin:13px 0;padding:0;border:0}fieldset.agent-picker leg
 :root[data-theme="light"] .overview-metric:nth-child(2){--metric-accent:#2868b1;--metric-soft:#eaf1fb}
 :root[data-theme="light"] .overview-metric:nth-child(3){--metric-accent:#7155b7;--metric-soft:#f0ecfa}
 :root[data-theme="light"] .overview-metric:nth-child(4){--metric-accent:#986414;--metric-soft:#f7f0e0}
+/* colours: the flat console rules above reset the accents, so the palette is applied again last */
+:root[data-theme="dark"]{--c-teal:#2dd4bf;--c-violet:#a78bfa;--c-blue:#60a5fa;--c-amber:#fbbf24;--c-rose:#fb7185;--c-lime:#a3e635;--c-cyan:#22d3ee;--c-pink:#f472b6}
+:root[data-theme="light"]{--c-teal:#0d9488;--c-violet:#7c3aed;--c-blue:#2563eb;--c-amber:#b45309;--c-rose:#e11d48;--c-lime:#4d7c0f;--c-cyan:#0e7490;--c-pink:#db2777}
+:root[data-theme] .workspace-nav .nav b{border-radius:6px;background:color-mix(in srgb,var(--hue,var(--c-teal)) 16%,transparent);color:var(--hue,var(--c-teal))}
+:root[data-theme] .workspace-nav .nav.active{background:linear-gradient(90deg,color-mix(in srgb,var(--hue,var(--c-teal)) 18%,transparent),transparent);color:var(--v-ink)}
+:root[data-theme] .workspace-nav .nav.active b{background:var(--hue,var(--c-teal));color:#0a0d17}
+:root[data-theme] .workspace-nav .nav.active:before{background:var(--hue,var(--c-teal))}
+:root[data-theme] .side .mark{background:linear-gradient(135deg,var(--c-teal),var(--c-violet))}
+:root[data-theme] .avatar{background:color-mix(in srgb,var(--hue,var(--c-teal)) 22%,transparent);color:var(--hue,var(--c-teal));font-weight:700}
+:root[data-theme] .badge{background:color-mix(in srgb,var(--c-teal) 18%,transparent);color:var(--c-teal)}
+:root[data-theme] .badge.off{background:color-mix(in srgb,var(--c-amber) 16%,transparent);color:var(--c-amber)}
+:root[data-theme] .badge.friend{background:color-mix(in srgb,var(--c-violet) 20%,transparent);color:var(--c-violet)}
+:root[data-theme] .approval-btn:not(.remove){color:var(--c-teal);border-color:color-mix(in srgb,var(--c-teal) 40%,var(--v-line))}
+:root[data-theme] .row:hover{background:color-mix(in srgb,var(--c-violet) 6%,var(--v-surface))}
+:root[data-theme] .unread{color:var(--c-amber);font-weight:700}
+:root[data-theme] .count{background:color-mix(in srgb,var(--c-violet) 14%,var(--v-surface));border-color:color-mix(in srgb,var(--c-violet) 30%,var(--v-line))}
+:root[data-theme] .detail-panel{border-top:3px solid var(--hue,var(--c-teal))}
+:root[data-theme] .section-kicker:before,:root[data-theme] .section-kicker i{background:linear-gradient(180deg,var(--c-teal),var(--c-violet))}
+:root[data-theme] .switch[aria-checked="true"]{background:linear-gradient(90deg,var(--c-teal),var(--c-violet));border-color:transparent}
+:root[data-theme] .cap-tab[aria-selected="true"],:root[data-theme] .view-tab[aria-selected="true"]{border-color:transparent;background:linear-gradient(90deg,var(--c-teal),var(--c-violet));color:#0a0d17}
+:root[data-theme] .user-avatar{background:linear-gradient(135deg,var(--c-teal),var(--c-violet));color:#0a0d17}
 </style>
 </head>
 <body>
