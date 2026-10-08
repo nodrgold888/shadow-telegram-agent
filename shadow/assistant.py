@@ -86,6 +86,7 @@ MAX_COOLDOWN = 3600.0
 # A provider that timed out, was unreachable or answered 5xx is sent to the back of the line for a short while,
 # so the next messages go straight to a provider that works instead of waiting on the dead ones again.
 UNHEALTHY_COOLDOWN = 120.0
+REJECTED_COOLDOWN = 1800.0
 # Total time the provider chain may spend on one reply: it must fail before the 180 s limit of the whole reply.
 CHAIN_BUDGET = 110.0
 
@@ -101,6 +102,11 @@ def is_unhealthy(exc: BaseException) -> bool:
 def is_rate_limit(exc: BaseException) -> bool:
     """429: out of credits or over a usage limit (the provider will keep refusing for a while)."""
     return getattr(exc, "status_code", None) == 429
+
+
+def is_rejected(exc: BaseException) -> bool:
+    """401/402/403: bad key, no balance or a paid-only model. Retrying on every message only wastes time."""
+    return getattr(exc, "status_code", None) in (401, 402, 403)
 
 
 def cooldown_seconds(exc: BaseException) -> float:
@@ -293,6 +299,9 @@ class ShadowAssistant:
             wait = cooldown_seconds(exc)
             self._cooldowns[key] = time.monotonic() + wait
             log.warning("%s hit a usage limit; skipping it for %d s", key, int(wait))
+        elif is_rejected(exc):
+            self._cooldowns[key] = time.monotonic() + REJECTED_COOLDOWN
+            log.warning("%s was refused (%s); skipping it for %d s", key, getattr(exc, "status_code", "?"), int(REJECTED_COOLDOWN))
         elif is_unhealthy(exc):
             self._cooldowns[key] = max(self._cooldowns.get(key, 0.0), time.monotonic() + UNHEALTHY_COOLDOWN)
             log.warning("%s is down or slow (%s); trying it last for %d s", key, type(exc).__name__, int(UNHEALTHY_COOLDOWN))

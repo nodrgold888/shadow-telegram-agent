@@ -146,6 +146,10 @@ class RateLimited(Exception):
     status_code = 429
 
 
+class PaidOnly(Exception):
+    status_code = 403
+
+
 class CooldownTests(unittest.IsolatedAsyncioTestCase):
     async def ask(self, assistant):
         return await assistant.reply_with_files(chat_title="C", history="", message="Salom", directory=Path("."))
@@ -165,6 +169,16 @@ class CooldownTests(unittest.IsolatedAsyncioTestCase):
         calls_before = first.chat.completions.create.await_count
         answer, _ = await self.ask(assistant)
         self.assertEqual(answer, "Ikkinchi")
+        self.assertEqual(first.chat.completions.create.await_count, calls_before)
+
+    async def test_a_provider_refused_with_403_is_not_retried_on_every_message(self):
+        assistant, clients = build(settings_with_two(), {"backup-model": PaidOnly("requires a paid plan"), "model-2": "Ikkinchi"})
+        await self.ask(assistant)
+        first = next(c for url, c in clients.items() if "second" not in url)
+        calls_before = first.chat.completions.create.await_count
+        for _ in range(2):
+            answer, _ = await self.ask(assistant)
+            self.assertEqual(answer, "Ikkinchi")
         self.assertEqual(first.chat.completions.create.await_count, calls_before)
 
     async def test_all_cooling_still_tries_the_providers(self):
