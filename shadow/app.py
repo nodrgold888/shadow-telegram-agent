@@ -51,6 +51,7 @@ async def lifespan(_: FastAPI):
         await agent.stop()
 
 
+log = logging.getLogger("shadow.app")
 app = FastAPI(title="Shadow", version="0.1.0", lifespan=lifespan)
 
 _DASHBOARD_FILE = Path(__file__).with_name("dashboard.html")
@@ -631,6 +632,55 @@ async def admin_status(authorization: str | None = Header(default=None)) -> dict
     if not secrets.compare_digest(supplied, settings.admin_token):
         raise HTTPException(status_code=401, detail="Unauthorized")
     return {**agent.status(), "keepalive": keepalive.status() if keepalive else {"enabled": False}}
+
+
+@app.get("/dashboard/api/accounts")
+async def dashboard_accounts(
+    shadow_setup: str | None = Cookie(default=None),
+    authorization: str | None = Header(default=None),
+) -> dict[str, object]:
+    if not _dashboard_allowed(shadow_setup, authorization):
+        raise HTTPException(status_code=401, detail="Kirish kerak")
+    return {"accounts": agent.account_list(), "active": agent.account_label, "connected": agent.connected}
+
+
+@app.post("/dashboard/api/accounts/switch")
+async def dashboard_accounts_switch(
+    request: Request,
+    shadow_setup: str | None = Cookie(default=None),
+    authorization: str | None = Header(default=None),
+) -> dict[str, object]:
+    if not _dashboard_allowed(shadow_setup, authorization):
+        raise HTTPException(status_code=401, detail="Kirish kerak")
+    body = await request.json()
+    account_id = str(body.get("id", "")).strip() if isinstance(body, dict) else ""
+    try:
+        result = await agent.switch_account(account_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from None
+    except TelegramSetupTimeout as exc:
+        raise HTTPException(status_code=504, detail=str(exc)) from None
+    except Exception as exc:
+        log.warning("Switching Telegram account failed: %s", type(exc).__name__)
+        raise HTTPException(status_code=502, detail="Akkauntga ulanib bo‘lmadi. Hozirgi akkaunt o‘z holicha qoldi.") from None
+    return {**result, "accounts": agent.account_list(), "session_persisted": agent.session_persisted}
+
+
+@app.post("/dashboard/api/accounts/remove")
+async def dashboard_accounts_remove(
+    request: Request,
+    shadow_setup: str | None = Cookie(default=None),
+    authorization: str | None = Header(default=None),
+) -> dict[str, object]:
+    if not _dashboard_allowed(shadow_setup, authorization):
+        raise HTTPException(status_code=401, detail="Kirish kerak")
+    body = await request.json()
+    account_id = str(body.get("id", "")).strip() if isinstance(body, dict) else ""
+    try:
+        await agent.forget_account(account_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from None
+    return {"accounts": agent.account_list()}
 
 
 @app.get("/setup/telegram", response_class=HTMLResponse)

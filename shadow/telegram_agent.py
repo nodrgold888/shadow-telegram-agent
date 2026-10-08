@@ -23,12 +23,13 @@ _WORK_SLOTS = asyncio.Semaphore(2)
 _VIDEO_SLOTS = asyncio.Semaphore(2)
 from .video_download import VideoDownloadError, downloaded_video, find_video_url
 from .config import AVAILABLE_MODELS, Settings
-from .persist import persistence_available, load_greet_unknown, save_greet_unknown, load_video_unknown, save_video_unknown, load_stranger_flags, save_stranger_flag, load_friend_chats, save_friend_chats, format_friend_chats, FRIEND_CATEGORIES, DEFAULT_FRIEND_CATEGORY, load_chat_profiles, save_chat_profiles, save_session, save_approved_chats, save_reply_enabled
+from .persist import persistence_available, load_greet_unknown, save_greet_unknown, load_video_unknown, save_video_unknown, load_stranger_flags, save_stranger_flag, load_friend_chats, save_friend_chats, format_friend_chats, FRIEND_CATEGORIES, DEFAULT_FRIEND_CATEGORY, load_chat_profiles, save_chat_profiles, save_session, save_approved_chats, save_reply_enabled, load_accounts_raw, save_accounts, enter_scope, current_scope
 from .diagnostics import safe_error_detail
 from .image_gen import ImageGenError, gemini_api_key, generate_image, parse_image_command
 from .humanize import human_typing_delay, read_delay, split_parts
 from .presence import OnlinePresence
 from .greeting import GreetingState, NoteState
+from .accounts import dump_accounts, forget, parse_accounts, public_view, remember
 from .public_bank import DISCLOSURE, PublicBankState, is_stop_request
 from .policy import chat_is_approved, group_message_needs_reply, split_telegram_message
 
@@ -110,6 +111,7 @@ class TelegramAgent:
         self.voice_state = GreetingState(max_per_chat=5, global_per_hour=20)
         self.notes = NoteState()
         self.session_revoked = False
+        self.accounts = parse_accounts(load_accounts_raw())
 
     async def start(self) -> None:
         if not self.settings.telegram_api_ready or not self.settings.telegram_session:
@@ -137,6 +139,7 @@ class TelegramAgent:
                 self.session_revoked = True
                 raise RuntimeError("The Telegram session is not authorized")
             await self._activate_client(client)
+            await self._remember_account(self.settings.telegram_session)
         except asyncio.CancelledError:
             if client is not None:
                 try:
@@ -188,6 +191,7 @@ class TelegramAgent:
         # The watchdog and later reconnects must use the account that was just
         # authenticated, even before Render restarts the service with new env.
         self.settings = replace(self.settings, telegram_session=session)
+        await self._remember_account(session)
 
     async def stop(self) -> None:
         self.presence.stop()
@@ -199,8 +203,49 @@ class TelegramAgent:
             await self._login_client.disconnect()
         self.connected = False
 
+    async def _enter_account_scope(self, account_id: int) -> None:
+        """Load this account's own allowlist, friends, chat memory, reply switches and model choice.
+
+        The first account ever keeps the settings it already had; any other account starts blank
+        (replies off, nothing approved) until it is set up in the panel."""
+        key = str(account_id)
+        if current_scope() == key:
+            return
+        first = not self.accounts and current_scope() is None
+        await enter_scope(key, migrate_globals=first)
+        self._reload_scoped_state()
+
+    def _reload_scoped_state(self) -> None:
+        try:
+            fresh = Settings.from_env()
+            fields = {
+                "approved_chat_ids": fresh.approved_chat_ids, "reply_enabled": fresh.reply_enabled,
+                "group_reply_enabled": fresh.group_reply_enabled, "group_reply_mode": fresh.group_reply_mode,
+                "openai_model": fresh.openai_model, "complex_openai_model": fresh.complex_openai_model,
+            }
+        except ValueError:
+            log.warning("Saved settings of this account are invalid; starting it blank")
+            fields = {"approved_chat_ids": frozenset(), "reply_enabled": False, "group_reply_enabled": True, "group_reply_mode": "mentions"}
+        self.settings = replace(self.settings, **fields)
+        self.reply_enabled = self.settings.reply_enabled
+        try:
+            self.chat_profiles = load_chat_profiles()
+        except ValueError:
+            log.warning("Saved chat memory of this account is invalid; starting it empty")
+            self.chat_profiles = {}
+        self.friend_ids = load_friend_chats()
+        self.greet_unknown = load_greet_unknown()
+        self.video_unknown = load_video_unknown()
+        flags = load_stranger_flags()
+        self.voice_unknown, self.notify_unknown = flags["voice_unknown"], flags["notify_unknown"]
+        # Limits and counters belong to the account that produced them.
+        self.greeting, self.voice_state = GreetingState(), GreetingState(max_per_chat=5, global_per_hour=20)
+        self.notes, self.public_bank = NoteState(), PublicBankState()
+        self.assistant = ShadowAssistant(self.settings) if self.reply_enabled else None
+
     async def _activate_client(self, client: TelegramClient) -> None:
         me = await client.get_me()
+        await self._enter_account_scope(me.id)
         previous = self.client if self.client is not client else None
         # Authenticate the new account before detaching the working connection.
         # Then remove its listener before switching to avoid duplicate replies.
@@ -298,6 +343,52 @@ class TelegramAgent:
                 ) from exc
             await self._activate_client(self._login_client)
             await self._persist_login(self._login_client)
+
+    async def _remember_account(self, session: str) -> None:
+        """Keep the account that is connected right now in the saved list, so it can be switched back to."""
+        if self.account_id is None or not session:
+            return
+        self.accounts = remember(self.accounts, self.account_id, self.account_label or str(self.account_id), session)
+        await save_accounts(dump_accounts(self.accounts))
+
+    def account_list(self) -> list[dict[str, object]]:
+        return public_view(self.accounts, self.account_id)
+
+    async def switch_account(self, account_id: str) -> dict[str, object]:
+        """Connect a saved account and make it the live one. The current account stays connected until the
+        new one is authorized, and stays active when the new login fails."""
+        saved = self.accounts.get(str(account_id))
+        if saved is None:
+            raise ValueError("Bunday akkaunt saqlanmagan")
+        if self.account_id is not None and str(account_id) == str(self.account_id) and self.connected:
+            return {"account": self.account_label, "account_id": self.account_id, "changed": False}
+        if not self.settings.telegram_api_ready:
+            raise RuntimeError("Telegram API credentials are missing")
+        async with self._setup_lock:
+            client = TelegramClient(
+                StringSession(saved["session"]), self.settings.telegram_api_id, self.settings.telegram_api_hash,
+                auto_reconnect=True, connection_retries=None, retry_delay=3,
+            )
+            try:
+                await asyncio.wait_for(client.connect(), timeout=SETUP_NETWORK_TIMEOUT_SECONDS)
+                if not await asyncio.wait_for(client.is_user_authorized(), timeout=SETUP_NETWORK_TIMEOUT_SECONDS):
+                    await client.disconnect()
+                    raise ValueError("Bu akkauntning sessiyasi tugagan. Uni o‘chirib, qayta qo‘shing.")
+            except (asyncio.TimeoutError, TimeoutError) as exc:
+                await client.disconnect()
+                raise TelegramSetupTimeout("Telegram serveriga ulanib bo‘lmadi (vaqt tugadi). Qaytadan urinib ko‘ring.") from exc
+            except ValueError:
+                raise
+            except Exception:
+                await client.disconnect()
+                raise
+            await self._activate_client(client)
+            await self._persist_login(client)
+        return {"account": self.account_label, "account_id": self.account_id, "changed": True}
+
+    async def forget_account(self, account_id: str) -> None:
+        self.accounts = forget(self.accounts, account_id, self.account_id)
+        await save_accounts(dump_accounts(self.accounts))
 
     def setup_result(self) -> dict[str, object]:
         """Return safe account and persistence details after private login."""

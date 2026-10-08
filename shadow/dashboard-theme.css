@@ -488,3 +488,18 @@
 :root[data-theme] .dev-empty{padding:12px 18px;color:var(--v-muted);font-size:11px}
 @media(max-width:1060px){:root[data-theme] .dev-columns{grid-template-columns:1fr}:root[data-theme] .dev-compose{grid-template-columns:1fr 1fr}:root[data-theme] .dev-help-box{grid-column:1/-1}:root[data-theme] .dev-jobs{max-height:400px}}
 @media(max-width:680px){:root[data-theme] .dev-hero{padding:20px;gap:14px}:root[data-theme] .dev-hero h2{font-size:23px}:root[data-theme] .dev-orbit{display:none}:root[data-theme] .dev-status-strip{gap:7px 14px}:root[data-theme] .dev-status-strip>span:last-child{width:100%;margin-left:0}:root[data-theme] .dev-compose{grid-template-columns:1fr}:root[data-theme] .dev-jobs{max-height:200px}:root[data-theme] .dev-card-head,:root[data-theme] #devDetail,:root[data-theme] #devForm{padding:15px}:root[data-theme] .dev-blank{min-height:260px}}
+
+/* Accounts page: saved Telegram accounts, pick one or add a new one */
+.accounts-page .overview-panel{display:grid;gap:16px;padding-bottom:20px}
+.acc-list{display:grid;gap:10px;margin-inline:20px}
+.acc-row{display:flex;align-items:center;gap:14px;padding:14px 16px;border:1px solid var(--v-line);border-radius:12px;background:var(--v-surface2)}
+.acc-row.active{border-color:var(--v-accent);background:color-mix(in srgb,var(--v-accent) 10%,var(--v-surface2));box-shadow:0 0 0 1px var(--v-accent) inset}
+.acc-avatar{display:grid;place-items:center;flex:none;width:40px;height:40px;border-radius:50%;background:color-mix(in srgb,var(--hue,var(--c-teal)) 22%,transparent);color:var(--hue,var(--c-teal));font-weight:700}
+.acc-info{display:grid;gap:2px;min-width:0;flex:1}
+.acc-info strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.acc-info small{color:var(--v-muted);font-size:12px}
+.acc-empty{padding:22px;border:1px dashed var(--v-line2);border-radius:12px;color:var(--v-muted);text-align:center}
+.accounts-page .group-reply-notice,.accounts-page .acc-actions{margin-inline:20px}
+.acc-actions{display:flex;gap:10px;flex-wrap:wrap}
+.acc-actions .btn{text-decoration:none;display:inline-block}
+@media(max-width:680px){.acc-row{flex-wrap:wrap}}
