@@ -4,6 +4,7 @@
   const el = id => document.getElementById(id);
   const root = '/dashboard/api/development';
   const states = {queued:'Navbatda',inspecting:'Manbalarni o‘qiyapti',building:'Tayyorlayapti',validating:'Tekshiryapti',ready:'Ko‘rib chiqish',failed:'Xatolik',cancelled:'To‘xtatildi',interrupted:'Uzildi',publishing:'PR yaratilmoqda',published:'Draft PR tayyor'};
+  const taskTypes = {analysis:'Tahlil va takliflar',feature:'Yangi imkoniyat',bug_audit:'Xatolarni topish',bugfix:'Xatolarni tuzatish',security_audit:'Xavfsizlik auditi',security_fix:'Xavfsizlikni tuzatish',design:'Dizayn va UX',performance:'Tezlik va samaradorlik',tests:'Test va sifat',docs:'Hujjatlar',integration:'API integratsiyasi',refactor:'Refaktor',reliability:'Ishonchlilik'};
   const running = new Set(['queued','inspecting','building','validating','publishing']);
   let selected = null, detail = null, status = null, refreshing = false, actionBusy = false, feedbackJob = null;
   const text = (id, value) => { el(id).textContent = value || ''; };
@@ -26,13 +27,13 @@
     if(!jobs.length)list.append(node('p','Hali vazifa yo‘q.','dev-empty'));
     jobs.forEach(job=>{
       const button=node('button','','dev-job'+(selected===job.id?' selected':''));button.type='button';button.setAttribute('aria-pressed',String(selected===job.id));
-      button.append(node('strong',job.title||job.objective),node('small',(states[job.state]||job.state)+' · '+new Date(job.created_at).toLocaleString('uz-UZ',{dateStyle:'short',timeStyle:'short'})));
+      button.append(node('strong',job.title||job.objective),node('small',(taskTypes[job.task_type]||'Vazifa')+' · '+(states[job.state]||job.state)+' · '+new Date(job.created_at).toLocaleString('uz-UZ',{dateStyle:'short',timeStyle:'short'})));
       button.addEventListener('click',()=>{selected=job.id;loadDetail().catch(error=>notice(errorMessage(error),true));showJobs(jobs);});list.append(button);
     });
   }
   function render(job) {
     detail=job;el('devEmpty').hidden=true;el('devDetail').hidden=false;
-    text('devJobState',states[job.state]||job.state);text('devResultTitle',job.title||job.objective);text('devResultSummary',job.error||job.summary||'Agent vazifani bajarishni boshladi.');
+    text('devJobState',(states[job.state]||job.state)+(taskTypes[job.task_type]?' · '+taskTypes[job.task_type]:''));text('devResultTitle',job.title||job.objective);text('devResultSummary',job.error||job.summary||'Agent vazifani bajarishni boshladi.');
     el('devJobState').dataset.state=job.state;
     el('devEvents').replaceChildren(...(job.events||[]).map(event=>node('li',new Date(event.time).toLocaleTimeString('uz-UZ',{hour:'2-digit',minute:'2-digit'})+' · '+event.message)));
     const findings=el('devFindings');findings.replaceChildren();
@@ -67,8 +68,8 @@
     if(actionBusy)return;actionBusy=true;controls();notice('');
     try{await work();if(success)notice(success);}catch(error){notice(errorMessage(error),true);}finally{actionBusy=false;await refresh();controls();}
   }
-  el('devForm').addEventListener('submit',event=>{event.preventDefault();action(async()=>{const job=await api(root,json('POST',{objective:el('devObjective').value.trim(),mode:el('devMode').value}));selected=job.id;},'Vazifa boshlandi. Natija shu ish maydonida ko‘rinadi.');});
-  document.querySelectorAll('[data-dev-preset]').forEach(button=>button.addEventListener('click',()=>{el('devObjective').value=button.dataset.devPreset;el('devMode').value=button.dataset.devMode;el('devObjective').focus();}));
+  el('devForm').addEventListener('submit',event=>{event.preventDefault();action(async()=>{const type=el('devMode').value,mode=el('devMode').selectedOptions[0]?.dataset.mode||'audit';const job=await api(root,json('POST',{objective:el('devObjective').value.trim(),mode,task_type:type}));selected=job.id;},'Vazifa boshlandi. Natija shu ish maydonida ko‘rinadi.');});
+  document.querySelectorAll('[data-dev-preset]').forEach(button=>button.addEventListener('click',()=>{el('devObjective').value=button.dataset.devPreset;el('devMode').value=button.dataset.devType;el('devObjective').focus();}));
   el('devRefresh').addEventListener('click',()=>{notice('');refresh();});
   el('devCancel').addEventListener('click',()=>{const id=selected;action(()=>api(root+'/'+id+'/cancel',json('POST')),'Vazifa to‘xtatildi.');});
   el('devPublish').addEventListener('click',()=>{const id=selected;action(async()=>{const job=await api(root+'/'+id+'/publish',json('POST'));if(selected===id)render(job);},'Draft PR yaratildi. Havola orqali tekshirib chiqing.');});

@@ -121,6 +121,10 @@ def development_auth(shadow_setup: str | None = Cookie(default=None),
 class DevelopmentTask(BaseModel):
     objective: str = Field(min_length=10, max_length=3000)
     mode: Literal["audit", "build"] = "audit"
+    task_type: Literal[
+        "analysis", "feature", "bug_audit", "bugfix", "security_audit", "security_fix",
+        "design", "performance", "tests", "docs", "integration", "refactor", "reliability",
+    ] | None = None
 
 
 class DevelopmentFeedback(BaseModel):
@@ -143,7 +147,7 @@ async def development_start(body: DevelopmentTask):
     state = agent.status()
     runtime = {key: state.get(key) for key in ("connected", "reply_enabled", "reply_ready", "reply_count")}
     runtime["has_reply_error"] = bool(state.get("last_reply_error"))
-    return await development.start(agent.settings, body.objective, body.mode, runtime)
+    return await development.start(agent.settings, body.objective, body.mode, runtime, body.task_type)
 
 
 @app.get("/dashboard/api/development/{job_id}", dependencies=[Depends(development_auth)])
