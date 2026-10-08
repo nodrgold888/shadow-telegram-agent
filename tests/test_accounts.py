@@ -121,3 +121,14 @@ class SwitchAccountTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual([a["id"] for a in self.agent.account_list()], ["1"])
         with self.assertRaises(ValueError):
             await self.agent.forget_account("1")
+
+
+class MaskLabelTests(unittest.TestCase):
+    def test_labels_are_recognisable_but_not_complete(self):
+        from shadow.accounts import mask_label
+        self.assertEqual(mask_label("@nodirjon_davrbank"), "@no•••k")
+        self.assertEqual(mask_label("@ab"), "@a•••")
+        self.assertEqual(mask_label("123456789"), "ID •••6789")
+        for empty in (None, "", "   "):
+            self.assertIsNone(mask_label(empty))
+        self.assertNotIn("nodirjon", mask_label("@nodirjon_davrbank"))
