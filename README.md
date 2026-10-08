@@ -300,3 +300,53 @@ The dashboard header has a **2D | 3D** switch. 2D is the flat design; 3D adds de
 ### More for people who are not approved
 
 Two more switches in **Avtomatik javoblar → Notanish chatlar** (both off by default, friends are never touched): **Notanishlarning ovozli xabariga javob** transcribes a voice message of up to one minute and answers it briefly like the greeting (5 per chat per day, 20 per hour overall), and **Notanish yozsa menga xabar yuborish** puts a short note in your Saved Messages (who wrote, chat ID and the text; one per chat every 10 minutes, 20 per hour overall). Stored as `VOICE_UNKNOWN` and `NOTIFY_UNKNOWN`.
+
+## Development Studio
+
+The dashboard's **Development Studio** is an owner-operated AI development agent for
+Shadow itself. It has two task modes:
+
+- **Audit:** inspect relevant source files and produce evidence-based findings and a plan.
+- **Build:** prepare new capabilities, UI improvements, refactors, or repairs as source
+  changes in a separate task workspace. Inspect the diff and download an ordinary Git patch.
+
+The agent selects up to six source files, generates bounded exact edits or new files,
+checks paths and Python/JSON syntax, and gets one revision attempt when validation fails.
+It uses the existing AI provider configuration in a separate request context. Each task
+has a five-minute limit; only one generation task can run at a time. Cancelling a task
+cancels its outstanding generation request. Source code and a small runtime summary
+(connection/reply booleans and reply count) go to the configured provider; Telegram
+messages, session files, and environment variables are not read into the agent context.
+Do not put secrets in task descriptions or feedback.
+
+Generated code is **not executed or applied to the running service**. The report clearly
+separates syntax checks that ran from functional/browser checks the reviewer still needs
+to run. Accepted/rejected feedback and owner notes become context for future tasks; this
+is preference memory, not model-weight training. The existing repair agent remains
+available under Monitoring for live connection and listener repairs.
+
+### Draft GitHub pull requests
+
+To let the studio create update branches and draft pull requests, set these environment
+variables on the server:
+
+| Variable | Purpose |
+| --- | --- |
+| `SHADOW_DEV_GITHUB_TOKEN` | Fine-grained GitHub token for this repository, with Contents and Pull requests read/write permissions. |
+| `SHADOW_DEV_GITHUB_REPO` | Target `owner/repository`; defaults to `nodrgold888/shadow-telegram-agent`. |
+| `SHADOW_DEV_GITHUB_BRANCH` | Base branch; defaults to `main`. |
+| `SHADOW_DEV_MODEL` | Optional OpenAI model override for development tasks. Existing compatible backup providers retain their own models. |
+| `SHADOW_DEV_DIR` | Job/feedback workspace path; defaults to `/tmp/shadow-development`. Use a writable persistent volume for durable history. |
+
+The **Draft PR** button verifies that the inspected source still matches GitHub, writes
+only a new `shadow/development-…` branch, and opens a draft PR. If source changed, rebuild
+against the current deployed version. Retrying a failed publication resumes the same
+branch/PR rather than creating duplicates. The studio never merges PRs or pushes to the
+base branch. Review and test the PR, then merge it through your normal GitHub workflow;
+the existing Render deployment follows changes to `main`.
+
+Without a GitHub token, audit, build, diff review, feedback, and patch downloads still
+work. The workspace holds up to 30 tasks; download and remove old tasks to free space.
+Local history and preference memory survive process restarts when the directory is
+retained, but Render's ephemeral filesystem can be reset by a redeploy. Export patches
+or use draft PRs before redeploying; use a persistent disk for durable task history.

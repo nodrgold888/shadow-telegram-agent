@@ -13,6 +13,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY shadow ./shadow
 COPY scripts ./scripts
+COPY tests ./tests
+COPY README.md ./README.md
 
 USER shadowagent
 EXPOSE 10000

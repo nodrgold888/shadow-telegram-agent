@@ -6,11 +6,15 @@ import secrets
 from contextlib import asynccontextmanager
 from dataclasses import replace
 from pathlib import Path
+from typing import Literal
 
-from fastapi import Cookie, FastAPI, Header, HTTPException, Request
+from pydantic import BaseModel, Field
+
+from fastapi import Cookie, Depends, FastAPI, Header, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, Response
 
 from .config import Settings
+from .development import DevelopmentError, DevelopmentStudio
 from .ai_slots import apply_provider, free_slot, parse_provider, provider_env, remove_slot, set_first, slot_env_names
 from .persist import delete_env_vars, save_env_vars, save_model_selection, save_reply_enabled, save_group_reply_enabled, save_group_reply_mode
 from .policy import parse_group_reply_update
@@ -30,6 +34,7 @@ settings = Settings.from_env()
 agent = TelegramAgent(settings)
 keepalive = build_keepalive()
 panel_login = PanelLogin()
+development = DevelopmentStudio()
 
 
 @asynccontextmanager
@@ -40,6 +45,7 @@ async def lifespan(_: FastAPI):
     try:
         yield
     finally:
+        await development.close()
         if keepalive:
             keepalive.stop()
         await agent.stop()
@@ -100,6 +106,84 @@ async def dashboard_theme() -> Response:
         media_type="text/css",
         headers={"Cache-Control": "no-store"},
     )
+
+
+@app.get("/dashboard/development.js")
+async def development_script() -> Response:
+    return Response(Path(__file__).with_name("development.js").read_text(encoding="utf-8"),
+                    media_type="text/javascript", headers={"Cache-Control": "no-store"})
+
+
+def development_auth(shadow_setup: str | None = Cookie(default=None),
+                     authorization: str | None = Header(default=None)):
+    if not _dashboard_allowed(shadow_setup, authorization):
+        raise HTTPException(status_code=401, detail="Kirish kerak")
+
+
+class DevelopmentTask(BaseModel):
+    objective: str = Field(min_length=10, max_length=3000)
+    mode: Literal["audit", "build"] = "audit"
+
+
+class DevelopmentFeedback(BaseModel):
+    decision: Literal["accepted", "rejected"]
+    note: str = Field(default="", max_length=1000)
+
+
+@app.exception_handler(DevelopmentError)
+async def development_error(_request: Request, exc: DevelopmentError):
+    return JSONResponse({"detail": str(exc)}, status_code=400)
+
+
+@app.get("/dashboard/api/development", dependencies=[Depends(development_auth)])
+async def development_status():
+    return development.status(agent.settings)
+
+
+@app.post("/dashboard/api/development", status_code=202, dependencies=[Depends(development_auth)])
+async def development_start(body: DevelopmentTask):
+    state = agent.status()
+    runtime = {key: state.get(key) for key in ("connected", "reply_enabled", "reply_ready", "reply_count")}
+    runtime["has_reply_error"] = bool(state.get("last_reply_error"))
+    return await development.start(agent.settings, body.objective, body.mode, runtime)
+
+
+@app.get("/dashboard/api/development/{job_id}", dependencies=[Depends(development_auth)])
+async def development_detail(job_id: str):
+    return development.public(development.get(job_id), detail=True)
+
+
+@app.get("/dashboard/api/development/{job_id}/patch", dependencies=[Depends(development_auth)])
+async def development_patch(job_id: str):
+    job = development.get(job_id)
+    if not job.get("patch"):
+        raise DevelopmentError("This task has no patch")
+    return Response(job["patch"], media_type="text/plain",
+                    headers={"Content-Disposition": f'attachment; filename="shadow-{job["id"]}.patch"',
+                             "Cache-Control": "no-store"})
+
+
+@app.post("/dashboard/api/development/{job_id}/cancel", dependencies=[Depends(development_auth)])
+async def development_cancel(job_id: str):
+    await development.cancel(job_id)
+    return {"ok": True}
+
+
+@app.post("/dashboard/api/development/{job_id}/feedback", dependencies=[Depends(development_auth)])
+async def development_feedback(job_id: str, body: DevelopmentFeedback):
+    development.feedback(job_id, body.decision, body.note)
+    return {"ok": True}
+
+
+@app.post("/dashboard/api/development/{job_id}/publish", dependencies=[Depends(development_auth)])
+async def development_publish(job_id: str):
+    return await development.publish(job_id)
+
+
+@app.delete("/dashboard/api/development/{job_id}", dependencies=[Depends(development_auth)])
+async def development_delete(job_id: str):
+    development.delete(job_id)
+    return {"ok": True}
 
 
 @app.post("/dashboard/auth")
