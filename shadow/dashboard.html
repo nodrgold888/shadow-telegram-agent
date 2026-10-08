@@ -1104,6 +1104,37 @@ fieldset.agent-picker{margin:13px 0;padding:0;border:0}fieldset.agent-picker leg
 :root[data-theme] .command-option,:root[data-theme] .option-symbol{border-radius:6px}
 @media(max-width:1050px){:root[data-theme] .command-hero{grid-template-columns:minmax(0,1fr) 150px;gap:18px}:root[data-theme] .command-visual{width:150px;height:150px}:root[data-theme] .command-readouts{grid-column:1/-1;grid-template-columns:repeat(3,minmax(0,1fr));padding:0}:root[data-theme] .command-readout,:root[data-theme] .command-readout:nth-child(2),:root[data-theme] .command-readout:nth-child(3){border:0;border-right:1px solid var(--v-line)}:root[data-theme] .command-readout:last-child{border-right:0}}
 @media(max-width:680px){:root[data-theme] .command-hero{grid-template-columns:minmax(0,1fr) 90px;gap:12px;padding:16px;border-radius:9px}:root[data-theme] .command-copy h2{font-size:24px}:root[data-theme] .command-visual{grid-column:2;grid-row:1;width:100px;height:100px;transform:scale(.75)}:root[data-theme] .command-readouts{grid-template-columns:1fr}:root[data-theme] .command-readout,:root[data-theme] .command-readout:nth-child(2),:root[data-theme] .command-readout:nth-child(3){border:0;border-bottom:1px solid var(--v-line)}:root[data-theme] .command-readout:last-child{border:0}:root[data-theme] .overview-metric{min-height:116px;padding:13px}:root[data-theme] .overview-metric strong{font-size:26px}}
+
+/* Subtle neon and directional motion for the command console. */
+:root[data-theme="dark"] .command-hero{border-color:#31515e;box-shadow:0 0 0 1px #41e7df12,0 12px 32px #0005,0 0 34px #2edbda0a}
+:root[data-theme="dark"] .command-hero:before{opacity:.13;animation:console-grid-drift 32s linear infinite}
+:root[data-theme] .command-hero:after{position:absolute;z-index:0;top:-20%;bottom:-20%;left:-40%;width:26%;background:linear-gradient(90deg,transparent,#66fff211 45%,#69baff12 54%,transparent);filter:blur(9px);transform:skewX(-17deg);animation:console-sweep 11s ease-in-out infinite;content:"";pointer-events:none}
+:root[data-theme] .command-copy,:root[data-theme] .command-visual,:root[data-theme] .command-readouts{position:relative;z-index:1}
+:root[data-theme="dark"] .core-orbit{filter:drop-shadow(0 0 3px #41e7df52)}
+:root[data-theme="dark"] .orbit-a{border-color:#48eee522 #48eee51c #48eee50a #48eee5a0;box-shadow:0 0 10px #45f4e611,inset 0 0 9px #45f4e60d;animation:command-spin 28s linear infinite}
+:root[data-theme="dark"] .orbit-b{border-color:#6baaff08 #77b5ff9c #6baaff24 #6baaff20;filter:drop-shadow(0 0 4px #62a8ff40);animation:command-spin 19s linear infinite reverse}
+:root[data-theme="dark"] .orbit-c{border-color:#a78bfa32 #a78bfa14 #a78bfa9c #a78bfa1c;filter:drop-shadow(0 0 3px #a78bfa40);animation:command-spin 37s linear infinite}
+:root[data-theme="dark"] .core-halo{background:radial-gradient(circle,#2dd4bf24 0%,#2dd4bf0b 38%,transparent 72%);filter:blur(4px);animation:command-breathe 4.2s ease-in-out infinite}
+:root[data-theme="dark"] .command-core{border-color:#61f2df9c;background:radial-gradient(circle at 34% 24%,#1b4748,#111e28 74%);box-shadow:0 0 0 5px #34e8dc0b,0 0 22px #31e9dc36,inset 0 0 17px #56e8dc15;color:#70f2df;animation:core-hover 5.4s ease-in-out infinite}
+:root[data-theme="dark"] .command-core:after{position:absolute;inset:-8px;border:1px solid #4deadd21;border-radius:50%;filter:blur(2px);content:""}
+:root[data-theme="dark"] .orbit-node{color:var(--c-teal);box-shadow:0 0 9px currentColor,0 0 16px color-mix(in srgb,currentColor 48%,transparent)}
+:root[data-theme="dark"] .command-status.ready i{box-shadow:0 0 0 3px #2dd4bf18,0 0 10px #2dd4bf;animation:status-pulse 2.2s ease-out infinite}
+:root[data-theme="dark"] .command-action.primary-action{background:linear-gradient(100deg,#38dbc1,#41b9ce);box-shadow:0 0 0 1px #67f4da28,0 4px 15px #19cdbb24}
+:root[data-theme="dark"] .command-action.primary-action:hover{box-shadow:0 0 0 1px #8cfff188,0 0 20px #2ad9c74c;filter:none}
+:root[data-theme="dark"] .command-action:not(.primary-action):hover{border-color:#48d9d0a0;box-shadow:0 0 13px #2ad9c71c}
+:root[data-theme="dark"] .overview-metric{transition:border-color .2s ease,box-shadow .2s ease,transform .2s ease}
+:root[data-theme="dark"] .overview-metric:hover{border-color:color-mix(in srgb,var(--metric-accent) 58%,var(--v-line));box-shadow:0 0 0 1px color-mix(in srgb,var(--metric-accent) 16%,transparent),0 7px 22px #0004;transform:translateY(-2px)}
+:root[data-theme="dark"] .overview-panel{transition:border-color .2s ease,box-shadow .2s ease}
+:root[data-theme="dark"] .overview-panel:hover{border-color:color-mix(in srgb,var(--panel-accent,var(--c-teal)) 36%,var(--v-line));box-shadow:0 0 0 1px color-mix(in srgb,var(--panel-accent,var(--c-teal)) 9%,transparent),0 8px 22px #0004}
+:root[data-theme="dark"] .monitor-card{transition:border-color .2s ease,box-shadow .2s ease}
+:root[data-theme="dark"] .monitor-card:hover{border-color:color-mix(in srgb,var(--monitor-accent) 55%,var(--v-line));box-shadow:0 0 15px color-mix(in srgb,var(--monitor-accent) 10%,transparent)}
+:root[data-theme="dark"] .event-live i{animation:status-pulse 2.2s ease-out infinite}
+:root[data-theme="light"] .command-hero:after{opacity:.45}
+@keyframes console-sweep{0%,12%{left:-40%;opacity:0}22%{opacity:.8}48%{left:115%;opacity:.55}58%,100%{left:115%;opacity:0}}
+@keyframes console-grid-drift{to{background-position:36px 36px}}
+@keyframes core-hover{0%,100%{transform:translateY(0)}50%{transform:translateY(-2px)}}
+@keyframes status-pulse{0%{box-shadow:0 0 0 0 #2dd4bf44,0 0 8px #2dd4bf}75%,100%{box-shadow:0 0 0 7px #2dd4bf00,0 0 8px #2dd4bf}}
+@media(prefers-reduced-motion:reduce){:root[data-theme] .command-hero:before,:root[data-theme] .command-hero:after,:root[data-theme] .core-orbit,:root[data-theme] .core-halo,:root[data-theme] .command-core,:root[data-theme] .orbit-node,:root[data-theme] .command-status.ready i,:root[data-theme] .event-live i{animation:none!important}:root[data-theme] .overview-metric,:root[data-theme] .overview-panel,:root[data-theme] .monitor-card{transition:none!important}:root[data-theme] .overview-metric:hover{transform:none}}
 </style>
 </head>
 <body>
