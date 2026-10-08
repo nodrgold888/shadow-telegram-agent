@@ -152,6 +152,9 @@ class Settings:
     def from_env(cls) -> "Settings":
         local = load_local_settings()
         mode = os.getenv("GROUP_REPLY_MODE", "mentions").strip().lower()
+        saved_mode = local.get("GROUP_REPLY_MODE", "").strip().lower()
+        if saved_mode in {"mentions", "all"}:  # the panel's choice wins; a bad saved value never stops boot
+            mode = saved_mode
         raw_models = local.get("SHADOW_MODEL_SELECTION", os.getenv("SHADOW_MODEL_SELECTION", "")).strip()
         try:
             model_selection = json.loads(raw_models) if raw_models else {}

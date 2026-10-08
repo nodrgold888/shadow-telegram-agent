@@ -12,7 +12,8 @@ from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, Res
 
 from .config import Settings
 from .ai_slots import apply_provider, free_slot, parse_provider, provider_env, remove_slot, set_first, slot_env_names
-from .persist import delete_env_vars, save_env_vars, save_model_selection, save_reply_enabled, save_group_reply_enabled
+from .persist import delete_env_vars, save_env_vars, save_model_selection, save_reply_enabled, save_group_reply_enabled, save_group_reply_mode
+from .policy import parse_group_reply_update
 from .config import MAX_BACKUP_PROVIDERS, SUPPORTED_OPENAI_MODELS
 from .agents import agent_catalog, skill_catalog
 from .chat_memory import normalize_chat_profile
@@ -373,15 +374,28 @@ async def dashboard_group_replies(
 ) -> dict[str, object]:
     if not _dashboard_allowed(shadow_setup, authorization):
         raise HTTPException(status_code=401, detail="Kirish kerak")
-    body = await request.json()
-    enabled = body.get("enabled") if isinstance(body, dict) else None
-    if not isinstance(enabled, bool):
-        raise HTTPException(status_code=400, detail="enabled qiymati true yoki false bo‘lishi kerak")
-    agent.settings = replace(agent.settings, group_reply_enabled=enabled)
+    try:
+        enabled, mode = parse_group_reply_update(await request.json())
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from None
+    changes = {}
+    if enabled is not None:
+        changes["group_reply_enabled"] = enabled
+    if mode is not None:
+        changes["group_reply_mode"] = mode
+    agent.settings = replace(agent.settings, **changes)
     if agent.assistant:
         agent.assistant.settings = agent.settings
-    persisted = await save_group_reply_enabled(enabled)
-    return {"group_reply_enabled": enabled, "persisted": persisted}
+    persisted = True
+    if enabled is not None:
+        persisted = await save_group_reply_enabled(enabled) and persisted
+    if mode is not None:
+        persisted = await save_group_reply_mode(mode) and persisted
+    return {
+        "group_reply_enabled": agent.settings.group_reply_enabled,
+        "group_reply_mode": agent.settings.group_reply_mode,
+        "persisted": persisted,
+    }
 
 
 @app.post("/dashboard/api/greet-unknown")
