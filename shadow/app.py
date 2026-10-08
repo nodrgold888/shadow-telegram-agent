@@ -23,6 +23,7 @@ from .config import MAX_BACKUP_PROVIDERS, SUPPORTED_OPENAI_MODELS
 from .agents import agent_catalog, skill_catalog
 from .chat_memory import normalize_chat_profile
 from .keepalive import build_keepalive
+from .integrations.catalog import catalog as integration_catalog
 from .panel_login import PanelLogin, LoginError
 from .telegram_agent import TelegramAgent, TelegramSetupTimeout
 
@@ -283,6 +284,19 @@ async def dashboard_status(
     if not _dashboard_allowed(shadow_setup, authorization):
         raise HTTPException(status_code=401, detail="Kirish kerak")
     return {**agent.status(), "keepalive": keepalive.status() if keepalive else {"enabled": False}}
+
+
+@app.get("/dashboard/api/integrations")
+async def dashboard_integrations(
+    shadow_setup: str | None = Cookie(default=None),
+    authorization: str | None = Header(default=None),
+) -> dict[str, object]:
+    if not _dashboard_allowed(shadow_setup, authorization):
+        raise HTTPException(status_code=401, detail="Kirish kerak")
+    return {"integrations": integration_catalog(
+        telegram_connected=agent.connected,
+        telegram_account=agent.account_label,
+    )}
 
 
 @app.post("/dashboard/api/repair-agent")
