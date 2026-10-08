@@ -366,3 +366,16 @@
  :root[data-theme] .login{padding:23px 19px}
 }
 @media(prefers-reduced-motion:reduce){:root[data-theme] *,:root[data-theme] *:before,:root[data-theme] *:after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
+
+/* Group replies page: switch, mode choice and shortcut to the group list */
+.group-replies-page .overview-panel{display:grid;gap:16px}
+.gr-modes{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.gr-mode{display:grid;gap:5px;padding:16px 18px;border:1px solid var(--v-line);border-radius:12px;background:var(--v-surface2);color:var(--v-ink);text-align:left;font:inherit;cursor:pointer;transition:border-color .15s,background .15s}
+.gr-mode small{color:var(--v-muted);font-size:12px}
+.gr-mode:hover{border-color:var(--v-line2)}
+.gr-mode[aria-checked="true"]{border-color:var(--v-accent);background:color-mix(in srgb,var(--v-accent) 12%,var(--v-surface2));box-shadow:0 0 0 1px var(--v-accent) inset}
+.gr-mode:disabled{opacity:.6;cursor:wait}
+.gr-actions{display:flex;gap:10px;flex-wrap:wrap}
+@media(max-width:680px){.gr-modes{grid-template-columns:1fr}}
+.group-replies-page .overview-panel{padding-bottom:20px}
+.group-replies-page .setting-row,.group-replies-page .gr-modes,.group-replies-page .group-reply-notice,.group-replies-page .gr-actions{margin-inline:20px}

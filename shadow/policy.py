@@ -42,3 +42,21 @@ def split_telegram_message(text: str, limit: int = 3800) -> list[str]:
 def typing_delay(answer: str) -> float:
     """Seconds to keep the typing indicator on after the answer is ready (0.4-3.5s)."""
     return max(0.4, min(len(answer) * 0.02, 3.5))
+
+
+GROUP_REPLY_MODES = ("mentions", "all")
+
+
+def parse_group_reply_update(body: object) -> tuple[bool | None, str | None]:
+    """Validate the panel's group-reply request: an `enabled` switch, a `mode`, or both."""
+    if not isinstance(body, dict):
+        raise ValueError("So‘rov noto‘g‘ri")
+    enabled = body.get("enabled")
+    mode = body.get("mode")
+    if enabled is None and mode is None:
+        raise ValueError("enabled yoki mode kerak")
+    if enabled is not None and not isinstance(enabled, bool):
+        raise ValueError("enabled qiymati true yoki false bo‘lishi kerak")
+    if mode is not None and mode not in GROUP_REPLY_MODES:
+        raise ValueError("mode faqat mentions yoki all bo‘lishi mumkin")
+    return enabled, mode

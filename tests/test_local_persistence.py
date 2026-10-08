@@ -7,7 +7,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from shadow.config import Settings
-from shadow.persist import load_local_settings, save_approved_chats, save_chat_profiles, save_model_selection, save_reply_enabled, save_session
+from shadow.persist import load_local_settings, save_approved_chats, save_chat_profiles, save_model_selection, save_group_reply_mode, save_reply_enabled, save_session
 
 
 class LocalPersistenceTests(unittest.IsolatedAsyncioTestCase):
@@ -53,3 +53,16 @@ class LocalPersistenceTests(unittest.IsolatedAsyncioTestCase):
                     load_local_settings()
                 self.assertFalse(await save_reply_enabled(True))
                 self.assertEqual(json.loads(path.read_text()), {"REPLY_ENABLED": True})
+
+
+class GroupReplyModeTests(unittest.IsolatedAsyncioTestCase):
+    async def test_saved_mode_wins_over_env_and_a_bad_value_never_breaks_boot(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "state.json"
+            env = {"SHADOW_STATE_FILE": str(path), "GROUP_REPLY_MODE": "mentions"}
+            with patch.dict(os.environ, env):
+                self.assertTrue(await save_group_reply_mode("all"))
+                self.assertEqual(Settings.from_env().group_reply_mode, "all")
+                path.write_text(json.dumps({"GROUP_REPLY_MODE": "bogus"}), encoding="utf-8")
+                self.assertEqual(Settings.from_env().group_reply_mode, "mentions")
+
