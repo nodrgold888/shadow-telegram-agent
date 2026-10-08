@@ -306,7 +306,45 @@ class TelegramAgent:
             self._login_phone = phone
             self._login_hash = sent.phone_code_hash
 
-    async def complete_login(self, code: str) -> str:
+    async def _complete_setup_login(self) -> dict[str, object]:
+        """Save the newly authorized account without replacing an already active one."""
+        client = self._login_client
+        if client is None:
+            raise RuntimeError("Login session is not ready")
+        # The initial account must become active so a fresh installation can start.
+        # When a Telegram account is already active, keep its client, account scope,
+        # session setting, and background handlers untouched while adding this one.
+        if self.client is None:
+            await self._activate_client(client)
+            await self._persist_login(client)
+            return {"status": "connected", **self.setup_result()}
+
+        me = await asyncio.wait_for(client.get_me(), timeout=SETUP_NETWORK_TIMEOUT_SECONDS)
+        if me is None:
+            raise RuntimeError("Telegram akkaunt ma’lumotlarini olib bo‘lmadi")
+        display_name = " ".join(
+            part for part in (getattr(me, "first_name", None), getattr(me, "last_name", None)) if part
+        ).strip()
+        label = f"@{me.username}" if me.username else display_name or str(me.id)
+        self.accounts = remember(self.accounts, me.id, label, client.session.save())
+        persisted = await save_accounts(dump_accounts(self.accounts))
+        try:
+            await client.disconnect()
+        except Exception as exc:
+            log.warning("Could not disconnect temporary Telegram login client: %s", type(exc).__name__)
+        finally:
+            self._login_client = None
+            self._login_phone = None
+            self._login_hash = None
+        return {
+            "status": "added",
+            "account": label,
+            "account_id": me.id,
+            "session_persisted": persisted,
+            "active_account": self.account_label,
+        }
+
+    async def complete_login(self, code: str) -> dict[str, object] | str:
         async with self._setup_lock:
             if not self._login_client or not self._login_phone or not self._login_hash:
                 raise RuntimeError("Login code was not requested")
@@ -325,11 +363,9 @@ class TelegramAgent:
                 raise TelegramSetupTimeout(
                     "Telegram serveriga ulanib bo'lmadi (vaqt tugadi). Qaytadan urinib ko'ring."
                 ) from exc
-            await self._activate_client(self._login_client)
-            await self._persist_login(self._login_client)
-            return "connected"
+            return await self._complete_setup_login()
 
-    async def complete_password(self, password: str) -> None:
+    async def complete_password(self, password: str) -> dict[str, object]:
         async with self._setup_lock:
             if not self._login_client:
                 raise RuntimeError("Login session is not ready")
@@ -342,8 +378,7 @@ class TelegramAgent:
                 raise TelegramSetupTimeout(
                     "Telegram serveriga ulanib bo'lmadi (vaqt tugadi). Qaytadan urinib ko'ring."
                 ) from exc
-            await self._activate_client(self._login_client)
-            await self._persist_login(self._login_client)
+            return await self._complete_setup_login()
 
     async def _remember_account(self, session: str) -> None:
         """Keep the account that is connected right now in the saved list, so it can be switched back to."""
