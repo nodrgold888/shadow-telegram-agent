@@ -916,6 +916,51 @@ fieldset.agent-picker{margin:13px 0;padding:0;border:0}fieldset.agent-picker leg
 :root[data-theme] .repair-agent-result strong{color:var(--v-ink);font-size:11px;font-weight:600}
 :root[data-theme] .repair-agent-result small{color:var(--v-muted);font-size:10px}
 :root[data-theme] .repair-agent-clear{margin:0;padding:10px 11px;border-left:2px solid var(--v-accent);background:var(--v-surface2);color:var(--v-accent);font-size:11px}
+
+/* Dashboard panels: stronger hierarchy, restrained category colors and depth. */
+:root[data-theme] .overview-metric{border-color:color-mix(in srgb,var(--metric-accent) 27%,var(--v-line));border-radius:13px;background:linear-gradient(145deg,color-mix(in srgb,var(--metric-accent) 10%,var(--v-surface)),var(--v-surface) 64%);box-shadow:0 9px 25px color-mix(in srgb,var(--metric-accent) 7%,transparent)}
+:root[data-theme] .overview-metric:before{position:absolute;inset:0 0 auto;height:3px;background:linear-gradient(90deg,var(--metric-accent),color-mix(in srgb,var(--metric-accent) 12%,transparent));content:""}
+:root[data-theme] .overview-metric:after{position:absolute;top:23px;right:-20px;width:90px;height:90px;border:1px solid color-mix(in srgb,var(--metric-accent) 16%,transparent);border-radius:50%;box-shadow:0 0 0 12px color-mix(in srgb,var(--metric-accent) 4%,transparent),0 0 0 25px color-mix(in srgb,var(--metric-accent) 3%,transparent);content:"";pointer-events:none}
+:root[data-theme] .overview-metric .metric-label i{position:relative;z-index:1;width:26px;height:26px;border-radius:8px;background:color-mix(in srgb,var(--metric-accent) 17%,var(--v-surface));color:var(--metric-accent)}
+:root[data-theme] .overview-metric strong{position:relative;z-index:1;color:var(--metric-accent);font-variant-numeric:tabular-nums}
+:root[data-theme] .overview-metric small{position:relative;z-index:1}
+:root[data-theme] .overview-metric .metric-bottom{height:4px;width:100%;background:linear-gradient(90deg,var(--metric-accent),color-mix(in srgb,var(--metric-accent) 12%,var(--v-surface)));opacity:.78}
+:root[data-theme] .overview-panel{border-radius:13px;background:var(--v-surface);box-shadow:0 8px 24px #00000010}
+:root[data-theme] .overview-duo .overview-panel:first-child{--panel-accent:var(--c-teal)}
+:root[data-theme] .overview-duo .overview-panel:last-child{--panel-accent:var(--c-violet)}
+:root[data-theme] .activity-panel{--panel-accent:var(--c-amber)}
+:root[data-theme] .recent-panel{--panel-accent:var(--c-blue)}
+:root[data-theme] .overview-panel-head{position:relative;background:linear-gradient(100deg,color-mix(in srgb,var(--panel-accent,var(--c-teal)) 8%,var(--v-surface)),var(--v-surface) 68%)}
+:root[data-theme] .overview-panel-head:before{position:absolute;top:17px;bottom:17px;left:0;width:3px;border-radius:0 4px 4px 0;background:var(--panel-accent,var(--c-teal));content:""}
+:root[data-theme] .state-pill{border:1px solid color-mix(in srgb,var(--c-amber) 24%,var(--v-line));border-radius:999px}
+:root[data-theme] .state-pill.ok{border-color:color-mix(in srgb,var(--c-teal) 25%,var(--v-line))}
+:root[data-theme] .system-list strong{display:inline-flex;align-items:center;gap:6px;padding:4px 8px;border-radius:999px;background:color-mix(in srgb,var(--c-teal) 11%,var(--v-surface));color:var(--c-teal)}
+:root[data-theme] .system-list strong:before{width:6px;height:6px;border-radius:50%;background:currentColor;content:""}
+:root[data-theme] .system-list strong.off{background:color-mix(in srgb,var(--c-amber) 12%,var(--v-surface));color:var(--c-amber)}
+:root[data-theme] .overview-ai-list li:before{border:1px solid color-mix(in srgb,var(--c-violet) 27%,var(--v-line));background:color-mix(in srgb,var(--c-violet) 12%,var(--v-surface));color:var(--c-violet);font-weight:700}
+:root[data-theme] .overview-ai-list li em{padding:4px 8px;border-radius:999px;background:color-mix(in srgb,var(--c-teal) 12%,var(--v-surface));color:var(--c-teal)}
+:root[data-theme] .activity-grid>div{position:relative}
+:root[data-theme] .activity-grid>div:first-child strong{color:var(--c-teal)}
+:root[data-theme] .activity-grid>div:nth-child(2) strong{color:var(--c-blue)}
+:root[data-theme] .activity-grid>div:last-child strong{color:var(--c-amber)}
+:root[data-theme] .recent-status{border:1px solid color-mix(in srgb,var(--c-teal) 20%,transparent)}
+:root[data-theme] .recent-row:not(.recent-head):hover{background:color-mix(in srgb,var(--c-blue) 5%,var(--v-surface))}
+:root[data-theme] .monitor-summary{position:relative;overflow:hidden;border-radius:13px;background:linear-gradient(110deg,color-mix(in srgb,var(--c-teal) 11%,var(--v-surface)),var(--v-surface) 63%)}
+:root[data-theme] .monitor-summary:after{position:absolute;top:-50px;right:18%;width:170px;height:170px;border:1px solid color-mix(in srgb,var(--c-teal) 13%,transparent);border-radius:50%;box-shadow:0 0 0 18px color-mix(in srgb,var(--c-teal) 3%,transparent),0 0 0 38px color-mix(in srgb,var(--c-teal) 2%,transparent);content:"";pointer-events:none}
+:root[data-theme] .monitor-summary>div{position:relative;z-index:1}
+:root[data-theme] .monitor-card{--monitor-accent:var(--c-teal);position:relative;overflow:hidden;border-color:color-mix(in srgb,var(--monitor-accent) 25%,var(--v-line));border-radius:12px;background:linear-gradient(145deg,color-mix(in srgb,var(--monitor-accent) 9%,var(--v-surface)),var(--v-surface) 72%)}
+:root[data-theme] .monitor-card:nth-child(2){--monitor-accent:var(--c-blue)}:root[data-theme] .monitor-card:nth-child(3){--monitor-accent:var(--c-violet)}:root[data-theme] .monitor-card:nth-child(4){--monitor-accent:var(--c-amber)}
+:root[data-theme] .monitor-card:before{position:absolute;inset:0 0 auto;height:2px;background:var(--monitor-accent);content:""}
+:root[data-theme] .monitor-card>span{display:flex;align-items:center;gap:7px}
+:root[data-theme] .monitor-card>span:before{width:7px;height:7px;border-radius:50%;background:var(--monitor-accent);box-shadow:0 0 0 4px color-mix(in srgb,var(--monitor-accent) 12%,transparent);content:""}
+:root[data-theme] .monitor-card>strong{color:var(--monitor-accent);font-variant-numeric:tabular-nums}
+:root[data-theme] .monitor-card>strong.monitor-off{color:var(--c-amber)}
+:root[data-theme] .repair-agent-panel{--panel-accent:var(--c-violet);border-color:color-mix(in srgb,var(--c-violet) 28%,var(--v-line));background:linear-gradient(135deg,color-mix(in srgb,var(--c-violet) 7%,var(--v-surface)),var(--v-surface) 52%)}
+:root[data-theme] .repair-agent-panel .overview-panel-head{background:transparent}
+:root[data-theme] .monitor-services>div{transition:background .15s ease}
+:root[data-theme] .monitor-services>div:hover{background:color-mix(in srgb,var(--c-teal) 4%,transparent)}
+@media(max-width:680px){:root[data-theme] .overview-metric{min-height:130px}:root[data-theme] .monitor-summary:after{right:-45px}:root[data-theme] .monitor-card{padding:12px}}
+@media(prefers-reduced-motion:reduce){:root[data-theme] .monitor-services>div{transition:none}}
 </style>
 </head>
 <body>
