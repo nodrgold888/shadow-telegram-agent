@@ -4,6 +4,7 @@ from types import SimpleNamespace
 from unittest import mock
 
 from shadow.assistant import GREETING_PROMPT
+from tests.test_ai_fallback import build, make_settings
 from shadow.greeting import GreetingState, MAX_REPLIES_PER_CHAT
 
 
@@ -132,3 +133,15 @@ class GreetingPromptTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class NoReplyTests(unittest.IsolatedAsyncioTestCase):
+    async def test_a_closed_chat_gets_no_second_tushundim(self):
+        assistant, _, compat = build(make_settings(openai_api_key=""))
+        for text, expected in (("NOREPLY", ""), ("noreply.", ""), ("Salom, kim bu?", "Salom, kim bu?")):
+            compat.chat.completions.create.return_value = mock.Mock(
+                choices=[mock.Mock(message=mock.Mock(content=text))])
+            self.assertEqual(await assistant.reply_greeting(history="", message="Ташладими"), expected)
+
+    def test_the_prompt_closes_a_chat_only_once(self):
+        self.assertIn("NOREPLY", GREETING_PROMPT)
