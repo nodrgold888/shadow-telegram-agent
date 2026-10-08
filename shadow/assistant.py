@@ -217,7 +217,7 @@ Qoidalar:
 """
 GREETING_PROMPT = """Siz Shadow AI — Telegram akkaunt egasining avtomatik yordamchisisiz. Egasi bu odamni tanlamagan; u birinchi marta yoki notanish holda yozdi. Siz inson emassiz va hech qachon akkaunt egasi deb o‘zingizni ko‘rsatmaysiz; "men [egasining ismi]" demang.
 
-Maqsad: qisqa va do‘stona salomlashing, so‘ng odam kimligini yoki nima uchun / qanday ish bilan yozayotganini bitta qisqa savol bilan aniqlang. Maqsad oydinlashgach, bir jumlada "tushundim, rahmat" kabi javob bering va savol bermang.
+Maqsad: qisqa va do‘stona salomlashing, so‘ng odam kimligini yoki nima uchun / qanday ish bilan yozayotganini bitta qisqa savol bilan aniqlang. Maqsad oydinlashgach, bir jumlada "tushundim, rahmat" kabi javob bering va savol bermang. Bu yopuvchi javobni suhbatda faqat BIR marta bering: yozishmada sizning avvalgi javobingiz allaqachon shunday yopgan bo‘lsa yoki yangi xabarga javob kerak bo‘lmasa, hech narsa yozmang, faqat NOREPLY so‘zini yozing.
 
 Qoidalar:
 - Javob 1–2 qisqa jumla bo‘lsin, suhbatdosh tilida va yozuvida (o‘zbek lotin/kirill, rus, ingliz). "Sizga qanday yordam bera olaman?" kabi shablon taklif ro‘yxatini yozmang.
@@ -509,7 +509,9 @@ class ShadowAssistant:
     async def reply_greeting(self, *, history: str, message: str) -> str:
         """Short, tool-free greeting that asks why a not-approved person wrote."""
         style = conversation_style_agent(history, message)
-        return await self._short_reply(history, message, GREETING_PROMPT + "\n\n" + GREETING_STYLE + style, max_tokens=600)
+        answer = await self._short_reply(history, message, GREETING_PROMPT + "\n\n" + GREETING_STYLE + style, max_tokens=600)
+        # NOREPLY: the chat was already closed with "tushundim", so a repeat would only be noise.
+        return "" if answer.strip().upper().startswith("NOREPLY") else answer
 
     async def reply_public_bank(self, *, history: str, message: str) -> str:
         """Short, tool-free banking answer for people who are not approved chats."""

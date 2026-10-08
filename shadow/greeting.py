@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 from .public_bank import MAX_MESSAGE_CHARS
 
 # Short greeting chat with people who are not approved: learn who they are and why they wrote.
-MAX_REPLIES_PER_CHAT = 3
+MAX_REPLIES_PER_CHAT = 2
 CHAT_WINDOW_SECONDS = 24 * 3600
 GLOBAL_PER_HOUR = 30
 
