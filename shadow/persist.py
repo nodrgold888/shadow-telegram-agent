@@ -18,7 +18,7 @@ RENDER_API = "https://api.render.com/v1"
 
 
 _local_lock = threading.Lock()
-_LOCAL_KEYS = {"TELEGRAM_SESSION", "APPROVED_CHAT_IDS", "REPLY_ENABLED", "GROUP_REPLY_ENABLED", "SHADOW_MODEL_SELECTION", "SHADOW_CHAT_PROFILES", "FRIEND_CHAT_IDS", "GREET_UNKNOWN", "VIDEO_UNKNOWN", "VOICE_UNKNOWN", "NOTIFY_UNKNOWN"}
+_LOCAL_KEYS = {"TELEGRAM_SESSION", "APPROVED_CHAT_IDS", "REPLY_ENABLED", "GROUP_REPLY_ENABLED", "GROUP_REPLY_MODE", "SHADOW_MODEL_SELECTION", "SHADOW_CHAT_PROFILES", "FRIEND_CHAT_IDS", "GREET_UNKNOWN", "VIDEO_UNKNOWN", "VOICE_UNKNOWN", "NOTIFY_UNKNOWN"}
 
 
 def load_local_settings() -> dict[str, str]:
@@ -297,8 +297,7 @@ def _load_flag(key: str) -> bool:
     return load_local_settings().get(key, os.getenv(key, "")).strip().lower() in {"1", "true", "yes", "on"}
 
 
-async def _save_flag(key: str, enabled: bool) -> bool:
-    value = "true" if enabled else "false"
+async def _save_setting(key: str, value: str) -> bool:
     if os.getenv("SHADOW_STATE_FILE", "").strip():
         try:
             await asyncio.to_thread(_save_local, key, value)
@@ -317,9 +316,18 @@ async def _save_flag(key: str, enabled: bool) -> bool:
     return True
 
 
+async def _save_flag(key: str, enabled: bool) -> bool:
+    return await _save_setting(key, "true" if enabled else "false")
+
+
 async def save_group_reply_enabled(enabled: bool) -> bool:
     """Persist the independent group-reply switch when persistence is configured."""
     return await _save_flag("GROUP_REPLY_ENABLED", enabled)
+
+
+async def save_group_reply_mode(mode: str) -> bool:
+    """Persist which group messages Shadow answers ("mentions" or "all")."""
+    return await _save_setting("GROUP_REPLY_MODE", mode)
 
 
 def load_greet_unknown() -> bool:
