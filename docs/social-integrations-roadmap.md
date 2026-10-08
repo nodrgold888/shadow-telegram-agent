@@ -84,6 +84,32 @@ Keep the existing Telegram pages and account controls intact. Social integration
 - Require ownership checks on every connection, settings, data, and action endpoint.
 - Add per-integration tests for account isolation, permission enforcement, token refresh, disconnect, and error handling before enabling a connector in production.
 
+## JARVIS build ladder (0–100)
+
+The percentage is a milestone order, not a claim that the product is already that complete. Each milestone needs working behavior and a review before moving on.
+
+| Range | Milestone | Done when |
+|---|---|---|
+| 0–10 | Product foundation | The owner-facing scope, service priorities, account boundaries, and safe-action rules are written down. The current Telegram behavior is recorded as a regression baseline. |
+| 10–20 | Service catalog and identity | The dashboard lists services, shows real connection state, and clearly distinguishes connected, disconnected, and planned services. *(Catalog started.)* |
+| 20–30 | Connection storage | OAuth state, tokens, scopes, expiry, and revocation are handled server-side; every connection has a stable owner and service account ID. |
+| 30–40 | Adapter framework | Each adapter declares its supported operations and permissions. One failure or token refresh for a service cannot change another service's connection. |
+| 40–50 | First read-only connector | One owner-selected service can connect, show its account identity, retrieve a bounded set of data, report sync time, and disconnect cleanly. |
+| 50–60 | JARVIS workspace | A useful overview combines selected service status, tasks, and recent activity while each item retains its source account and permissions. |
+| 60–70 | Personal knowledge and memory | The owner can choose what Shadow remembers, inspect and delete it, and see which connected source contributed a fact. No cross-account memory by default. |
+| 70–80 | User-directed actions | Drafts and tasks can be prepared across enabled services. Sending, publishing, deleting, or contacting anyone always requires an explicit confirmation appropriate to the action. |
+| 80–90 | Natural interface | Voice input/output, keyboard commands, focused panels, and motion are optional, accessible, and useful on phone and desktop; reduced-motion mode remains supported. |
+| 90–100 | Reliability and release readiness | Permission, isolation, recovery, accessibility, and service-failure behavior are verified; onboarding and per-service diagnostics are clear. |
+
+### Build order and boundaries
+
+1. Finish the catalog and adapter contract before adding per-service routes.
+2. Choose storage before starting OAuth. The current Render environment-variable persistence is suitable for a small fixed set of settings, not a growing database of OAuth connections and refreshable tokens. Select a durable, access-controlled store and an encryption-key strategy first.
+3. Start with one read-only integration selected by actual use. Instagram and YouTube have different official API scopes and account restrictions; treat them as separate adapters, not one generic social login.
+4. Add a service-independent task and activity model only after a connector can provide real, permission-checked data. Store source service and source connection on every item.
+5. Add scheduled or proactive behavior only as owner-configured rules with quiet hours, rate limits, an audit trail, a pause control, and a clear explanation of which account will act.
+6. Keep the JARVIS visual identity in the presentation layer. It must not obscure account identity, permissions, connection failures, or action confirmations.
+
 ## Decisions to make when implementation starts
 
 1. Which first outcome matters most: view social accounts, summarize new content, create drafts, publish content, or manage messages?
