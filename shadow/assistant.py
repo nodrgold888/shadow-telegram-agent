@@ -14,6 +14,7 @@ from .work_tools import calculate, create_excel, create_word
 from .model_routing import needs_reasoning_model
 
 from .agents import agent_role
+from .natural_chat_agent import conversation_style_agent
 from .config import Settings
 from .diagnostics import safe_error_detail
 from . import gemini_audio
@@ -498,11 +499,13 @@ class ShadowAssistant:
 
     async def reply_greeting(self, *, history: str, message: str) -> str:
         """Short, tool-free greeting that asks why a not-approved person wrote."""
-        return await self._short_reply(history, message, GREETING_PROMPT + "\n\n" + GREETING_STYLE, max_tokens=600)
+        style = conversation_style_agent(history, message)
+        return await self._short_reply(history, message, GREETING_PROMPT + "\n\n" + GREETING_STYLE + style, max_tokens=600)
 
     async def reply_public_bank(self, *, history: str, message: str) -> str:
         """Short, tool-free banking answer for people who are not approved chats."""
-        return await self._short_reply(history, message, PUBLIC_BANK_PROMPT + "\n\n" + PUBLIC_SKILL_PROMPT)
+        style = conversation_style_agent(history, message)
+        return await self._short_reply(history, message, PUBLIC_BANK_PROMPT + "\n\n" + PUBLIC_SKILL_PROMPT + style)
 
     async def _short_reply(
         self, history: str, message: str, instructions: str, max_tokens: int = 900, prompt: str | None = None,
@@ -548,7 +551,7 @@ class ShadowAssistant:
         chat_profile: dict[str, str] | None = None,
     ) -> tuple[str, list[Path]]:
         prompt = self._build_prompt(chat_title, history, message, document_preview, chat_profile)
-        role = agent_role(chat_profile)
+        role = agent_role(chat_profile) + conversation_style_agent(history, message)
         if is_small_talk(message, has_document=bool(document_preview)) and not wants_bank_skills(prompt, role):
             instructions = SYSTEM_PROMPT + "\n\n" + SMALL_TALK_PROMPT + role
             answer = await self._short_reply(history, message, instructions, max_tokens=1500, prompt=prompt)
