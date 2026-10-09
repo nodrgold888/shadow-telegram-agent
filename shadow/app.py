@@ -340,6 +340,28 @@ async def dashboard_models(
     }
 
 
+@app.post("/dashboard/api/openai-key")
+async def dashboard_openai_key(
+    request: Request,
+    shadow_setup: str | None = Cookie(default=None),
+    authorization: str | None = Header(default=None),
+) -> dict[str, object]:
+    if not _dashboard_allowed(shadow_setup, authorization):
+        raise HTTPException(status_code=401, detail="Kirish kerak")
+    body = await request.json()
+    api_key = body.get("api_key") if isinstance(body, dict) else None
+    if not isinstance(api_key, str) or not 20 <= len(api_key.strip()) <= 500 or any(c.isspace() for c in api_key.strip()):
+        raise HTTPException(status_code=400, detail="OpenAI API kalitini tekshiring")
+    api_key = api_key.strip()
+    persisted = await save_env_vars({"OPENAI_API_KEY": api_key})
+    os.environ["OPENAI_API_KEY"] = api_key
+    updated = replace(agent.settings, openai_api_key=api_key)
+    agent.settings = updated
+    if agent.assistant:
+        agent.assistant.update_settings(updated)
+    return {"ok": True, "configured": True, "persisted": persisted}
+
+
 @app.get("/dashboard/api/chats")
 async def dashboard_chats(
     shadow_setup: str | None = Cookie(default=None),
