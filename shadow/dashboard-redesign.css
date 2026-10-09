@@ -25,7 +25,7 @@
 :root[data-theme] select option,:root[data-theme] select optgroup{background-color:var(--v-surface);color:var(--v-ink)}
 :root[data-theme] select option:checked{background-color:var(--v-soft);color:var(--v-accent)}
 :root[data-theme] .friend-picker{display:inline-flex;min-width:0}
-:root[data-theme] .friend-select{min-width:112px;justify-content:space-between;gap:12px;padding:0 10px;white-space:nowrap;cursor:pointer;user-select:none;-webkit-user-select:none}
+:root[data-theme] .friend-select{min-width:112px;justify-content:space-between;gap:12px;padding:0 10px;white-space:nowrap;cursor:pointer!important;caret-color:transparent!important;user-select:none!important;-webkit-user-select:none!important}
 :root[data-theme] .friend-select:after{width:7px;height:7px;border-right:1.5px solid currentColor;border-bottom:1.5px solid currentColor;content:"";transform:rotate(45deg) translateY(-2px)}
 :root[data-theme] .friend-select[aria-expanded="true"]{border-color:var(--v-accent);color:var(--v-accent)}
 :root[data-theme] .friend-menu{position:fixed;z-index:10000;display:grid;gap:2px;max-height:min(280px,calc(100vh - 16px));overflow:auto;padding:5px;border:1px solid var(--v-line2);border-radius:9px;background:var(--v-surface);box-shadow:0 14px 36px #0006;overscroll-behavior:contain}
