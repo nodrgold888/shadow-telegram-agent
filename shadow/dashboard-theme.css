@@ -664,3 +664,143 @@
 :root[data-theme] .integration-card-foot strong{color:var(--v-ink);font-size:10px}
 :root[data-theme="dark"] .integration-card{box-shadow:inset 0 1px #ffffff10,0 12px 28px #0002}
 :root[data-theme="light"] .integration-card{box-shadow:inset 0 1px #fff,0 12px 28px #20384b0b}
+
+/* Atomic Design system: tokens → atoms → molecules → organisms → page templates. */
+:root[data-theme="dark"]{
+  --v-bg:#0d141b;--v-side:#0a1118;--v-surface:#131d27;--v-surface2:#192530;
+  --v-line:#263541;--v-line2:#354856;--v-ink:#e8eef2;--v-muted:#91a2ad;
+  --v-accent:#58d5bd;--v-accent2:#35bfa8;--v-soft:#15332f;
+  --v-warn:#e8b96b;--v-warn-soft:#302719;--v-danger:#ef8e88;
+  --console-glow:#49d4bf;--console-blue:#65aeea;--console-violet:#a58bed;
+  --v-shadow:0 12px 32px #02080d42
+}
+:root[data-theme="light"]{
+  --v-bg:#eef2f4;--v-side:#101a24;--v-surface:#fff;--v-surface2:#f5f8fa;
+  --v-line:#dfe6e9;--v-line2:#cbd7dc;--v-ink:#17252e;--v-muted:#657781;
+  --v-accent:#087f70;--v-accent2:#086b60;--v-soft:#e4f4f0;
+  --console-glow:#16a88f;--console-blue:#377bb3;--console-violet:#7259ad;
+  --v-shadow:0 12px 30px #102b3a0c
+}
+
+/* Atoms: type, controls, focus, status and color. */
+:root[data-theme] body{background-color:var(--v-bg);background-image:radial-gradient(ellipse at 78% 0%,color-mix(in srgb,var(--console-blue) 6%,transparent),transparent 38%);color:var(--v-ink)}
+:root[data-theme] :focus-visible{outline-color:var(--console-blue);outline-offset:3px}
+:root[data-theme] .btn,:root[data-theme] .command-action,:root[data-theme] .approval-btn,:root[data-theme] .profile-btn,:root[data-theme] .friend-select{border-radius:7px;font-weight:620}
+:root[data-theme] .btn:hover,:root[data-theme] .command-action:hover{transform:translateY(-1px)}
+:root[data-theme] input:not([type=checkbox]):not([type=radio]),:root[data-theme] select,:root[data-theme] textarea{border-radius:8px;box-shadow:inset 0 1px 2px #00000008}
+:root[data-theme] .badge,:root[data-theme] .count,:root[data-theme] .command-status,:root[data-theme] .monitor-badge{letter-spacing:.015em}
+
+/* Molecules: predictable spacing and shared content rows. */
+:root[data-theme] .top{min-height:74px;margin-bottom:24px;padding-bottom:17px;border-color:var(--v-line)}
+:root[data-theme] .top h1{font-size:clamp(24px,2vw,29px);letter-spacing:-.045em}
+:root[data-theme] .top p{font-size:12px}
+:root[data-theme] .eyebrow,:root[data-theme] .command-eyebrow,:root[data-theme] .section-kicker{letter-spacing:.12em}
+:root[data-theme] .section-head{margin:25px 0 13px}
+:root[data-theme] .section-head h2{font-size:19px;letter-spacing:-.035em}
+:root[data-theme] .setting-row,:root[data-theme] .system-list>div,:root[data-theme] .overview-ai-list li,:root[data-theme] .monitor-services>div{border-color:var(--v-line)}
+:root[data-theme] .table,:root[data-theme] .recent-panel,:root[data-theme] .event-panel,:root[data-theme] .activity-panel,:root[data-theme] .detail-panel,:root[data-theme] .overview-panel,:root[data-theme] .monitor-card,:root[data-theme] .integration-card,:root[data-theme] .dev-card{border-color:var(--v-line);border-radius:11px;box-shadow:var(--v-shadow)}
+:root[data-theme] .thead{background:color-mix(in srgb,var(--v-surface2) 80%,var(--console-blue) 4%);font-size:9px}
+:root[data-theme] .row{min-height:58px}
+:root[data-theme] .row:hover{background:color-mix(in srgb,var(--v-surface2) 90%,var(--v-accent) 4%)}
+:root[data-theme] .avatar{box-shadow:0 0 0 2px var(--v-surface)}
+
+/* Organisms: navigation, section surfaces, and the main content column. */
+:root[data-theme] .shell{grid-template-columns:246px minmax(0,1fr)}
+:root[data-theme] .side{width:246px;gap:18px;padding:21px 15px 16px;border-right:1px solid #ffffff12;background:linear-gradient(180deg,#101b25 0%,#0c151e 54%,#0a1118 100%);box-shadow:8px 0 28px #02080d1c}
+:root[data-theme] .side .mark{border-radius:10px;background:linear-gradient(145deg,#40cbb1,#168a7b);box-shadow:0 5px 16px #19a98a30}
+:root[data-theme] .workspace-card{border-color:#ffffff15;border-radius:10px;background:#ffffff06}
+:root[data-theme] .workspace-nav{gap:15px}
+:root[data-theme] .nav-group{gap:2px}
+:root[data-theme] .workspace-nav .nav{height:37px;border-radius:7px;font-size:11px}
+:root[data-theme] .workspace-nav .nav.active{border-color:#58d5bd25;background:#58d5bd12;color:#d8f8f0}
+:root[data-theme] .workspace-nav .nav.active:before{left:-16px;width:2px;box-shadow:none}
+:root[data-theme] .content{width:min(1500px,100%);padding:26px clamp(24px,3vw,48px) 60px}
+:root[data-theme] .overview-panel,:root[data-theme] .monitor-card,:root[data-theme] .detail-panel,:root[data-theme] .table,:root[data-theme] .recent-panel,:root[data-theme] .event-panel,:root[data-theme] .activity-panel{background:var(--v-surface)}
+:root[data-theme] .overview-panel-head{min-height:60px;background:var(--v-surface);border-color:var(--v-line)}
+:root[data-theme] .overview-panel-head:before{display:none}
+:root[data-theme] .overview-panel-head h2{font-size:13px}
+:root[data-theme] .quick-notice{border-radius:8px;box-shadow:none}
+
+/* Page template: a restrained holographic console with a clear status hierarchy. */
+:root[data-theme] .reference-overview{gap:15px}
+:root[data-theme] .command-hero{grid-template-columns:minmax(0,1fr) 154px minmax(270px,.8fr);gap:24px;min-height:220px;padding:22px 26px;border:1px solid color-mix(in srgb,var(--v-accent) 23%,var(--v-line));border-radius:12px;background:linear-gradient(112deg,color-mix(in srgb,var(--v-accent) 5%,var(--v-surface)),var(--v-surface) 42%,color-mix(in srgb,var(--console-blue) 4%,var(--v-surface)));box-shadow:var(--v-shadow)}
+:root[data-theme] .command-hero:before{opacity:.065;background-size:38px 38px;mask-image:linear-gradient(90deg,transparent,#000 48%,transparent)}
+:root[data-theme] .command-hero:after{opacity:.38;filter:blur(11px)}
+:root[data-theme] .command-copy h2{font-size:clamp(25px,2.3vw,32px);font-weight:660;letter-spacing:-.045em}
+:root[data-theme] .command-copy>p{max-width:470px;font-size:11px}
+:root[data-theme] .command-eyebrow{font-size:8px}
+:root[data-theme] .command-status{padding:5px 9px;font-size:9px}
+:root[data-theme] .command-actions{gap:6px;margin-top:13px}
+:root[data-theme] .command-action{min-height:32px;font-size:9px}
+:root[data-theme] .command-action.primary-action{background:var(--v-accent);box-shadow:0 4px 12px color-mix(in srgb,var(--v-accent) 21%,transparent)}
+:root[data-theme] .command-visual{width:150px;height:150px;opacity:.9}
+:root[data-theme] .core-orbit{box-shadow:none}
+:root[data-theme] .core-orbit.orbit-a{border-color:#58d5bd75 #58d5bd20 #58d5bd12 #58d5bd50}
+:root[data-theme] .core-orbit.orbit-b{border-color:#65aeea18 #65aeea70 #65aeea26 #65aeea32;filter:none}
+:root[data-theme] .core-orbit.orbit-c{border-color:#a58bed2d #a58bed16 #a58bed78 #a58bed26;filter:none}
+:root[data-theme] .command-core{border-color:#58d5bd65;background:radial-gradient(circle at 35% 25%,#58d5bd1e,var(--v-surface2) 72%);box-shadow:0 0 26px #49d4bf20,inset 0 1px #ffffff30}
+:root[data-theme="dark"] .command-visual.agent-ready .command-core{box-shadow:0 0 0 6px #48e3f00d,0 0 34px #3ce8fa46,inset 0 0 20px #41dce921,inset 0 1px #ffffff50}
+:root[data-theme] .command-readouts{gap:6px}
+:root[data-theme] .command-readout{min-height:48px;padding:7px 10px;border-radius:7px;background:color-mix(in srgb,var(--v-surface2) 86%,transparent);box-shadow:none}
+:root[data-theme] .command-readout strong{font-size:10px}
+:root[data-theme] .command-readout small{font-size:8px}
+:root[data-theme] .overview-metrics{gap:10px}
+:root[data-theme] .overview-metric{min-height:108px;padding:13px 14px;border-color:var(--v-line);border-radius:10px;background:var(--v-surface);box-shadow:var(--v-shadow)}
+:root[data-theme] .overview-metric:before{width:2px;height:auto;inset:12px auto 12px 0;opacity:.8}
+:root[data-theme] .overview-metric:after{opacity:.25}
+:root[data-theme] .overview-metric .metric-label i{border-radius:6px}
+:root[data-theme] .overview-metric strong{font-size:25px}
+:root[data-theme] .overview-metric:hover{transform:translateY(-2px);box-shadow:0 12px 24px color-mix(in srgb,var(--metric-accent) 11%,transparent)}
+:root[data-theme] .route-panel{padding:16px 18px 11px;border-radius:10px;background:var(--v-surface);box-shadow:var(--v-shadow)}
+:root[data-theme] .route-panel:after{opacity:.17}
+:root[data-theme] .route-node{min-height:57px;border-radius:7px}
+:root[data-theme] .route-node.active{box-shadow:none}
+:root[data-theme] .overview-duo{gap:12px}
+:root[data-theme] .overview-panel,:root[data-theme] .monitor-card{border-radius:10px;box-shadow:var(--v-shadow)}
+:root[data-theme] .overview-panel-head{padding:13px 16px}
+:root[data-theme] .system-list{padding-right:16px;padding-left:16px}
+:root[data-theme] .system-list>div{min-height:40px}
+:root[data-theme] .overview-ai-list{padding-right:16px;padding-left:16px}
+:root[data-theme] .recent-table{padding:0 12px 10px}
+:root[data-theme] .recent-row{min-height:43px}
+
+/* Hologram accents remain state-aware, with a quieter instrument-panel finish. */
+:root[data-theme] .command-visual:before{opacity:.5;animation-duration:28s}
+:root[data-theme] .command-visual:after{opacity:.65;animation-duration:6s}
+:root[data-theme] .command-core:before{inset:10px;border-radius:15px;opacity:.35}
+:root[data-theme] .holo-face .face-pupil{animation-duration:3.2s}
+:root[data-theme] .orbit-node{box-shadow:0 0 0 3px color-mix(in srgb,currentColor 10%,transparent)}
+
+/* Responsive page templates retain the same hierarchy on small screens. */
+@media(max-width:1120px){
+  :root[data-theme] .shell{grid-template-columns:226px minmax(0,1fr)}
+  :root[data-theme] .side{width:226px}
+  :root[data-theme] .content{padding-right:22px;padding-left:22px}
+  :root[data-theme] .command-hero{grid-template-columns:minmax(0,1fr) 128px minmax(220px,.8fr);gap:14px;padding:18px}
+  :root[data-theme] .command-visual{width:128px;height:128px}
+}
+@media(max-width:780px){
+  :root[data-theme] .content{padding:20px 17px 42px}
+  :root[data-theme] .top{align-items:flex-start;flex-wrap:wrap;gap:12px}
+  :root[data-theme] .top-actions{width:100%;justify-content:flex-start;flex-wrap:wrap;margin:0}
+  :root[data-theme] .command-hero{grid-template-columns:minmax(0,1fr) 105px;gap:10px;padding:16px}
+  :root[data-theme] .command-visual{grid-column:2;grid-row:1;width:104px;height:104px}
+  :root[data-theme] .command-readouts{grid-column:1/-1;grid-template-columns:repeat(3,minmax(0,1fr))}
+  :root[data-theme] .overview-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}
+  :root[data-theme] .overview-duo{grid-template-columns:1fr}
+}
+@media(max-width:520px){
+  :root[data-theme] .content{padding:16px 12px 34px}
+  :root[data-theme] .top-actions{gap:6px}
+  :root[data-theme] .top-actions .btn{min-height:32px;height:32px;padding:0 8px;font-size:10px}
+  :root[data-theme] .command-hero{grid-template-columns:minmax(0,1fr) 78px;gap:7px;padding:14px}
+  :root[data-theme] .command-copy h2{font-size:22px}
+  :root[data-theme] .command-copy>p{font-size:10px}
+  :root[data-theme] .command-visual{width:82px;height:82px;transform:scale(.82)}
+  :root[data-theme] .command-readouts{grid-template-columns:1fr;gap:4px}
+  :root[data-theme] .command-readout{min-height:38px}
+  :root[data-theme] .overview-metrics{gap:7px}
+  :root[data-theme] .overview-metric{min-height:96px;padding:11px}
+  :root[data-theme] .overview-metric strong{font-size:22px}
+}
+@media(prefers-reduced-motion:reduce){:root[data-theme] .command-visual:before,:root[data-theme] .command-visual:after,:root[data-theme] .holo-face .face-pupil{animation:none!important}}
