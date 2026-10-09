@@ -9,12 +9,13 @@ from .policy import typing_delay
 # containing only "||". At most three are sent, one after another, like real texting.
 MESSAGE_BREAK = re.compile(r"\s*\n?\s*\|\|\s*\n?\s*")
 MAX_PARTS = 3
-# Curly apostrophes (o‘zingiz) are a giveaway: phones type the straight one.
-_APOSTROPHES = str.maketrans({"‘": "'", "’": "'", "ʻ": "'", "ʼ": "'"})
+# Uzbek phone texting often omits apostrophes entirely.
+_APOSTROPHES = str.maketrans({character: "" for character in ("'", "‘", "’", "ʻ", "ʼ", "`", "´")})
 
 
 def phone_text(text: str) -> str:
-    return (text or "").translate(_APOSTROPHES)
+    text = (text or "").translate(_APOSTROPHES)
+    return "\n".join(re.sub(r"[ \t]+", " ", line).strip() for line in text.splitlines()).strip()
 
 
 def split_parts(answer: str, max_parts: int = MAX_PARTS) -> list[str]:

@@ -25,8 +25,10 @@ from .video_download import VideoDownloadError, downloaded_video, find_video_url
 from .config import AVAILABLE_MODELS, Settings
 from .persist import persistence_available, load_greet_unknown, save_greet_unknown, load_video_unknown, save_video_unknown, load_stranger_flags, save_stranger_flag, load_friend_chats, save_friend_chats, format_friend_chats, FRIEND_CATEGORIES, DEFAULT_FRIEND_CATEGORY, load_chat_profiles, save_chat_profiles, save_session, save_approved_chats, save_reply_enabled, load_accounts_raw, save_accounts, enter_scope, current_scope
 from .diagnostics import safe_error_detail
-from .image_gen import ImageGenError, gemini_api_key, generate_image, parse_image_command
-from .humanize import human_typing_delay, read_delay, split_parts
+from .image_gen import ImageGenError, parse_image_command
+from .plugins import image_plugin
+from .personality import personality_tweak
+from .humanize import human_typing_delay, phone_text, read_delay, split_parts
 from .presence import OnlinePresence
 from .greeting import GreetingState, NoteState
 from .accounts import dump_accounts, forget, parse_accounts, public_view, remember
@@ -34,20 +36,6 @@ from .public_bank import DISCLOSURE, PublicBankState, is_stop_request
 from .policy import chat_is_approved, group_message_needs_reply, split_telegram_message
 
 log = logging.getLogger("shadow.telegram")
-
-# Mobile Uzbek chat commonly omits apostrophes. Keep the assistant's outgoing
-# text consistent with that style before it is sent (or synthesized as speech).
-_APOSTROPHES = str.maketrans({
-    "'": "",
-    "‘": "",
-    "’": "",
-    "ʻ": "",
-    "ʼ": "",
-})
-
-
-def phone_text(text: str) -> str:
-    return (text or "").translate(_APOSTROPHES)
 
 # Telethon network calls made during the browser-driven /setup/telegram flow
 # have no built-in timeout. If Telegram's servers are slow or unreachable
@@ -520,9 +508,8 @@ class TelegramAgent:
             return
         async with self._image_lock:
             try:
-                api_key = gemini_api_key(self.settings)
                 async with self.client.action(chat_id, "photo"):
-                    data, mime = await generate_image(api_key, prompt)
+                    data, mime = await image_plugin.run(self.settings, prompt)
                 buffer = io.BytesIO(data)
                 buffer.name = "shadow.jpg" if "jpeg" in mime or "jpg" in mime else "shadow.png"
                 await self.client.send_file(chat_id, buffer, caption=prompt[:200], reply_to=event.id)
@@ -787,6 +774,8 @@ class TelegramAgent:
                 history = await self._history(chat_id)
                 async with self.client.action(chat_id, "typing"):
                     answer = await self.assistant.reply_greeting(history=history, message=transcript)
+                    answer = personality_tweak(answer)
+                    answer = phone_text(answer)
                     if answer:
                         await asyncio.sleep(human_typing_delay(answer))
                 if not answer:
@@ -854,6 +843,7 @@ class TelegramAgent:
                 history = await self._history(chat_id)
                 async with self.client.action(chat_id, "typing"):
                     answer = await self.assistant.reply_public_bank(history=history, message=text)
+                    answer = phone_text(answer)
                     if answer:
                         await asyncio.sleep(human_typing_delay(answer))
                 if not answer:
@@ -910,6 +900,8 @@ class TelegramAgent:
                 history = await self._history(chat_id)
                 async with self.client.action(chat_id, "typing"):
                     answer = await self.assistant.reply_greeting(history=history, message=text)
+                    answer = personality_tweak(answer)
+                    answer = phone_text(answer)
                     if answer:
                         await asyncio.sleep(human_typing_delay(answer))
                 if not answer:
@@ -1082,8 +1074,9 @@ class TelegramAgent:
                     await asyncio.sleep(human_typing_delay((split_parts(answer) or [answer])[0]))
             if not answer and not files:
                 raise RuntimeError("empty_ai_reply")
+            answer = personality_tweak(answer)
+            answer = phone_text(answer)
             parts = split_parts(answer)
-            parts = [phone_text(part) for part in parts]
             answer = " ".join(parts)  # voice, caption and length checks use the message without separators
             speech_path = None
             if voice_reply and answer and len(answer) <= 4000:
@@ -1117,7 +1110,10 @@ class TelegramAgent:
             for path in files:
                 if not self._can_reply(chat_id):
                     return
-                await self.client.send_file(chat_id, str(path), reply_to=event.id, force_document=True)
+                inline_image = path.suffix.lower() in {".png", ".jpg", ".jpeg", ".webp"}
+                await self.client.send_file(
+                    chat_id, str(path), reply_to=event.id, force_document=not inline_image,
+                )
 
     async def send_to_self(self, text: str) -> None:
         """Send a message to the connected account's own Saved Messages (never to other chats)."""

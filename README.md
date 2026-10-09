@@ -165,17 +165,27 @@ limited (429), cooling down or not configured, Shadow transcribes with Gemini in
 providers, then `gemini-flash-lite-latest`) through the `google-genai` SDK. The answer is a voice note when OpenAI
 speech works, otherwise a text reply. Voice messages up to 3 minutes / 10 MB.
 
-## Image generation (owner only)
+## Image generation
 
-Write `/rasm <tavsif>` to yourself in Telegram **Saved Messages** and Shadow answers there with a generated image
-(Gemini image model, default `gemini-nano-banana-2.1`, override with `IMAGE_MODEL`). Only the account owner can write to
-their own Saved Messages, so nobody else can trigger it. Other chats never get this command, and Shadow's own image
-(whose caption is the prompt) is ignored, so it cannot loop.
+Ask Shadow to create an image in an approved chat, or write `/rasm <tavsif>` to yourself in Telegram **Saved Messages**
+(Gemini image model, default `gemini-nano-banana-2.1`, override with `IMAGE_MODEL`). The generated image is sent as a photo.
+Shadow's own image (whose caption is the prompt) is ignored, so it cannot loop.
 
 - The key is taken from a Gemini backup provider (panel "AI qo'shish", base URL `generativelanguage.googleapis.com`) or
   from `GEMINI_API_KEY`. Image generation usually needs a billing-enabled Google project; a quota error is reported in
-  Saved Messages.
+  the chat where the request was made.
 - One image at a time, prompts up to 1000 characters, 90 s limit. Uses the `google-genai` SDK (`client.interactions`).
+- Image generation may use paid Gemini quota. It is only invoked when the user asks for an image.
+
+## Web search and news
+
+The assistant can search and summarize current web pages or news with Google Custom Search or Bing Web Search. Configure these optional Render environment variables:
+
+- Google: `GOOGLE_CSE_API_KEY` and `GOOGLE_CSE_CX` (Programmable Search Engine ID).
+- Bing: `BING_SEARCH_API_KEY`.
+- `WEB_SEARCH_PROVIDER` is `auto` by default; it uses configured Google first, then Bing as a fallback. Set it to `google` or `bing` to require one provider.
+
+The search tool returns up to five titles, snippets, and source links for the assistant to summarize. Search snippets are treated as untrusted content; private chat history and credentials should not be included in a search query.
 
 ## Agents per chat
 

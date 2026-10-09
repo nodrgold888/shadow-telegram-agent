@@ -19,6 +19,14 @@ services:
         sync: false
       - key: OPENAI_API_KEY
         sync: false
+      - key: GOOGLE_CSE_API_KEY
+        sync: false
+      - key: GOOGLE_CSE_CX
+        sync: false
+      - key: BING_SEARCH_API_KEY
+        sync: false
+      - key: WEB_SEARCH_PROVIDER
+        value: auto
       - key: APPROVED_CHAT_IDS
         sync: false
       - key: SHADOW_CHAT_PROFILES
