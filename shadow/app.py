@@ -58,6 +58,7 @@ app = FastAPI(title="Shadow", version="0.1.0", lifespan=lifespan)
 
 _DASHBOARD_FILE = Path(__file__).with_name("dashboard.html")
 _DASHBOARD_THEME_FILE = Path(__file__).with_name("dashboard-theme.css")
+_DASHBOARD_REDESIGN_FILE = Path(__file__).with_name("dashboard-redesign.css")
 _SETUP_FILE = Path(__file__).with_name("setup.html")
 
 
@@ -102,6 +103,15 @@ async def dashboard() -> HTMLResponse:
 async def dashboard_theme() -> Response:
     return Response(
         _DASHBOARD_THEME_FILE.read_text(encoding="utf-8"),
+        media_type="text/css",
+        headers={"Cache-Control": "no-store"},
+    )
+
+
+@app.get("/dashboard/design.css")
+async def dashboard_design() -> Response:
+    return Response(
+        _DASHBOARD_REDESIGN_FILE.read_text(encoding="utf-8"),
         media_type="text/css",
         headers={"Cache-Control": "no-store"},
     )
