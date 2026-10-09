@@ -26,6 +26,7 @@ MAX_JOBS = 30
 SUFFIXES = {".py", ".html", ".css", ".js", ".md", ".json"}
 PROTECTED = {"shadow/development.py", "shadow/development.js"}
 TASK_TYPES = {
+    "solve": {"mode": "build", "category": "Yaratish va yaxshilash", "label": "Vazifani bajarish (tavsiya)", "description": "Muammo, o‘zgarish yoki g‘oyani tahlil qilib, imkon qadar tayyor kod o‘zgarishiga aylantiradi.", "guidance": "Complete the owner's requested task. Infer whether it is a bug fix, improvement, or new capability; inspect the relevant source, implement a bounded working change, and report any assumptions. Do not return only a plan when a concrete source change is possible."},
     "analysis": {"mode": "audit", "category": "Tahlil va rejalashtirish", "label": "Kod bazasini tahlil qilish", "description": "Tuzilma, asosiy bog‘liqliklar va yaxshilash imkoniyatlarini aniqlaydi.", "guidance": "Inspect relevant source and return evidence-based findings, impact, and prioritized recommendations; make no edits."},
     "bug_audit": {"mode": "audit", "category": "Tahlil va rejalashtirish", "label": "Xato va nuqsonlarni topish", "description": "Muammo sababini manba kodi bilan asoslaydi, ta’siri va takrorlash yo‘lini ko‘rsatadi.", "guidance": "Trace likely defects to exact source evidence, explain user impact and reproduction clues, and propose fixes without editing."},
     "architecture": {"mode": "audit", "category": "Tahlil va rejalashtirish", "label": "Arxitektura va texnik qarz", "description": "Modullar, ma’lumot oqimi va texnik qarz bo‘yicha bosqichli reja beradi.", "guidance": "Review module boundaries, data flow, coupling, and technical debt. Cite source evidence and propose an incremental architecture plan without editing."},
@@ -198,6 +199,7 @@ async def ask_ai(settings: Settings, messages: list[dict], max_tokens: int) -> d
     providers = (backups + primary) if settings.ai_primary else (primary + backups)
     if not providers:
         raise DevelopmentError("Configure an AI provider in the dashboard first")
+    failures = []
     for name, key, base, model in providers[:3]:
         try:
             async with AsyncOpenAI(api_key=key, base_url=base, timeout=80, max_retries=0) as client:
@@ -210,10 +212,27 @@ async def ask_ai(settings: Settings, messages: list[dict], max_tokens: int) -> d
                 return result
         except asyncio.CancelledError:
             raise
-        except Exception:
-            # No raw provider exceptions: they can contain credentials and request content.
+        except Exception as exc:
+            # Keep the diagnostic useful without exposing credentials or request contents.
+            status = getattr(exc, "status_code", None)
+            if status in (401, 403):
+                reason = "API kaliti yoki ruxsatni tekshiring"
+            elif status == 404:
+                reason = "model ID yoki API manzili topilmadi"
+            elif status == 429:
+                reason = "limit yoki balans tugagan"
+            elif isinstance(exc, (TimeoutError, httpx.TimeoutException)):
+                reason = "provayder javobi vaqtida kelmadi"
+            elif isinstance(status, int) and status >= 500:
+                reason = "AI provayder vaqtincha ishlamayapti"
+            elif status:
+                reason = f"HTTP {status} xatosi"
+            else:
+                reason = type(exc).__name__
+            failures.append(f"{name}: {reason}")
             continue
-    raise DevelopmentError("AI generation failed. Check provider access, limits, and model, then retry a smaller task")
+    detail = "; ".join(failures) or "AI provayderga ulanib bo‘lmadi"
+    raise DevelopmentError(f"AI javob bermadi. {detail}. AI provayderlar sozlamasida API kaliti, model va limitni tekshiring.")
 
 
 class DevelopmentStudio:
@@ -311,7 +330,7 @@ class DevelopmentStudio:
     async def _run(self, job: dict, settings: Settings, runtime: dict):
         try:
             async with asyncio.timeout(300):
-                self.event(job, "inspecting", "Inspecting available project source")
+                self.event(job, "inspecting", "Loyiha fayllari va vazifa doirasi ko‘rib chiqilmoqda")
                 sources = await asyncio.to_thread(read_sources, self.root)
                 if not sources:
                     raise DevelopmentError("No project source files are available")
@@ -324,6 +343,7 @@ class DevelopmentStudio:
                            "runtime": {key: runtime[key] for key in ("connected", "reply_enabled", "reply_ready", "has_reply_error", "reply_count") if key in runtime and isinstance(runtime[key], (bool, int))},
                            "inventory": [{"path": p, "bytes": len(t.encode())} for p, t in sources.items()],
                            "instruction": "Select up to 6 relevant existing files to read, totaling at most 600000 bytes. Return {\"files\":[\"path\"]}."}
+                self.event(job, "inspecting", "AI vazifaga mos manba fayllarini tanlayapti")
                 selection = await self.generate(settings, [system, {"role": "user", "content": json.dumps(request)}], 2000)
                 selected = selection.get("files")
                 if not isinstance(selected, list) or not selected or len(selected) > 6 or any(not isinstance(p, str) or p not in sources for p in selected):
@@ -331,7 +351,7 @@ class DevelopmentStudio:
                 selected = list(dict.fromkeys(selected))
                 if sum(len(sources[p].encode()) for p in selected) > MAX_SOURCE_BYTES:
                     raise DevelopmentError("Selected source exceeds context budget; narrow the objective")
-                self.event(job, "building", "Reading " + ", ".join(selected))
+                self.event(job, "building", "Manbalar tanlandi. AI vazifa uchun o‘zgarishlarni tayyorlayapti: " + ", ".join(selected))
                 request.update({"source_files": {p: sources[p] for p in selected}, "instruction":
                     'Return {"title":"short title","summary":"what and why","findings":[{"title":"...","detail":"source-grounded evidence","priority":"high|medium|low"}],'
                     '"verification":["checks the reviewer should run"],"changes":[{"path":"existing file","find":"unique exact source text","replace":"new text"},'
@@ -351,7 +371,7 @@ class DevelopmentStudio:
                     except DevelopmentError as exc:
                         if attempt:
                             raise
-                        self.event(job, "validating", "Revising the proposal after validation feedback")
+                        self.event(job, "validating", "Birinchi variant tekshiruvdan o‘tmadi. AI tuzatish kiritmoqda")
                         proposal = await self.generate(settings, messages + [{"role": "assistant", "content": json.dumps(proposal)},
                             {"role": "user", "content": "Correct this validation error and return the complete JSON proposal: " + str(exc)}], 12000)
                 title, summary = proposal.get("title"), proposal.get("summary")

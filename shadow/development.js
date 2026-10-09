@@ -6,6 +6,7 @@
   const states = {queued:'Navbatda',inspecting:'Manbalarni o‘qiyapti',building:'Tayyorlayapti',validating:'Tekshiryapti',ready:'Ko‘rib chiqish',failed:'Xatolik',cancelled:'To‘xtatildi',interrupted:'Uzildi',publishing:'PR yaratilmoqda',published:'Draft PR tayyor'};
   const taskTypes = Object.create(null);
   let taskCatalog = [];
+  let taskTypesLoaded = false;
   const running = new Set(['queued','inspecting','building','validating','publishing']);
   let selected = null, detail = null, status = null, refreshing = false, actionBusy = false, feedbackJob = null;
   const text = (id, value) => { el(id).textContent = value || ''; };
@@ -21,7 +22,7 @@
   }
   function renderTaskTypes(types) {
     if(!Array.isArray(types)||!types.length)return;
-    const previous=el('devMode').value, groups=new Map();
+    const previous=taskTypesLoaded?el('devMode').value:'solve', groups=new Map();
     taskCatalog=types.filter(item=>item&&typeof item.id==='string'&&typeof item.label==='string');
     Object.keys(taskTypes).forEach(key=>delete taskTypes[key]);
     taskCatalog.forEach(item=>{taskTypes[item.id]=item.label;const category=item.category||'Boshqa';if(!groups.has(category))groups.set(category,[]);groups.get(category).push(item);});
@@ -31,7 +32,8 @@
       items.forEach(item=>{const option=node('option',item.label);option.value=item.id;option.dataset.mode=item.mode;option.title=item.description||'';group.append(option);});
       select.append(group);
     });
-    select.value=taskCatalog.some(item=>item.id===previous)?previous:(taskCatalog[0]?.id||'');
+    select.value=taskCatalog.some(item=>item.id===previous)?previous:(taskCatalog.find(item=>item.id==='solve')?.id||taskCatalog[0]?.id||'');
+    taskTypesLoaded=true;
     updateTaskHint();
   }
   function json(method, body) { return {method,headers:{'content-type':'application/json'},...(body===undefined?{}:{body:JSON.stringify(body)})}; }
