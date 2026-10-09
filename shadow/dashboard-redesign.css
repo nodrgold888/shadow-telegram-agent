@@ -20,6 +20,10 @@
 :root[data-theme] body{background-color:var(--v-bg);background-image:radial-gradient(ellipse at 78% 0%,color-mix(in srgb,var(--console-blue) 7%,transparent),transparent 42%);color:var(--v-ink)}
 :root[data-theme] button,:root[data-theme] input,:root[data-theme] select,:root[data-theme] textarea{font:inherit}
 :root[data-theme] :focus-visible{outline:2px solid var(--console-blue);outline-offset:2px}
+:root[data-theme="dark"] select{color-scheme:dark}
+:root[data-theme="light"] select{color-scheme:light}
+:root[data-theme] select option,:root[data-theme] select optgroup{background-color:var(--v-surface);color:var(--v-ink)}
+:root[data-theme] select option:checked{background-color:var(--v-soft);color:var(--v-accent)}
 
 /* Application shell and navigation */
 :root[data-theme] .shell{grid-template-columns:250px minmax(0,1fr);background:transparent}
