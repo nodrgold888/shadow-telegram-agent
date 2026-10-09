@@ -639,6 +639,64 @@
 @media(max-width:680px){:root[data-theme] .command-core .holo-face{width:58px;height:58px}:root[data-theme] .orbit-node:after{display:none}:root[data-theme] .command-visual:before{inset:10px}}
 @media(prefers-reduced-motion:reduce){:root[data-theme] .command-visual:before,:root[data-theme] .command-visual:after,:root[data-theme] .holo-face .face-pupil{animation:none!important}}
 
+/* Reference blend: AdminLTE navigation, Keen's 12-column dashboard grid, ngx-admin widgets. */
+:root[data-theme] .reference-overview{grid-template-columns:repeat(12,minmax(0,1fr));align-items:start}
+:root[data-theme] .reference-overview>.command-hero,
+:root[data-theme] .reference-overview>.overview-metrics,
+:root[data-theme] .reference-overview>.route-panel,
+:root[data-theme] .reference-overview>.overview-duo,
+:root[data-theme] .reference-overview>.event-panel{grid-column:1/-1;min-width:0}
+:root[data-theme] .reference-overview>.activity-panel{grid-column:span 5;min-width:0}
+:root[data-theme] .reference-overview>.recent-panel{grid-column:span 7;min-width:0}
+:root[data-theme] .overview-panel-head{position:relative;padding-left:19px}
+:root[data-theme] .overview-panel-head:before{display:block;top:15px;bottom:15px;left:0;width:3px;border-radius:0 3px 3px 0;background:var(--v-accent)}
+:root[data-theme] .overview-panel-head h2{font-size:13px;font-weight:700}
+:root[data-theme] .overview-panel-head p{font-size:10px}
+:root[data-theme] .overview-metric{min-height:112px;border-top:1px solid var(--v-line);background:linear-gradient(180deg,color-mix(in srgb,var(--metric-accent) 4%,var(--v-surface)),var(--v-surface) 58%)}
+:root[data-theme] .overview-metric:before{top:0;right:0;bottom:auto;left:0;width:auto;height:3px;background:linear-gradient(90deg,var(--metric-accent),color-mix(in srgb,var(--metric-accent) 15%,transparent));opacity:1}
+:root[data-theme] .overview-metric .metric-label{display:flex;align-items:center;gap:9px}
+:root[data-theme] .overview-metric .metric-label i{width:29px;height:29px;border:0;border-radius:8px;background:var(--metric-soft);color:var(--metric-accent);font-size:14px}
+:root[data-theme] .overview-metric strong{margin-top:10px;color:var(--v-ink);font-size:28px;font-weight:720;letter-spacing:-.05em;font-variant-numeric:tabular-nums}
+:root[data-theme] .overview-metric small{display:block;margin-top:1px;color:var(--v-muted);font-size:9px}
+:root[data-theme] .overview-metric .metric-bottom{display:none}
+:root[data-theme] .route-panel{border-radius:10px}
+:root[data-theme] .route-head{padding-bottom:12px;border-bottom:1px solid var(--v-line)}
+:root[data-theme] .route-eyebrow{font-size:8px;letter-spacing:.11em}
+:root[data-theme] .route-flow{padding-top:15px}
+:root[data-theme] .route-node{border:1px solid var(--v-line);background:var(--v-surface2)}
+:root[data-theme] .route-node.active{border-color:color-mix(in srgb,var(--route-accent,var(--v-accent)) 34%,var(--v-line));background:color-mix(in srgb,var(--route-accent,var(--v-accent)) 6%,var(--v-surface))}
+:root[data-theme] .activity-grid>div{min-height:68px}
+:root[data-theme] .activity-grid strong{overflow-wrap:anywhere}
+:root[data-theme] .recent-panel .overview-panel-head{border-bottom:1px solid var(--v-line)}
+:root[data-theme] .event-panel .overview-panel-head:before{background:var(--console-blue)}
+:root[data-theme] .panel-grid{align-items:start}
+:root[data-theme] .detail-panel{padding:20px}
+:root[data-theme] .detail-panel h2{font-size:15px;font-weight:700}
+:root[data-theme] .model-panel{border-top:2px solid color-mix(in srgb,var(--v-accent) 55%,var(--v-line))}
+:root[data-theme] .model-panel:nth-child(2){border-top-color:color-mix(in srgb,var(--console-blue) 55%,var(--v-line))}
+:root[data-theme] .model-badge{display:grid;width:32px;height:32px;place-items:center;margin-bottom:13px;border:1px solid color-mix(in srgb,var(--v-accent) 25%,var(--v-line));border-radius:8px;background:var(--v-soft);color:var(--v-accent);font-size:12px;font-weight:750}
+:root[data-theme] .model-panel:nth-child(2) .model-badge{border-color:color-mix(in srgb,var(--console-blue) 25%,var(--v-line));background:color-mix(in srgb,var(--console-blue) 10%,var(--v-surface));color:var(--console-blue)}
+:root[data-theme] .monitor-card{position:relative;overflow:hidden}
+:root[data-theme] .monitor-card>span{font-weight:650}
+:root[data-theme] .monitor-card>strong{font-variant-numeric:tabular-nums}
+:root[data-theme] .monitor-summary{border-radius:11px}
+:root[data-theme] .monitor-services>div{background:transparent}
+:root[data-theme] .workspace-nav .nav.active{box-shadow:inset 3px 0 var(--v-accent)}
+:root[data-theme] .nav-label{letter-spacing:.13em}
+:root[data-theme] .side-note{border-color:#ffffff13}
+@media(max-width:1050px){
+  :root[data-theme] .reference-overview>.activity-panel,:root[data-theme] .reference-overview>.recent-panel{grid-column:1/-1}
+}
+@media(max-width:780px){
+  :root[data-theme] .reference-overview{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}
+  :root[data-theme] .reference-overview>.activity-panel,:root[data-theme] .reference-overview>.recent-panel{grid-column:1/-1}
+  :root[data-theme] .overview-panel-head{padding-left:17px}
+}
+@media(max-width:520px){
+  :root[data-theme] .reference-overview{grid-template-columns:minmax(0,1fr)}
+  :root[data-theme] .overview-metric strong{font-size:24px}
+}
+
 /* Extensible service catalog. Planned services are visibly non-connectable until an adapter exists. */
 :root[data-theme] .integration-catalog{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr));gap:14px;padding:18px}
 :root[data-theme] .integration-card{position:relative;display:flex;min-width:0;flex-direction:column;gap:14px;padding:18px;border:1px solid var(--v-line2);border-radius:13px;background:linear-gradient(145deg,color-mix(in srgb,var(--v-surface2) 88%,var(--c-blue) 12%),var(--v-surface));box-shadow:inset 0 1px #ffffff0a;overflow:hidden}
