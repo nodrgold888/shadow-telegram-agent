@@ -20,8 +20,10 @@ class SourceTests(unittest.TestCase):
         for path in ('../.env', '/etc/passwd', 'shadow/../app.py', 'shadow/.env', 'shadow//app.py', '.github/workflows/run.py', 'shadow/state/keys.json', 'shadow/session.session'):
             with self.subTest(path=path), self.assertRaises(DevelopmentError):
                 source_path(path, writing=True)
+        self.assertEqual(source_path('shadow/development.py', writing=True), 'shadow/development.py')
         with self.assertRaises(DevelopmentError):
-            source_path('shadow/development.py', writing=True)
+            source_path('shadow/skills/community/anthropics/frontend-design/SKILL.md', writing=True)
+        self.assertTrue(source_path('shadow/skills/community/anthropics/frontend-design/LOCAL_ADAPTER.md', writing=True))
         self.assertEqual(source_path('shadow/new_feature.py', writing=True), 'shadow/new_feature.py')
 
     def test_source_reader_excludes_secrets_and_symlinks(self):
@@ -29,6 +31,7 @@ class SourceTests(unittest.TestCase):
             root=Path(tmp);(root/'shadow').mkdir()
             (root/'shadow/app.py').write_text('answer = 42\n')
             (root/'.env').write_text('SECRET=never\n')
+            (root/'shadow/.env').write_text('SECRET=never\n')
             (root/'shadow/state').mkdir();(root/'shadow/state/data.json').write_text('{"secret":1}')
             (root/'shadow/leak.py').symlink_to(root/'.env')
             self.assertEqual(read_sources(root), {'shadow/app.py':'answer = 42\n'})
@@ -71,7 +74,7 @@ class DevelopmentTests(unittest.IsolatedAsyncioTestCase):
                 'changes':[{'path':'shadow/example.py','find':'answer = 1','replace':'answer = '+replacement}]}
 
     async def build(self):
-        self.responses=[{'files':['shadow/example.py']},self.plan()]
+        self.responses=[{'files':['shadow/example.py']},self.plan(),self.plan()]
         job=await self.studio.start(SETTINGS,'Improve the example module','build')
         await self.studio.task
         return self.studio.get(job['id'])
@@ -83,17 +86,17 @@ class DevelopmentTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual((self.studio.state_dir/job['id']/'candidate/shadow/example.py').read_text(),'answer = 2\n')
         self.studio.feedback(job['id'],'accepted','Keep changes small')
         await self.build()
-        prompt=json.loads(self.prompts[-2][-1]['content'])
+        prompt=json.loads(self.prompts[-1][1]['content'])
         self.assertEqual(prompt['previous_owner_feedback'][0]['feedback']['note'],'Keep changes small')
         self.assertNotIn('content',self.studio.public(job)['files'][0])
 
     async def test_revision_after_validation_failure(self):
-        self.responses=[{'files':['shadow/example.py']},self.plan('('),self.plan('3')]
+        self.responses=[{'files':['shadow/example.py']},self.plan('('),self.plan('('),self.plan('3')]
         job=await self.studio.start(SETTINGS,'Improve the example module','build');await self.studio.task
         result=self.studio.get(job['id'])
         self.assertEqual(result['state'],'ready')
         self.assertEqual(result['files'][0]['content'],'answer = 3\n')
-        self.assertEqual(len(self.prompts),3)
+        self.assertEqual(len(self.prompts),4)
 
     async def test_audit_cannot_generate_code(self):
         self.responses=[{'files':['shadow/example.py']},self.plan(),self.plan()]
@@ -192,6 +195,7 @@ class ApiAuthTests(unittest.IsolatedAsyncioTestCase):
             (root/'shadow/example.py').write_text('answer = 1\n')
             responses=[{'files':['shadow/example.py']},{'title':'Change','summary':'Updated',
                 'changes':[{'path':'shadow/example.py','find':'1','replace':'2'}]}]
+            responses.append(responses[-1].copy())  # Independent review returns the complete proposal.
             async def generate(*args):return responses.pop(0)
             studio=DevelopmentStudio(root,Path(tmp)/'jobs',generate)
             with mock.patch.object(module,'development',studio), mock.patch.object(module,'settings',SimpleNamespace(setup_token='test',admin_token='')), mock.patch.object(module.agent,'settings',SETTINGS), mock.patch.object(module.agent,'status',return_value={'connected':False}):

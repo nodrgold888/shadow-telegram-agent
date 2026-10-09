@@ -15,6 +15,7 @@ from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, Res
 
 from .config import Settings
 from .development import DevelopmentError, DevelopmentStudio
+from .guardian import Guardian
 from .ai_slots import apply_provider, fetch_provider_models, free_slot, parse_provider, provider_env, remove_slot, set_first, slot_env_names
 from .accounts import mask_label
 from .persist import delete_env_vars, save_env_vars, save_model_selection, save_reply_enabled, save_group_reply_enabled, save_group_reply_mode
@@ -37,16 +38,19 @@ agent = TelegramAgent(settings)
 keepalive = build_keepalive()
 panel_login = PanelLogin()
 development = DevelopmentStudio()
+guardian = Guardian(agent, development)
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     await agent.start()
+    guardian.start()
     if keepalive:
         keepalive.start()
     try:
         yield
     finally:
+        await guardian.close()
         await development.close()
         if keepalive:
             keepalive.stop()
@@ -140,6 +144,13 @@ class DevelopmentFeedback(BaseModel):
     note: str = Field(default="", max_length=1000)
 
 
+class GuardianSettings(BaseModel):
+    enabled: bool | None = None
+    auto_repair: bool | None = None
+    ai_review: bool | None = None
+    interval_seconds: Literal[60, 300, 900] | None = None
+
+
 @app.exception_handler(DevelopmentError)
 async def development_error(_request: Request, exc: DevelopmentError):
     return JSONResponse({"detail": str(exc)}, status_code=400)
@@ -147,7 +158,24 @@ async def development_error(_request: Request, exc: DevelopmentError):
 
 @app.get("/dashboard/api/development", dependencies=[Depends(development_auth)])
 async def development_status():
-    return development.status(agent.settings)
+    result = development.status(agent.settings, guardian.scope_key())
+    result["guardian"] = guardian.snapshot()
+    return JSONResponse(result, headers={"Cache-Control": "no-store"})
+
+
+@app.get("/dashboard/api/development/guardian", dependencies=[Depends(development_auth)])
+async def guardian_status():
+    return JSONResponse(guardian.snapshot(), headers={"Cache-Control": "no-store"})
+
+
+@app.patch("/dashboard/api/development/guardian", dependencies=[Depends(development_auth)])
+async def guardian_configure(body: GuardianSettings):
+    return guardian.configure(**body.model_dump(exclude_none=True))
+
+
+@app.post("/dashboard/api/development/guardian/check", status_code=202, dependencies=[Depends(development_auth)])
+async def guardian_check():
+    return guardian.request_check()
 
 
 @app.post("/dashboard/api/development", status_code=202, dependencies=[Depends(development_auth)])
@@ -155,17 +183,18 @@ async def development_start(body: DevelopmentTask):
     state = agent.status()
     runtime = {key: state.get(key) for key in ("connected", "reply_enabled", "reply_ready", "reply_count")}
     runtime["has_reply_error"] = bool(state.get("last_reply_error"))
-    return await development.start(agent.settings, body.objective, body.mode, runtime, body.task_type)
+    return await development.start(agent.settings, body.objective, body.mode, runtime, body.task_type,
+                                   account_scope=guardian.scope_key())
 
 
 @app.get("/dashboard/api/development/{job_id}", dependencies=[Depends(development_auth)])
 async def development_detail(job_id: str):
-    return development.public(development.get(job_id), detail=True)
+    return development.public(development.get(job_id, guardian.scope_key()), detail=True)
 
 
 @app.get("/dashboard/api/development/{job_id}/patch", dependencies=[Depends(development_auth)])
 async def development_patch(job_id: str):
-    job = development.get(job_id)
+    job = development.get(job_id, guardian.scope_key())
     if not job.get("patch"):
         raise DevelopmentError("This task has no patch")
     return Response(job["patch"], media_type="text/plain",
@@ -175,23 +204,27 @@ async def development_patch(job_id: str):
 
 @app.post("/dashboard/api/development/{job_id}/cancel", dependencies=[Depends(development_auth)])
 async def development_cancel(job_id: str):
+    development.get(job_id, guardian.scope_key())
     await development.cancel(job_id)
     return {"ok": True}
 
 
 @app.post("/dashboard/api/development/{job_id}/feedback", dependencies=[Depends(development_auth)])
 async def development_feedback(job_id: str, body: DevelopmentFeedback):
+    development.get(job_id, guardian.scope_key())
     development.feedback(job_id, body.decision, body.note)
     return {"ok": True}
 
 
 @app.post("/dashboard/api/development/{job_id}/publish", dependencies=[Depends(development_auth)])
 async def development_publish(job_id: str):
+    development.get(job_id, guardian.scope_key())
     return await development.publish(job_id)
 
 
 @app.delete("/dashboard/api/development/{job_id}", dependencies=[Depends(development_auth)])
 async def development_delete(job_id: str):
+    development.get(job_id, guardian.scope_key())
     development.delete(job_id)
     return {"ok": True}
 
@@ -720,7 +753,9 @@ async def ping() -> PlainTextResponse:
 async def health() -> dict[str, object]:
     # Render and keep-alive probes are public. Do not expose the connected
     # Telegram identity or account/session configuration here.
-    return {"ok": True, "connected": agent.connected}
+    return {"ok": True, "connected": agent.connected,
+            "guardian_running": bool(guardian.task and not guardian.task.done()),
+            "guardian_heartbeat_fresh": bool(guardian.heartbeat and guardian.clock() - guardian.heartbeat < 90)}
 
 
 @app.get("/admin/status")

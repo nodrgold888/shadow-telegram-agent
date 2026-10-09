@@ -178,6 +178,43 @@
 :root[data-theme] .integration-card:nth-child(2n) .integration-icon{color:var(--console-rose);background:color-mix(in srgb,var(--console-rose) 14%,var(--v-surface))}
 :root[data-theme] .integration-card:nth-child(3n) .integration-icon{color:var(--console-violet);background:color-mix(in srgb,var(--console-violet) 14%,var(--v-surface))}
 
+/* Background supervision, with status from the server rather than a visual-only pulse. */
+:root[data-theme] .guardian-panel{margin:20px 0;padding:22px;border:1px solid color-mix(in srgb,var(--v-accent) 35%,var(--v-line));border-radius:12px;background:linear-gradient(120deg,color-mix(in srgb,var(--v-accent) 7%,var(--v-surface)),var(--v-surface) 60%)}
+:root[data-theme] .guardian-heading{display:flex;align-items:center;justify-content:space-between;gap:16px}
+:root[data-theme] .guardian-heading h3{margin:5px 0;font-size:21px;letter-spacing:-.025em}
+:root[data-theme] .guardian-heading p,:root[data-theme] .guardian-help p{margin:0;color:var(--v-muted);font-size:12px;line-height:1.6}
+:root[data-theme] .guardian-state{flex-shrink:0;display:inline-flex;align-items:center;gap:8px;border:1px solid var(--v-line2);padding:7px 10px;border-radius:999px;color:var(--v-muted);font-size:11px}
+:root[data-theme] .guardian-state:before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor}
+:root[data-theme] .guardian-state[data-state="active"],:root[data-theme] .guardian-state[data-state="checking"]{color:var(--v-accent);background:var(--v-soft)}
+:root[data-theme] .guardian-state[data-state="stale"],:root[data-theme] .guardian-state[data-state="stopped"]{color:var(--v-warn)}
+:root[data-theme] .guardian-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:20px 0}
+:root[data-theme] .guardian-metrics>div{min-width:0;padding:13px;border:1px solid var(--v-line);border-radius:8px;background:var(--v-surface2)}
+:root[data-theme] .guardian-metrics small{display:block;color:var(--v-muted);font-size:10px}
+:root[data-theme] .guardian-metrics strong{display:block;margin-top:7px;font-size:12px;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+:root[data-theme] .guardian-metrics>div:nth-child(3) strong{color:var(--v-accent)}
+:root[data-theme] .guardian-metrics>div:nth-child(4) strong{color:var(--console-violet)}
+:root[data-theme] .guardian-controls{display:flex;flex-wrap:wrap;align-items:center;gap:12px}
+:root[data-theme] .guardian-controls label{display:flex;align-items:center;gap:7px;font-size:11px;color:var(--v-ink)}
+:root[data-theme] .guardian-controls select{width:auto;min-height:34px;padding:5px 9px}
+:root[data-theme] .guardian-controls input[type="checkbox"]{width:16px;height:16px;margin:0;accent-color:var(--v-accent)}
+:root[data-theme] .guardian-notice{min-height:18px;margin:9px 0;color:var(--v-muted);font-size:11px}
+:root[data-theme] .guardian-columns{display:grid;grid-template-columns:1fr 1fr;gap:26px;padding-top:10px;border-top:1px solid var(--v-line)}
+:root[data-theme] .guardian-columns h4{margin:5px 0 10px;font-size:13px}
+:root[data-theme] .guardian-check{display:flex;gap:10px;padding:9px 0;border-bottom:1px solid var(--v-line)}
+:root[data-theme] .guardian-check-mark{flex:0 0 24px;display:grid;place-items:center;align-self:flex-start;height:24px;border-radius:7px;background:var(--v-surface2);color:var(--v-muted)}
+:root[data-theme] .guardian-check[data-state="ok"] .guardian-check-mark{color:var(--v-accent);background:var(--v-soft)}
+:root[data-theme] .guardian-check[data-state="warning"] .guardian-check-mark{color:var(--v-warn);background:var(--v-warn-soft)}
+:root[data-theme] .guardian-check[data-state="error"] .guardian-check-mark{color:var(--v-danger)}
+:root[data-theme] .guardian-check strong{display:block;font-size:11px}
+:root[data-theme] .guardian-check small{display:block;margin-top:3px;color:var(--v-muted);font-size:10px;line-height:1.5}
+:root[data-theme] .guardian-events{list-style:none;padding:0;margin:0 0 14px;font-size:11px}
+:root[data-theme] .guardian-events li{padding:9px 0;border-bottom:1px solid var(--v-line);overflow-wrap:anywhere}
+:root[data-theme] .guardian-events time{display:block;margin-bottom:3px;color:var(--v-muted);font-size:10px}
+:root[data-theme] .guardian-help{margin-top:18px;padding-top:14px;border-top:1px solid var(--v-line);font-size:11px;color:var(--v-muted)}
+:root[data-theme] .guardian-help summary{cursor:pointer;color:var(--v-ink)}
+:root[data-theme] .guardian-help p{margin-top:10px;font-size:11px}
+@media(max-width:780px){:root[data-theme] .guardian-panel{padding:15px}:root[data-theme] .guardian-heading{align-items:flex-start;flex-direction:column}:root[data-theme] .guardian-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}:root[data-theme] .guardian-columns{grid-template-columns:1fr;gap:18px}}
+
 /* Login and modal surfaces share the same identity. */
 :root[data-theme] .login-wrap:before{background:var(--workspace-backdrop)}
 :root[data-theme] .login-wrap:after{background:none}

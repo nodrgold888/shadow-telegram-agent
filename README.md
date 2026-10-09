@@ -362,3 +362,33 @@ work. The workspace holds up to 30 tasks; download and remove old tasks to free 
 Local history and preference memory survive process restarts when the directory is
 retained, but Render's ephemeral filesystem can be reset by a redeploy. Export patches
 or use draft PRs before redeploying; use a persistent disk for durable task history.
+
+### Background agent: Shadow Guardian
+
+Development Studio includes a server-owned supervision loop. It starts with FastAPI,
+runs without an open browser, checks Telegram, AI configuration, reply listeners,
+recorded reply failures, and the presence/syntax of its core source files every minute.
+Source checks are cached for 15 minutes; they are not functional tests. Safe runtime
+recovery reuses the connection/listener repair service and never enables replies or
+changes chat permissions. The panel polls actual status every five seconds and offers
+pause/resume, check-now, 1/5/15-minute intervals, recovery and AI audit controls.
+
+When configured, AI performs a source review at most once every six hours per Telegram
+account, using the existing provider chain. This uses API credits. It waits for manual
+work to finish and produces an audit in Development Studio; code patches and deployment
+remain separate actions. Failed audits consume their scheduled slot to prevent retry
+storms. The last five completed automatic audits per account are retained; manual jobs
+and patches are not pruned. Settings, counters, events and AI scheduling are isolated
+by the active account, and stale checks are discarded after account switches.
+
+Set `SHADOW_GUARDIAN_ENABLED=false` to default new account schedules to paused. Guardian
+stores preferences and a bounded event log in `SHADOW_DEV_DIR/guardian-state.json`;
+`SHADOW_GUARDIAN_STATE_FILE` overrides that path. Use a writable persistent disk for
+both Guardian and `SHADOW_DEV_DIR` to preserve schedules and audits across deployments.
+Pause stops new checks; an already running check or AI job can finish. The normal task
+cancel control can cancel an AI audit.
+
+The loop stops when the server process stops. Render Free can sleep and its disk is
+ephemeral; existing keep-alive pings cannot guarantee availability. Uninterrupted
+24/7 operation requires an always-on host and persistent storage. No paid hosting
+upgrade is performed automatically.

@@ -107,9 +107,11 @@ def source_path(name: str, *, writing: bool = False) -> str:
     in_workflows = len(path.parts) >= 3 and path.parts[:2] == (".github", "workflows") and path.suffix in {".yml", ".yaml"}
     if name not in ROOT_FILES and not in_application and not in_workflows:
         raise DevelopmentError("Only application source, tests, scripts, approved project configuration, and GitHub workflows are available")
+    if name not in ROOT_FILES and any(part.startswith(".") for part in path.parts if part != ".github"):
+        raise DevelopmentError("Hidden files and environment secrets are not available to the development agent")
     if path.suffix not in SUFFIXES or any(p in {"__pycache__", "node_modules", "state", "sessions", ".git"} for p in path.parts):
         raise DevelopmentError("Unsupported source file")
-    if writing and name.startswith("shadow/skills/community/anthropics/"):
+    if writing and name.startswith("shadow/skills/community/anthropics/") and path.name != "LOCAL_ADAPTER.md":
         raise DevelopmentError("Keep upstream skill snapshots unchanged; edit the Shadow adapter or a local skill instead")
     return name
 
@@ -304,29 +306,33 @@ class DevelopmentStudio:
             if os.path.exists(temporary):
                 os.unlink(temporary)
 
-    def get(self, job_id: str) -> dict:
+    def get(self, job_id: str, account_scope: str | None = None) -> dict:
         self._load()
         if job_id not in self.jobs:
+            raise DevelopmentError("Development task not found")
+        job = self.jobs[job_id]
+        if account_scope is not None and job.get("account_scope") and job["account_scope"] != account_scope:
             raise DevelopmentError("Development task not found")
         return self.jobs[job_id]
 
     def public(self, job: dict, detail: bool = False) -> dict:
         keys = ("id", "objective", "mode", "task_type", "state", "created_at", "finished_at", "title", "summary", "error",
-                "findings", "verification", "events", "feedback", "pr_url", "branch")
+                "findings", "verification", "events", "feedback", "pr_url", "branch", "origin")
         result = {key: job[key] for key in keys if key in job}
         result["files"] = [{key: value for key, value in f.items() if key not in {"content", "base_hash"}} for f in job.get("files", [])]
         if detail:
             result["patch"] = job.get("patch", "")
         return result
 
-    def status(self, settings: Settings) -> dict:
+    def status(self, settings: Settings, account_scope: str | None = None) -> dict:
         self._load()
         return {"ai_ready": settings.ai_ready, "github_ready": bool(os.getenv("SHADOW_DEV_GITHUB_TOKEN", "").strip()),
                 "repository": os.getenv("SHADOW_DEV_GITHUB_REPO", "nodrgold888/shadow-telegram-agent"),
                 "busy": bool(self.task and not self.task.done()), "history_limit": MAX_JOBS,
                 "task_types": [{"id": key, **{field: value[field] for field in ("mode", "category", "label", "description")}}
                                for key, value in TASK_TYPES.items()],
-                "jobs": [self.public(j) for j in sorted(self.jobs.values(), key=lambda j: j["created_at"], reverse=True)]}
+                "jobs": [self.public(j) for j in sorted(self.jobs.values(), key=lambda j: j["created_at"], reverse=True)
+                         if not j.get("account_scope") or j["account_scope"] == account_scope]}
 
     def event(self, job: dict, state: str, message: str):
         job["state"] = state
@@ -334,7 +340,7 @@ class DevelopmentStudio:
         self._save(job)
 
     async def start(self, settings: Settings, objective: str, mode: str, runtime: dict | None = None,
-                    task_type: str | None = None) -> dict:
+                    task_type: str | None = None, *, origin: str = "manual", account_scope: str | None = None) -> dict:
         self._load()
         if self.task and not self.task.done():
             raise DevelopmentError("A development task is already running")
@@ -349,7 +355,8 @@ class DevelopmentStudio:
         if len(self.jobs) >= MAX_JOBS:
             raise DevelopmentError("History is full. Download and remove an old task first")
         job = {"id": uuid.uuid4().hex, "objective": objective.strip(), "mode": mode, "task_type": task_type, "state": "queued",
-               "created_at": now(), "events": [], "files": [], "patch": "", "feedback": {}}
+               "created_at": now(), "events": [], "files": [], "patch": "", "feedback": {},
+               "origin": origin, "account_scope": account_scope}
         self._save(job)
         self.jobs[job["id"]] = job
         self.task = asyncio.create_task(self._run(job, settings, runtime or {}))
@@ -364,7 +371,8 @@ class DevelopmentStudio:
                     raise DevelopmentError("No project source files are available")
                 memory = [{"objective": j["objective"][:300], "summary": j.get("summary", "")[:500], "feedback": j["feedback"]}
                           for j in sorted(self.jobs.values(), key=lambda j: j["created_at"], reverse=True)
-                          if j.get("feedback", {}).get("decision")][:6]
+                          if j.get("feedback", {}).get("decision")
+                          and j.get("account_scope") == job.get("account_scope")][:6]
                 system = {"role": "system", "content": SYSTEM}
                 required_skill_paths = [
                     "shadow/skills/community/anthropics/" + relative
