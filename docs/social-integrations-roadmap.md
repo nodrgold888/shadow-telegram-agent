@@ -5,6 +5,7 @@ This roadmap prepares Shadow to add Instagram, YouTube, and other services witho
 ## Progress
 
 - The first safe foundation is in place: an authenticated service catalog shows Telegram's live connection state and marks Instagram and YouTube as planned in the dashboard.
+- A validated service registry and adapter contract now define account-scoped connection contexts, identities, bounded sync pages, and cross-account leakage checks.
 - This catalog is descriptive only. OAuth, token storage, sync, and service actions are not implemented yet; planned cards do not offer fake connect buttons.
 
 ## Product direction
@@ -22,8 +23,8 @@ This roadmap prepares Shadow to add Instagram, YouTube, and other services witho
 - Telegram account-specific state is already scoped in `shadow/persist.py` and `shadow/telegram_agent.py`.
 - AI providers have a small configuration layer in `shadow/ai_slots.py`; it is an example of keeping provider-specific details out of UI handlers.
 - Public Instagram and TikTok video-link downloading exists in `shadow/video_download.py`. This is a media utility, not an authenticated Instagram integration.
-- There is not yet a general social integration registry, OAuth connection flow, or account store for non-Telegram services.
-- A non-secret service catalog now lives in `shadow/integrations/catalog.py`; it reports the active Telegram account label and explicitly marks future services as planned.
+- A non-secret service registry/catalog now lives in `shadow/integrations/catalog.py`; it reports the active Telegram account label and explicitly marks future services as planned.
+- The first adapter contract is in `shadow/integrations/contract.py`. There is still no OAuth connection flow, durable token vault, or concrete non-Telegram adapter.
 
 ## Proposed architecture
 
