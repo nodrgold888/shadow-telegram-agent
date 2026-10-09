@@ -35,6 +35,20 @@ from .policy import chat_is_approved, group_message_needs_reply, split_telegram_
 
 log = logging.getLogger("shadow.telegram")
 
+# Mobile Uzbek chat commonly omits apostrophes. Keep the assistant's outgoing
+# text consistent with that style before it is sent (or synthesized as speech).
+_APOSTROPHES = str.maketrans({
+    "'": "",
+    "‘": "",
+    "’": "",
+    "ʻ": "",
+    "ʼ": "",
+})
+
+
+def phone_text(text: str) -> str:
+    return (text or "").translate(_APOSTROPHES)
+
 # Telethon network calls made during the browser-driven /setup/telegram flow
 # have no built-in timeout. If Telegram's servers are slow or unreachable
 # from the host's network, a call can hang indefinitely while holding
@@ -1069,6 +1083,7 @@ class TelegramAgent:
             if not answer and not files:
                 raise RuntimeError("empty_ai_reply")
             parts = split_parts(answer)
+            parts = [phone_text(part) for part in parts]
             answer = " ".join(parts)  # voice, caption and length checks use the message without separators
             speech_path = None
             if voice_reply and answer and len(answer) <= 4000:
@@ -1187,6 +1202,22 @@ class TelegramAgent:
 
     def status(self) -> dict[str, object]:
         approved = self.settings.approved_chat_ids
+        listener_registered = False
+        if self.client:
+            try:
+                listener_registered = any(
+                    callback == self._on_message
+                    for callback, _ in self.client.list_event_handlers()
+                )
+            except Exception:
+                listener_registered = False
+        client_connected = False
+        if self.client:
+            try:
+                client_connected = bool(self.client.is_connected())
+            except Exception:
+                client_connected = False
+        reply_ready = bool(self.connected and client_connected and self.settings.ai_ready and approved)
         return {
             "configured": self.settings.configured or self.connected,
             "connected": self.connected,
@@ -1195,7 +1226,9 @@ class TelegramAgent:
             "approved_chat_count": "all" if approved == "*" else len(approved),
             "reply_enabled": self.reply_enabled,
             "openai_configured": self.settings.ai_ready,
-            "reply_ready": bool(self.connected and self.client and self.settings.ai_ready and approved),
+            "reply_ready": reply_ready,
+            "reply_listener_registered": listener_registered,
+            "reply_runtime_ready": bool(reply_ready and self.reply_enabled and listener_registered),
             "group_reply_mode": self.settings.group_reply_mode,
             "group_reply_enabled": self.settings.group_reply_enabled,
             "last_ai_model": self.assistant.last_model if self.assistant else None,
