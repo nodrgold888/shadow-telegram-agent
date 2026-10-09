@@ -146,6 +146,7 @@ Qoidalar:
 
 
 SKILL_DIR = Path(__file__).with_name("skills")
+COMMUNITY_SKILL_DIR = SKILL_DIR / "community" / "anthropics"
 SKILL_FILES = (
     "assistant.md", "math.md", "excel.md", "word.md", "coding.md", "learning.md", "writing_uz.md", "translate.md",
     "planning.md", "customer_replies.md", "uz_etiquette.md", "banking_uz.md", "davrbank_uz.md", "davr_loans_uz.md",
@@ -153,6 +154,12 @@ SKILL_FILES = (
 )
 SKILL_PROMPT = "\n\n".join((SKILL_DIR / name).read_text(encoding="utf-8") for name in SKILL_FILES)
 BANK_SKILL_FILES = ("banking_uz.md", "davrbank_uz.md", "davr_loans_uz.md")
+COMMUNITY_SKILL_TRIGGERS = {
+    "frontend-design": re.compile(r"\b(design|designer|dashboard|website|web site|frontend|layout|ui|ux)\b|dizayn|interfeys|sayt", re.IGNORECASE),
+    "mcp-builder": re.compile(r"\b(api|mcp|integration|integrations|instagram|youtube|webhook)\b|integratsiya|xizmat ulash|ulab ber", re.IGNORECASE),
+    "skill-creator": re.compile(r"\b(skill|skills|prompt|agent)\b|ko['‘’ʻʼ]?nikma|yangi agent|prompt yarat", re.IGNORECASE),
+    "webapp-testing": re.compile(r"\b(playwright|browser|webapp|web app|ui test|tests?)\b|brauzerda tekshir|sinovdan o‘tkaz", re.IGNORECASE),
+}
 # The Davr Bank guides are about half of the skill text; small talk does not need them, so they are only
 # added when the chat (or the chat's role) is about banking. SKILL_PROMPT stays the complete text.
 SKILL_PROMPT_NO_BANK = "\n\n".join(
@@ -175,7 +182,21 @@ def wants_bank_skills(text: str, role: str = "") -> bool:
 
 
 def skill_prompt_for(text: str, role: str = "") -> str:
-    return SKILL_PROMPT if wants_bank_skills(text, role) else SKILL_PROMPT_NO_BANK
+    base = SKILL_PROMPT if wants_bank_skills(text, role) else SKILL_PROMPT_NO_BANK
+    context = f"{text or ''}\n{role or ''}"
+    extras = []
+    for skill_id, trigger in COMMUNITY_SKILL_TRIGGERS.items():
+        if not trigger.search(context):
+            continue
+        folder = COMMUNITY_SKILL_DIR / skill_id
+        skill = (folder / "SKILL.md").read_text(encoding="utf-8")
+        skill = re.sub(r"\A---\s*\n.*?\n---\s*\n", "", skill, count=1, flags=re.DOTALL)
+        adapter = (folder / "LOCAL_ADAPTER.md").read_text(encoding="utf-8")
+        extras.extend((skill, adapter))
+        if skill_id == "mcp-builder":
+            extras.extend(((folder / "reference" / "mcp_best_practices.md").read_text(encoding="utf-8"),
+                           (folder / "reference" / "python_mcp_server.md").read_text(encoding="utf-8")))
+    return base + ("\n\n" + "\n\n".join(extras) if extras else "")
 
 
 # Plain small talk (a greeting, "how are you", a short remark) does not need the calculator, Word/Excel tools or
@@ -184,6 +205,8 @@ SMALL_TALK_FILES = ("human_chat.md", "real_chat_uz.md", "uz_etiquette.md")
 SMALL_TALK_PROMPT = "\n\n".join((SKILL_DIR / name).read_text(encoding="utf-8") for name in SMALL_TALK_FILES)
 SMALL_TALK_MAX_CHARS = 90
 _TASK_HINTS = (
+    "skill", "skills", "prompt", "agent", "design", "dizayn", "dashboard", "website", "frontend", "interfeys", "sayt",
+    "api", "mcp", "integration", "integratsiya", "webhook", "playwright", "browser", "webapp",
     "excel", "word", "docx", "xlsx", "fayl", "файл", "hujjat", "документ", "jadval", "таблиц", "hisobla", "посчита",
     "hisob-kitob", "kod", "код", "python", "rasm", "расм", "картин", "tarjima", "перевед", "перевод", "yozib ber", "tuzib ber",
     "yaratib ber", "tayyorla", "http", "www.", ".com", ".uz", "reja", "план", "kurs", "dars", "test", "savol-javob",

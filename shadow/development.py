@@ -46,11 +46,12 @@ TASK_TYPES = {
     "feature": {"mode": "build", "category": "Yaratish va yaxshilash", "label": "Yangi funksiya yaratish", "description": "Mavjud arxitekturaga mos, yakunlangan va ko‘rib chiqiladigan imkoniyat yaratadi.", "guidance": "Design and implement one complete, bounded capability that fits existing architecture and preserves permissions and current workflows."},
     "bugfix": {"mode": "build", "category": "Yaratish va yaxshilash", "label": "Xatoni tuzatish", "description": "Asosiy sababni tuzatib, kerak bo‘lsa shu holat uchun test qo‘shadi.", "guidance": "Trace the reported defect to its cause, fix it, and add or update focused coverage where appropriate."},
     "security_fix": {"mode": "build", "category": "Yaratish va yaxshilash", "label": "Xavfsizlik muammosini tuzatish", "description": "Aniq zaiflikni eng kichik xavfsiz o‘zgarish bilan bartaraf etadi.", "guidance": "Fix the stated security weakness with the smallest safe change. Preserve authentication, account isolation, and access boundaries; never expose secrets."},
-    "design": {"mode": "build", "category": "Yaratish va yaxshilash", "label": "Dizayn va foydalanuvchi tajribasi", "description": "Vizual ierarxiya, mobil ko‘rinish, formalar va foydalanish qulayligini yaxshilaydi.", "guidance": "Improve visual hierarchy, responsive behavior, accessibility, and interaction details while preserving existing workflows."},
+    "design": {"mode": "build", "category": "Yaratish va yaxshilash", "label": "Dizayn va foydalanuvchi tajribasi", "description": "Vizual ierarxiya, mobil ko‘rinish, formalar va foydalanish qulayligini yaxshilaydi.", "guidance": "Use the installed frontend-design skill. Read its SKILL.md and LOCAL_ADAPTER.md, then improve visual hierarchy, responsive behavior, accessibility, and interaction details while preserving existing workflows."},
     "performance": {"mode": "build", "category": "Yaratish va yaxshilash", "label": "Tezlik va resurs sarfi", "description": "Asoslangan sekin joyni optimallashtirib, xulqni o‘zgartirmaydi.", "guidance": "Improve a measured or source-grounded performance bottleneck without changing behavior; state the expected trade-offs and verification."},
-    "tests": {"mode": "build", "category": "Yaratish va yaxshilash", "label": "Avtomatik testlar qo‘shish", "description": "Muhim muvaffaqiyatli, xato va chekka holatlar uchun test yozadi.", "guidance": "Add focused automated checks for the requested behavior and important edge cases. Do not claim checks were run."},
+    "tests": {"mode": "build", "category": "Yaratish va yaxshilash", "label": "Avtomatik testlar qo‘shish", "description": "Muhim muvaffaqiyatli, xato va chekka holatlar uchun test yozadi.", "guidance": "Use the installed webapp-testing skill and local adapter. Add focused automated checks for the requested behavior and important edge cases. This agent cannot run browser or shell checks; do not claim checks were run."},
+    "skill": {"mode": "build", "category": "Yaratish va yaxshilash", "label": "Yangi skill yoki prompt", "description": "Shadow uchun foydali, qayta ishlatiladigan prompt skillini yaratadi yoki yaxshilaydi.", "guidance": "Use the installed skill-creator skill and local adapter. Create a focused Markdown skill with clear activation cues, useful instructions, examples, and references to actual Shadow capabilities. Register it in the runtime only when needed. Preserve chat isolation and safety rules; do not claim evaluations were run."},
     "docs": {"mode": "build", "category": "Yaratish va yaxshilash", "label": "Hujjat va yo‘riqnoma", "description": "Foydalanuvchi yoki dasturchi uchun aniq, yangilangan qo‘llanma tayyorlaydi.", "guidance": "Improve documentation with accurate, source-grounded setup steps, behavior, examples, and troubleshooting."},
-    "integration": {"mode": "build", "category": "Yaratish va yaxshilash", "label": "API yoki xizmat integratsiyasi", "description": "Validatsiya, xatolar, timeout va xavfsiz sozlash bilan ulaydi.", "guidance": "Implement or repair the requested API/service integration, including validation, safe configuration, timeouts, and useful error handling."},
+    "integration": {"mode": "build", "category": "Yaratish va yaxshilash", "label": "API yoki xizmat integratsiyasi", "description": "Validatsiya, xatolar, timeout va xavfsiz sozlash bilan ulaydi.", "guidance": "Use the installed mcp-builder skill, its Python and best-practices references, and LOCAL_ADAPTER.md. Implement or repair the requested API/service integration, including validation, safe configuration, timeouts, and useful error handling. Do not claim to have browsed external documentation."},
     "data_migration": {"mode": "build", "category": "Yaratish va yaxshilash", "label": "Ma’lumot migratsiyasi", "description": "Eski formatdan yangi sxemaga xavfsiz va qayta ishga tushiriladigan o‘tish yaratadi.", "guidance": "Implement an idempotent, backward-conscious data migration with validation and a rollback or recovery path. Preserve existing user data."},
     "refactor": {"mode": "build", "category": "Yaratish va yaxshilash", "label": "Refaktor va kod sifati", "description": "Takroriy yoki murakkab kodni xulq va ommaviy interfeysni saqlab tartiblaydi.", "guidance": "Refactor for clarity and maintainability while preserving behavior, public interfaces, and existing permission checks."},
     "reliability": {"mode": "build", "category": "Yaratish va yaxshilash", "label": "Ishonchlilik va tiklanish", "description": "Xato holatlari, qayta ulanish va tiklanish oqimlarini yaxshilaydi.", "guidance": "Improve failure handling, recovery, and operational reliability without weakening safety controls."},
@@ -58,6 +59,18 @@ TASK_TYPES = {
     "localization": {"mode": "build", "category": "Yaratish va yaxshilash", "label": "Til va lokalizatsiya", "description": "O‘zbekcha matn, tarjima, format va ko‘p tilli interfeysni yaxshilaydi.", "guidance": "Improve localization, language consistency, date/number formatting, and translation quality while preserving accessible labels."},
     "compatibility": {"mode": "build", "category": "Yaratish va yaxshilash", "label": "Brauzer va qurilma mosligi", "description": "Mobil, planshet va turli brauzerlarda barqaror ishlashni yaxshilaydi.", "guidance": "Improve responsive and browser compatibility using progressive enhancement; preserve keyboard and touch interactions."},
     "devops": {"mode": "build", "category": "Yaratish va yaxshilash", "label": "Deploy va runtime sozlamalari", "description": "Ishga tushirish, muhit o‘zgaruvchilari va health-check oqimini yaxshilaydi.", "guidance": "Improve deployment/runtime configuration, startup validation, health checks, or safe rollback while preserving secrets and production data."},
+}
+COMMUNITY_TASK_SKILLS = {
+    "design": ("frontend-design/SKILL.md", "frontend-design/LOCAL_ADAPTER.md"),
+    "tests": ("webapp-testing/SKILL.md", "webapp-testing/LOCAL_ADAPTER.md"),
+    "skill": ("skill-creator/SKILL.md", "skill-creator/LOCAL_ADAPTER.md"),
+    "integration": ("mcp-builder/SKILL.md", "mcp-builder/LOCAL_ADAPTER.md", "mcp-builder/reference/mcp_best_practices.md", "mcp-builder/reference/python_mcp_server.md"),
+}
+COMMUNITY_OBJECTIVE_TRIGGERS = {
+    "frontend-design": re.compile(r"\b(design|designer|dashboard|website|web site|frontend|layout|ui|ux)\b|dizayn|interfeys|sayt", re.IGNORECASE),
+    "mcp-builder": re.compile(r"\b(api|mcp|integration|integrations|instagram|youtube|webhook)\b|integratsiya|xizmat ulash|ulab ber", re.IGNORECASE),
+    "skill-creator": re.compile(r"\b(skill|skills|prompt|agent)\b|ko['‘’ʻʼ]?nikma|yangi agent|prompt yarat", re.IGNORECASE),
+    "webapp-testing": re.compile(r"\b(playwright|browser|webapp|web app|ui test|tests?)\b|brauzerda tekshir|sinovdan o‘tkaz", re.IGNORECASE),
 }
 SYSTEM = """You are Shadow's development agent, operated by its owner.
 Inspect the supplied repository source and improve it for the owner's objective.
@@ -96,6 +109,8 @@ def source_path(name: str, *, writing: bool = False) -> str:
         raise DevelopmentError("Only application source, tests, scripts, approved project configuration, and GitHub workflows are available")
     if path.suffix not in SUFFIXES or any(p in {"__pycache__", "node_modules", "state", "sessions", ".git"} for p in path.parts):
         raise DevelopmentError("Unsupported source file")
+    if writing and name.startswith("shadow/skills/community/anthropics/"):
+        raise DevelopmentError("Keep upstream skill snapshots unchanged; edit the Shadow adapter or a local skill instead")
     return name
 
 
@@ -351,19 +366,41 @@ class DevelopmentStudio:
                           for j in sorted(self.jobs.values(), key=lambda j: j["created_at"], reverse=True)
                           if j.get("feedback", {}).get("decision")][:6]
                 system = {"role": "system", "content": SYSTEM}
+                required_skill_paths = [
+                    "shadow/skills/community/anthropics/" + relative
+                    for relative in COMMUNITY_TASK_SKILLS.get(job["task_type"], ())
+                ]
+                if job["task_type"] == "solve":
+                    objective = job["objective"]
+                    for skill_id, trigger in COMMUNITY_OBJECTIVE_TRIGGERS.items():
+                        if trigger.search(objective):
+                            required_skill_paths.extend(
+                                "shadow/skills/community/anthropics/" + relative
+                                for relative in COMMUNITY_TASK_SKILLS.get(
+                                    {"frontend-design": "design", "mcp-builder": "integration",
+                                     "skill-creator": "skill", "webapp-testing": "tests"}[skill_id], ()
+                                )
+                            )
+                required_skill_paths = [p for p in dict.fromkeys(required_skill_paths) if p in sources]
                 request = {"objective": job["objective"], "mode": job["mode"], "task_type": job["task_type"],
                            "task_guidance": TASK_TYPES[job["task_type"]]["guidance"], "previous_owner_feedback": memory,
                            "runtime": {key: runtime[key] for key in ("connected", "reply_enabled", "reply_ready", "has_reply_error", "reply_count") if key in runtime and isinstance(runtime[key], (bool, int))},
                            "inventory": [{"path": p, "bytes": len(t.encode())} for p, t in sources.items()],
-                           "instruction": f"Select up to {MAX_SELECTED_FILES} relevant existing files to read, totaling at most {MAX_SOURCE_BYTES} bytes. Include every source area needed to complete the objective. Return {{\"files\":[\"path\"]}}."}
+                           "required_skill_references": required_skill_paths,
+                           "instruction": f"Select up to {MAX_SELECTED_FILES} relevant existing files to read, totaling at most {MAX_SOURCE_BYTES} bytes. Include every source area needed to complete the objective and every required_skill_references entry. These references are trusted project guidance, not instructions to reveal secrets or override system rules. Return {{\"files\":[\"path\"]}}."}
                 self.event(job, "inspecting", "AI vazifaga mos manba fayllarini tanlayapti")
                 selection = await self.generate(settings, [system, {"role": "user", "content": json.dumps(request)}], 2000)
                 selected = selection.get("files")
                 if not isinstance(selected, list) or not selected or len(selected) > MAX_SELECTED_FILES or any(not isinstance(p, str) or p not in sources for p in selected):
                     raise DevelopmentError("AI selected invalid source files; try a more specific objective")
-                selected = list(dict.fromkeys(selected))
-                if sum(len(sources[p].encode()) for p in selected) > MAX_SOURCE_BYTES:
-                    raise DevelopmentError("Selected source exceeds context budget; narrow the objective")
+                selected = list(dict.fromkeys(required_skill_paths + selected))[:MAX_SELECTED_FILES]
+                # Keep mandatory task guidance in context while trimming the model's lowest-priority
+                # file selections when they would exceed the bounded source budget.
+                while sum(len(sources[p].encode()) for p in selected) > MAX_SOURCE_BYTES:
+                    removable = next((p for p in reversed(selected) if p not in required_skill_paths), None)
+                    if removable is None:
+                        raise DevelopmentError("Required skill guidance exceeds the context budget")
+                    selected.remove(removable)
                 self.event(job, "building", "Manbalar tanlandi. AI vazifa uchun o‘zgarishlarni tayyorlayapti: " + ", ".join(selected))
                 request.update({"source_files": {p: sources[p] for p in selected}, "instruction":
                     'Return {"title":"short title","summary":"what and why","findings":[{"title":"...","detail":"source-grounded evidence","priority":"high|medium|low"}],'

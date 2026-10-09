@@ -112,6 +112,10 @@ SKILLS: tuple[tuple[str, str, str], ...] = (
     ("etiquette", "Odob va tabriklar", "Salom-alik, bayram, ta’ziya va taklif iboralari."),
     ("banking", "Davr Bank", "Davr Bank karta, kredit, omonat, to‘lov va tariflari."),
     ("video", "Video yuklash", "Ochiq Instagram va TikTok videolarini yuklab yuborish."),
+    ("frontend_design", "Frontend dizayn", "GitHub manbali interfeys dizayni va frontend ko‘rib chiqish yo‘riqnomasi."),
+    ("mcp_builder", "MCP va API integratsiyasi", "GitHub manbali Python/MCP integratsiya arxitekturasi va xavfsiz API ko‘rsatmalari."),
+    ("skill_creator", "Skill va prompt yaratish", "GitHub manbali takror ishlatiladigan agent promptlarini yaratish va sozlash."),
+    ("webapp_testing", "Veb ilovani tekshirish", "GitHub manbali brauzer sinovi va UI tekshirish ko‘rsatmalari."),
 )
 
 
