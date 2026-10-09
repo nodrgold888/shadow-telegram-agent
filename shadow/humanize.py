@@ -15,6 +15,8 @@ _APOSTROPHES = str.maketrans({character: "" for character in ("'", "‘", "’",
 
 def phone_text(text: str) -> str:
     text = (text or "").translate(_APOSTROPHES)
+    # Uzbek conversational particles like "-chi" are typed attached in casual chat.
+    text = re.sub(r"(?<=\w)-(?=chi\b)", "", text, flags=re.IGNORECASE)
     return "\n".join(re.sub(r"[ \t]+", " ", line).strip() for line in text.splitlines()).strip()
 
 
