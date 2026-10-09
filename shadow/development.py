@@ -20,11 +20,14 @@ from openai import AsyncOpenAI
 
 from .config import Settings
 
-MAX_SOURCE_BYTES = 600_000
-MAX_RESULT_BYTES = 900_000
+MAX_SOURCE_BYTES = 800_000
+MAX_RESULT_BYTES = 1_500_000
+MAX_SELECTED_FILES = 12
+MAX_CHANGED_FILES = 12
+MAX_EDITS = 48
 MAX_JOBS = 30
-SUFFIXES = {".py", ".html", ".css", ".js", ".md", ".json"}
-PROTECTED = {"shadow/development.py", "shadow/development.js"}
+SUFFIXES = {"", ".py", ".html", ".css", ".js", ".md", ".json", ".txt", ".toml", ".yml", ".yaml", ".ini"}
+ROOT_FILES = {"README.md", "Dockerfile", "requirements.txt", "render.yaml", "pyproject.toml", "pytest.ini", ".gitignore"}
 TASK_TYPES = {
     "solve": {"mode": "build", "category": "Yaratish va yaxshilash", "label": "Vazifani bajarish (tavsiya)", "description": "Vazifani tahlil qilib, so‘ralgan loyiha o‘zgarishlarini bajaradi va ko‘rib chiqiladigan patch tayyorlaydi.", "guidance": "Treat the owner's objective as a direct request to do the work. Infer whether it calls for a bug fix, improvement, feature, or several related changes, and complete every requested in-repository part that can be implemented from the available source. Inspect relevant files, make concrete working changes, and return a reviewable patch. Do not substitute a plan, advice, or a list of suggested steps for implementation. If one part is genuinely blocked by missing information or unavailable capabilities, still complete the independent parts and name the exact blocker and remaining action. Never claim a change was executed, tested, deployed, or applied live unless that actually happened."},
     "analysis": {"mode": "audit", "category": "Tahlil va rejalashtirish", "label": "Kod bazasini tahlil qilish", "description": "Tuzilma, asosiy bog‘liqliklar va yaxshilash imkoniyatlarini aniqlaydi.", "guidance": "Inspect relevant source and return evidence-based findings, impact, and prioritized recommendations; make no edits."},
@@ -63,7 +66,8 @@ You may build capabilities, refactor code, improve design, or propose fixes. Pre
 authentication, chat isolation, permission controls, and user data. Never include secrets.
 You cannot run commands, browse, train model weights, install packages, or deploy changes.
 Do not claim tests passed or changes are live. Suggested checks are a plan, not executed checks.
-Produce small, coherent, reviewable changes. Do not modify this development agent's own controls.
+Produce complete, coherent, reviewable changes. When the owner asks to improve this agent,
+its own source files may be included in the patch. Preserve authentication and permission checks.
 """
 
 
@@ -83,23 +87,24 @@ def source_path(name: str, *, writing: bool = False) -> str:
     if not isinstance(name, str) or not re.fullmatch(r"[A-Za-z0-9_./-]{1,180}", name):
         raise DevelopmentError("Invalid source path")
     path = PurePosixPath(name)
-    if path.is_absolute() or str(path) != name or any(p in {".", ".."} or p.startswith(".") for p in path.parts):
+    if path.is_absolute() or str(path) != name or any(p in {".", ".."} for p in path.parts):
         raise DevelopmentError("Source path must stay inside the project")
-    if name != "README.md" and (path.parts[0] not in {"shadow", "tests", "scripts"} or len(path.parts) < 2):
-        raise DevelopmentError("Only application source, tests, scripts, and README.md are available")
-    if path.suffix not in SUFFIXES or any(p in {"__pycache__", "node_modules", "state", "sessions"} for p in path.parts):
+    in_application = path.parts[0] in {"shadow", "tests", "scripts"} and len(path.parts) >= 2
+    in_workflows = len(path.parts) >= 3 and path.parts[:2] == (".github", "workflows") and path.suffix in {".yml", ".yaml"}
+    if name not in ROOT_FILES and not in_application and not in_workflows:
+        raise DevelopmentError("Only application source, tests, scripts, approved project configuration, and GitHub workflows are available")
+    if path.suffix not in SUFFIXES or any(p in {"__pycache__", "node_modules", "state", "sessions", ".git"} for p in path.parts):
         raise DevelopmentError("Unsupported source file")
-    if writing and name in PROTECTED:
-        raise DevelopmentError("The development agent cannot rewrite its own controls")
     return name
 
 
 def read_sources(root: Path) -> dict[str, str]:
     result: dict[str, str] = {}
     total = 0
-    candidates = [root / "README.md"]
+    candidates = [root / name for name in sorted(ROOT_FILES)]
     for directory in ("shadow", "tests", "scripts"):
         candidates.extend(sorted((root / directory).rglob("*")))
+    candidates.extend(sorted((root / ".github" / "workflows").glob("*")))
     for path in candidates:
         if not path.is_file() or path.is_symlink():
             continue
@@ -138,8 +143,8 @@ def json_object(text: str) -> dict:
 
 def prepare_changes(proposal: dict, sources: dict[str, str], selected: list[str]) -> tuple[list[dict], str]:
     operations = proposal.get("changes", [])
-    if not isinstance(operations, list) or len(operations) > 24:
-        raise DevelopmentError("A build can contain at most 24 edits")
+    if not isinstance(operations, list) or len(operations) > MAX_EDITS:
+        raise DevelopmentError(f"A build can contain at most {MAX_EDITS} edits")
     changed: dict[str, str] = {}
     for operation in operations:
         if not isinstance(operation, dict):
@@ -164,8 +169,8 @@ def prepare_changes(proposal: dict, sources: dict[str, str], selected: list[str]
         if not content.endswith("\n"):
             content += "\n"
         changed[path] = content
-        if len(changed) > 8 or sum(len(v.encode()) for v in changed.values()) > MAX_RESULT_BYTES:
-            raise DevelopmentError("Build exceeds 8 files or 900 KB; split the objective")
+        if len(changed) > MAX_CHANGED_FILES or sum(len(v.encode()) for v in changed.values()) > MAX_RESULT_BYTES:
+            raise DevelopmentError(f"Build exceeds {MAX_CHANGED_FILES} files or {MAX_RESULT_BYTES // 1_000} KB; split the objective")
     files, patches = [], []
     for path, content in changed.items():
         before = sources.get(path)
@@ -329,7 +334,7 @@ class DevelopmentStudio:
 
     async def _run(self, job: dict, settings: Settings, runtime: dict):
         try:
-            async with asyncio.timeout(300):
+            async with asyncio.timeout(480):
                 self.event(job, "inspecting", "Loyiha fayllari va vazifa doirasi ko‘rib chiqilmoqda")
                 sources = await asyncio.to_thread(read_sources, self.root)
                 if not sources:
@@ -342,11 +347,11 @@ class DevelopmentStudio:
                            "task_guidance": TASK_TYPES[job["task_type"]]["guidance"], "previous_owner_feedback": memory,
                            "runtime": {key: runtime[key] for key in ("connected", "reply_enabled", "reply_ready", "has_reply_error", "reply_count") if key in runtime and isinstance(runtime[key], (bool, int))},
                            "inventory": [{"path": p, "bytes": len(t.encode())} for p, t in sources.items()],
-                           "instruction": "Select up to 6 relevant existing files to read, totaling at most 600000 bytes. Return {\"files\":[\"path\"]}."}
+                           "instruction": f"Select up to {MAX_SELECTED_FILES} relevant existing files to read, totaling at most {MAX_SOURCE_BYTES} bytes. Include every source area needed to complete the objective. Return {{\"files\":[\"path\"]}}."}
                 self.event(job, "inspecting", "AI vazifaga mos manba fayllarini tanlayapti")
                 selection = await self.generate(settings, [system, {"role": "user", "content": json.dumps(request)}], 2000)
                 selected = selection.get("files")
-                if not isinstance(selected, list) or not selected or len(selected) > 6 or any(not isinstance(p, str) or p not in sources for p in selected):
+                if not isinstance(selected, list) or not selected or len(selected) > MAX_SELECTED_FILES or any(not isinstance(p, str) or p not in sources for p in selected):
                     raise DevelopmentError("AI selected invalid source files; try a more specific objective")
                 selected = list(dict.fromkeys(selected))
                 if sum(len(sources[p].encode()) for p in selected) > MAX_SOURCE_BYTES:
@@ -356,9 +361,15 @@ class DevelopmentStudio:
                     'Return {"title":"short title","summary":"what and why","findings":[{"title":"...","detail":"source-grounded evidence","priority":"high|medium|low"}],'
                     '"verification":["checks the reviewer should run"],"changes":[{"path":"existing file","find":"unique exact source text","replace":"new text"},'
                     '{"path":"new file","content":"complete new file"}]}. For audit mode changes must be empty. For build mode produce working, bounded changes; '
-                    'only edit source_files you read; new source files are allowed under shadow/, scripts/, tests/. No dependencies or workflows. Max 8 files and 24 exact edits.'})
+                    f'only edit source_files you read; new source files are allowed under shadow/, scripts/, tests/, and .github/workflows/. Update approved project configuration such as requirements.txt or render.yaml when the objective requires it. Max {MAX_CHANGED_FILES} files and {MAX_EDITS} exact edits.'})
                 messages = [system, {"role": "user", "content": json.dumps(request)}]
                 proposal = await self.generate(settings, messages, 12000)
+                if job["mode"] == "build":
+                    self.event(job, "building", "Dastlabki o‘zgarishlar tayyor. Agent talablar, chekka holatlar va regressiyalarni qayta ko‘rib chiqyapti")
+                    proposal = await self.generate(settings, messages + [
+                        {"role": "assistant", "content": json.dumps(proposal)},
+                        {"role": "user", "content": "Act as an independent senior reviewer. Compare this complete draft with every part of the owner's objective and the supplied source. Find omissions, incorrect assumptions, broken interactions, and security or compatibility regressions. Return the complete corrected JSON proposal, not review notes. Keep sound changes, implement missing requested parts, and do not claim commands or tests ran."}
+                    ], 12000)
                 self.event(job, "validating", "Validating paths, exact edits, and Python/JSON syntax; no generated code is executed")
                 for attempt in range(2):
                     try:
@@ -395,7 +406,7 @@ class DevelopmentStudio:
             job["finished_at"] = now()
             self.event(job, "cancelled", "Task cancelled by owner or server shutdown")
         except Exception as exc:
-            job["error"] = str(exc) if isinstance(exc, DevelopmentError) else ("Task exceeded 5 minutes" if isinstance(exc, TimeoutError) else "Development task failed; retry or check server logs")
+            job["error"] = str(exc) if isinstance(exc, DevelopmentError) else ("Task exceeded 8 minutes" if isinstance(exc, TimeoutError) else "Development task failed; retry or check server logs")
             job["finished_at"] = now()
             self.event(job, "failed", job["error"])
 
