@@ -18,6 +18,7 @@ from urllib.parse import quote
 import httpx
 from openai import AsyncOpenAI
 
+from .anthropic_compat import ANTHROPIC_BASE_URL, AnthropicCompatClient
 from .config import Settings
 
 MAX_SOURCE_BYTES = 800_000
@@ -205,15 +206,22 @@ async def ask_ai(settings: Settings, messages: list[dict], max_tokens: int) -> d
     if not providers:
         raise DevelopmentError("Configure an AI provider in the dashboard first")
     failures = []
-    for name, key, base, model in providers[:3]:
+    for name, key, base, model in providers:
         try:
-            async with AsyncOpenAI(api_key=key, base_url=base, timeout=80, max_retries=0) as client:
-                if base is None:
-                    response = await client.responses.create(model=model, input=messages, max_output_tokens=max_tokens)
-                    result = json_object(response.output_text)
-                else:
-                    response = await client.chat.completions.create(model=model, messages=messages, max_tokens=max_tokens)
-                    result = json_object(response.choices[0].message.content or "")
+            if base == ANTHROPIC_BASE_URL:
+                client = AnthropicCompatClient(key, timeout=80)
+                response = await client.chat.completions.create(
+                    model=model, messages=messages, max_tokens=max_tokens,
+                )
+                result = json_object(response.choices[0].message.content or "")
+            else:
+                async with AsyncOpenAI(api_key=key, base_url=base, timeout=80, max_retries=0) as client:
+                    if base is None:
+                        response = await client.responses.create(model=model, input=messages, max_output_tokens=max_tokens)
+                        result = json_object(response.output_text)
+                    else:
+                        response = await client.chat.completions.create(model=model, messages=messages, max_tokens=max_tokens)
+                        result = json_object(response.choices[0].message.content or "")
                 return result
         except asyncio.CancelledError:
             raise

@@ -10,6 +10,7 @@ from pathlib import Path
 
 from openai import AsyncOpenAI
 
+from .anthropic_compat import ANTHROPIC_BASE_URL, AnthropicCompatClient
 from .work_tools import calculate, create_excel, create_word
 from .model_routing import needs_reasoning_model
 
@@ -339,8 +340,10 @@ class ShadowAssistant:
     def _backup_clients(settings: Settings):
         # max_retries=0: the chain (and _retry_once) decide when to retry or move on.
         return [
-            (provider, AsyncOpenAI(base_url=provider.base_url, api_key=provider.api_key,
-                                   timeout=BACKUP_TIMEOUT, max_retries=0))
+            (provider, AnthropicCompatClient(provider.api_key, timeout=BACKUP_TIMEOUT)
+             if provider.base_url == ANTHROPIC_BASE_URL else
+             AsyncOpenAI(base_url=provider.base_url, api_key=provider.api_key,
+                         timeout=BACKUP_TIMEOUT, max_retries=0))
             for provider in settings.backup_providers
         ]
 

@@ -6,11 +6,14 @@ from dataclasses import replace
 
 import httpx
 
+from .anthropic_compat import ANTHROPIC_BASE_URL
 from .config import MAX_BACKUP_PROVIDERS, AIProvider, Settings, _ai_base_url
 
 _NAME_RE = re.compile(r"[^A-Za-z0-9 ._-]")
 _MODEL_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:/@+-]{0,99}$")
 MODEL_CATALOG_BASE_URLS = frozenset({
+    "https://api.openai.com/v1",
+    ANTHROPIC_BASE_URL,
     "https://openrouter.ai/api/v1",
     "https://generativelanguage.googleapis.com/v1beta/openai",
     "https://api.groq.com/openai/v1",
@@ -47,7 +50,9 @@ async def fetch_provider_models(base_url: str, api_key: str) -> list[str]:
         raise ValueError("API kalitni tekshiring")
     try:
         async with httpx.AsyncClient(timeout=12, follow_redirects=False) as client:
-            response = await client.get(base_url + "/models", headers={"Authorization": "Bearer " + api_key})
+            headers = ({"x-api-key": api_key, "anthropic-version": "2023-06-01"}
+                       if base_url == ANTHROPIC_BASE_URL else {"Authorization": "Bearer " + api_key})
+            response = await client.get(base_url + "/models", headers=headers)
     except httpx.TimeoutException:
         raise ValueError("Provayder javob bermadi. Qayta urinib ko‘ring") from None
     except httpx.HTTPError:
