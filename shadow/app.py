@@ -16,6 +16,7 @@ from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, Res
 from .config import Settings
 from .assistant import ShadowAssistant
 from .model_routing import WORK_MODES, ordered_backup_providers, free_gateway_base_url
+from .workspace import Workspace, WorkspaceError, close_assistant, workspace_reply, reply_error
 from .development import DevelopmentError, DevelopmentStudio
 from .guardian import Guardian
 from .ai_slots import apply_provider, fetch_provider_models, free_slot, parse_provider, prepare_xkiro_bundle, prepare_xkiro_defaults, ProviderSlotsFull, XKIRO_MODELS, provider_env, remove_slot, set_first, slot_env_names
@@ -57,6 +58,7 @@ async def lifespan(_: FastAPI):
     finally:
         await guardian.close()
         await development.close()
+        await workspace_ai.close()
         if keepalive:
             keepalive.stop()
         await agent.stop()
@@ -163,6 +165,110 @@ def development_auth(shadow_setup: str | None = Cookie(default=None),
                      authorization: str | None = Header(default=None)):
     if not _dashboard_allowed(shadow_setup, authorization):
         raise HTTPException(status_code=401, detail="Kirish kerak")
+
+
+workspace_ai = Workspace()
+
+
+@app.get("/dashboard/workspace.js")
+async def workspace_script():
+    return Response(Path(__file__).with_name("workspace.js").read_text(encoding="utf-8"),
+                    media_type="text/javascript", headers={"Cache-Control": "no-store"})
+
+
+@app.get("/dashboard/workspace.css")
+async def workspace_style():
+    return Response(Path(__file__).with_name("workspace.css").read_text(encoding="utf-8"),
+                    media_type="text/css", headers={"Cache-Control": "no-store"})
+
+
+def workspace_account(request: Request):
+    account = agent.account_id
+    expected = request.query_params.get("account")
+    if expected is not None and expected != str(account):
+        raise HTTPException(409, "Akkaunt ozgardi. Suhbatni qayta oching.")
+    if not account:
+        raise HTTPException(409, "Avval Telegram akkauntini ulang.")
+    return account
+
+
+@app.get("/dashboard/api/workspace", dependencies=[Depends(development_auth)])
+async def workspace_status(request: Request):
+    account = workspace_account(request)
+    return JSONResponse(workspace_ai.status(account, agent.settings), headers={"Cache-Control": "no-store"})
+
+
+@app.post("/dashboard/api/workspace/check", dependencies=[Depends(development_auth)])
+async def workspace_check(request: Request):
+    import asyncio
+    import time
+    account = workspace_account(request)
+    if not agent.settings.ai_ready:
+        return {"ok": False, "detail": "Bu akkaunt uchun AI sozlanmagan. AI provayderlar bolimini oching."}
+    if any(j["account"] == str(account) and j["state"] == "running" for j in workspace_ai.jobs.values()):
+        raise HTTPException(409, "Avval joriy javobni kuting yoki toxtating.")
+    assistant = ShadowAssistant(agent.settings)
+    started = time.monotonic()
+    try:
+        async with asyncio.timeout(120):
+            answer, chosen = await workspace_reply(assistant, [{"role": "user", "content": "Reply with just: Shadow AI ready"}], "chat", [], max_tokens=512)
+        return {"ok": True, "seconds": round(time.monotonic()-started, 1), **chosen}
+    except Exception as exc:
+        return {"ok": False, "detail": reply_error(exc)}
+    finally:
+        await close_assistant(assistant)
+
+
+@app.get("/dashboard/api/workspace/threads/{thread_id}", dependencies=[Depends(development_auth)])
+async def workspace_thread(thread_id: str, request: Request):
+    try:
+        result = workspace_ai.store.get(workspace_account(request), thread_id)
+    except WorkspaceError as exc:
+        raise HTTPException(404, str(exc)) from None
+    return JSONResponse(result, headers={"Cache-Control": "no-store"})
+
+
+@app.delete("/dashboard/api/workspace/threads/{thread_id}", dependencies=[Depends(development_auth)])
+async def workspace_delete(thread_id: str, request: Request):
+    account = workspace_account(request)
+    if any(j["account"] == str(account) and j["thread_id"] == thread_id and j["state"] == "running" for j in workspace_ai.jobs.values()):
+        raise HTTPException(409, "Avval javobni toxtating.")
+    workspace_ai.store.delete(account, thread_id)
+    return {"ok": True}
+
+
+class WorkspaceMessage(BaseModel):
+    message: str = Field(min_length=1, max_length=16000)
+    mode: Literal["chat", "code", "research"] = "chat"
+    thread_id: str | None = Field(default=None, max_length=40)
+
+
+@app.post("/dashboard/api/workspace/messages", dependencies=[Depends(development_auth)])
+async def workspace_message(body: WorkspaceMessage, request: Request):
+    account = workspace_account(request)
+    # Web chat is independent of Telegram's auto-reply switch and model cooldowns.
+    assistant = ShadowAssistant(agent.settings)
+    try:
+        return workspace_ai.start(account, assistant, body.message, body.mode, body.thread_id, owned=True)
+    except ValueError as exc:
+        await close_assistant(assistant)
+        raise HTTPException(400, str(exc)) from None
+
+
+@app.get("/dashboard/api/workspace/jobs/{job_id}", dependencies=[Depends(development_auth)])
+async def workspace_job(job_id: str, request: Request):
+    try:
+        return JSONResponse(workspace_ai.public(workspace_ai.job(workspace_account(request), job_id)), headers={"Cache-Control": "no-store"})
+    except WorkspaceError as exc:
+        raise HTTPException(404, str(exc)) from None
+
+
+@app.post("/dashboard/api/workspace/jobs/{job_id}/cancel", dependencies=[Depends(development_auth)])
+async def workspace_cancel(job_id: str, request: Request):
+    try:
+        return await workspace_ai.cancel(workspace_account(request), job_id)
+    except WorkspaceError as exc:
+        raise HTTPException(404, str(exc)) from None
 
 
 class DevelopmentTask(BaseModel):

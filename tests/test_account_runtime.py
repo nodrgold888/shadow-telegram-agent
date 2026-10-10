@@ -426,3 +426,44 @@ class RuntimeTests(unittest.IsolatedAsyncioTestCase):
                 self.assertFalse(guardian.snapshot()["enabled"])
         finally:
             await guardian.close()
+
+    async def test_workspace_uses_each_login_settings_while_telegram_replies_are_off(self):
+        from dataclasses import replace
+        from shadow import app as module
+        from shadow.workspace import Workspace, ChatStore
+        login = PanelLogin()
+        cookies = [login.verify_code(login.issue_code(account_id="11")), login._new_session(__import__('time').time())]
+        login.select_session_account(cookies[1], "22")
+        seen = []
+        async def reply(assistant, history, mode, sources):
+            seen.append(assistant.settings.openai_api_key)
+            return "```python\nx = 'account-code'\n```", {'provider': 'test', 'model': assistant.settings.openai_model}
+        for worker in self.runtime._workers.values():
+            worker.settings = replace(worker.settings, ai_work_mode="professional")
+            worker.reply_enabled = False
+            worker.assistant = None
+        ws = Workspace(ChatStore(Path(self.tmp.name) / 'workspace.sqlite3'))
+        with mock.patch.object(module, "agent", self.runtime), mock.patch.object(module, "panel_login", login), \
+             mock.patch.object(module, "workspace_ai", ws), mock.patch('shadow.workspace.workspace_reply', side_effect=reply):
+            async with httpx.AsyncClient(transport=httpx.ASGITransport(app=module.app), base_url="http://test") as client:
+                threads = []
+                for cookie, account in zip(cookies, ["11", "22"]):
+                    client.cookies.set('shadow_setup', cookie)
+                    result = await client.post('/dashboard/api/workspace/messages?account='+account,
+                                               json={'message': 'write private code', 'mode': 'code'})
+                    self.assertEqual(result.status_code, 200, result.text)
+                    job = ws.jobs[result.json()['id']]
+                    if 'task' in job:
+                        await job['task']
+                    self.assertEqual(job['state'], 'done')
+                    threads.append(job['thread_id'])
+                    status = await client.get('/dashboard/api/workspace?account='+account)
+                    self.assertEqual([item['id'] for item in status.json()['threads']], [job['thread_id']])
+                    self.assertNotIn('sk-account', status.text)
+                result = await client.get('/dashboard/api/workspace/threads/'+threads[0]+'?account=22')
+                self.assertEqual(result.status_code, 404)
+                result = await client.get('/dashboard/api/workspace/threads/'+threads[1]+'?account=22')
+                self.assertEqual(result.status_code, 200)
+                self.assertIn("'account-code'", result.json()['messages'][-1]['content'])
+        self.assertEqual(seen, ['sk-account-one', 'sk-account-two'])
+        await ws.close()
