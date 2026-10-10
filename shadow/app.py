@@ -16,6 +16,7 @@ from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, Res
 from .config import Settings
 from .assistant import ShadowAssistant
 from .model_routing import WORK_MODES, ordered_backup_providers, free_gateway_base_url
+from .workspace_models import check_catalog_choice
 from .workspace import Workspace, WorkspaceError, close_assistant, workspace_reply, reply_error, validate_model_selection
 from .development import DevelopmentError, DevelopmentStudio
 from .guardian import Guardian
@@ -195,11 +196,11 @@ def workspace_account(request: Request):
 @app.get("/dashboard/api/workspace", dependencies=[Depends(development_auth)])
 async def workspace_status(request: Request):
     account = workspace_account(request)
-    return JSONResponse(workspace_ai.status(account, agent.settings), headers={"Cache-Control": "no-store"})
+    return JSONResponse(await workspace_ai.status(account, agent.settings), headers={"Cache-Control": "no-store"})
 
 
 class WorkspaceModelChoice(BaseModel):
-    model: str = Field(default="auto", max_length=40)
+    model: str = Field(default="auto", max_length=140)
 
 
 @app.post("/dashboard/api/workspace/check", dependencies=[Depends(development_auth)])
@@ -246,13 +247,17 @@ class WorkspaceMessage(BaseModel):
     message: str = Field(min_length=1, max_length=16000)
     mode: Literal["chat", "code", "research"] = "chat"
     thread_id: str | None = Field(default=None, max_length=40)
-    model: str = Field(default="auto", max_length=40)
+    model: str = Field(default="auto", max_length=140)
 
 
 @app.post("/dashboard/api/workspace/messages", dependencies=[Depends(development_auth)])
 async def workspace_message(body: WorkspaceMessage, request: Request):
     account = workspace_account(request)
     # Web chat is independent of Telegram's auto-reply switch and model cooldowns.
+    try:
+        await check_catalog_choice(agent.settings, body.model)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from None
     assistant = ShadowAssistant(agent.settings)
     try:
         return workspace_ai.start(account, assistant, body.message, body.mode, body.thread_id, owned=True, model=body.model)

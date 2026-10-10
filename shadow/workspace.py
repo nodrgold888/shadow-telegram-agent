@@ -12,6 +12,7 @@ from pathlib import Path
 
 from .assistant import chat_create, should_fall_back
 from .model_routing import ordered_backup_providers
+from .workspace_models import account_shortlist, catalog_choice, check_catalog_choice
 from .skills.web_search import search_web, _configured_providers
 
 MODES = {'chat', 'code', 'research'}
@@ -51,6 +52,12 @@ def model_options(settings):
 
 def validate_model_selection(settings, model):
     if model == 'auto':
+        return
+    if model.startswith('catalog:'):
+        try:
+            catalog_choice(settings, model)
+        except ValueError as exc:
+            raise WorkspaceError(str(exc)) from None
         return
     option = next((item for item in model_options(settings) if item['id'] == model), None)
     if option is None:
@@ -129,11 +136,12 @@ async def workspace_reply(assistant, history, mode, sources, *, max_tokens=6000,
     purpose = {'chat': 'chat', 'code': 'development', 'research': 'analysis'}[mode]
     chosen = {}
 
-    async def compat(provider, client):
-        response = await chat_create(client, model=provider.model, messages=messages, max_tokens=max_tokens)
+    async def compat(provider, client, override=None):
+        requested = override or provider.model
+        response = await chat_create(client, model=requested, messages=messages, max_tokens=max_tokens)
         text = response.choices[0].message.content or ''
         if text.strip():
-            chosen.update(provider=provider.name, model=provider.model, provider_id=f"slot:{provider.slot}")
+            chosen.update(provider=provider.name, model=requested, provider_id=("catalog:" + override) if override else f"slot:{provider.slot}")
         return text
 
     async def primary():
@@ -144,6 +152,24 @@ async def workspace_reply(assistant, history, mode, sources, *, max_tokens=6000,
             raise WorkspaceError('AI bosh javob qaytardi.')
         chosen.update(provider='OpenAI', model=assistant.settings.openai_model, provider_id='openai')
         return text
+
+    if model.startswith('catalog:'):
+        try:
+            await check_catalog_choice(assistant.settings, model)
+        except ValueError as exc:
+            raise WorkspaceError(str(exc)) from None
+        provider, target = catalog_choice(assistant.settings, model)
+        client = next(client for p, client in assistant.compat_clients if p.slot == provider.slot)
+        try:
+            # Leave the original gateway auto route and all backups intact.
+            async with asyncio.timeout(35):
+                answer = await compat(provider, client, target)
+            if answer.strip():
+                chosen['fallback_used'] = False
+                return answer[:60000], chosen
+        except Exception:
+            # Quota, model errors and timeouts fall through to the saved chain.
+            pass
 
     if assistant.client is not None and (model == "openai" or (model == "auto" and not assistant._use_compat_first())):
         try:
@@ -174,15 +200,16 @@ class Workspace:
         self.store = store or ChatStore()
         self.jobs = {}
 
-    def status(self, account, settings):
+    async def status(self, account, settings):
         try:
             _configured_providers()
             research = True
         except ValueError:
             research = False
-        models = model_options(settings)
+        recommendations = await account_shortlist(settings)
+        models = recommendations["models"]
         return {'account_id': account, 'configured': settings.ai_ready, 'mode': settings.ai_work_mode,
-                'models': models, 'eligible_count': sum(m['enabled'] for m in models), 'research_ready': research, 'threads': self.store.list(account),
+                **recommendations, 'recommended_count': len(models), 'models': models, 'connected_count': sum(m['enabled'] for m in models), 'eligible_count': sum(m['enabled'] for m in model_options(settings)), 'research_ready': research, 'threads': self.store.list(account),
                 'active': next((self.public(j) for j in self.jobs.values() if j['account'] == str(account) and j['state'] == 'running'), None),
                 'storage_note': 'Suhbatlar shu serverda saqlanadi. Render free qayta joylashtirilganda tarix yoqolishi mumkin. Muhim suhbatni eksport qiling.'}
 
