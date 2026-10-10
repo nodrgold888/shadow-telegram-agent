@@ -160,6 +160,7 @@ class ActivateClientTests(ScopeTestCase):
             await agent._activate_client(first)
             self.assertEqual((agent.account_label, agent.reply_enabled), ("@first", True))
             self.assertIn("_on_message", first.handlers)
+            self.assertIn("_on_video_link", first.handlers)  # video links also work while replies are off
             agent.accounts = remember({}, 1, "@first", "session-a")
             second = FakeTg(2, "second")
             await agent._activate_client(second)
