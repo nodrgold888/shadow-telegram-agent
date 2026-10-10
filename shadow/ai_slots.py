@@ -16,6 +16,7 @@ MODEL_CATALOG_BASE_URLS = frozenset({
     "https://api.openai.com/v1",
     ANTHROPIC_BASE_URL,
     "https://openrouter.ai/api/v1",
+    "https://api.xkiro.com/v1",
     "https://generativelanguage.googleapis.com/v1beta/openai",
     "https://api.groq.com/openai/v1",
     "https://api.deepseek.com",

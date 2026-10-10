@@ -1,8 +1,8 @@
 import os
 import unittest
-from unittest.mock import patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
-from shadow.ai_slots import apply_provider, free_slot, parse_provider, provider_env, remove_slot, set_first
+from shadow.ai_slots import apply_provider, fetch_provider_models, free_slot, parse_provider, provider_env, remove_slot, set_first
 from shadow.config import _first_slot
 from shadow.persist import delete_env_vars, save_env_vars
 from tests.test_ai_fallback import make_settings
@@ -12,6 +12,22 @@ def body(**over):
     data = {"name": "Mercury", "base_url": "https://openrouter.ai/api/v1/", "model": "inception/mercury-decide:free", "api_key": "sk-or-v1-abcdef"}
     data.update(over)
     return data
+
+
+class XkiroModelCatalogTest(unittest.IsolatedAsyncioTestCase):
+    async def test_public_catalog_uses_official_endpoint_and_preserves_free_model_ids(self):
+        response = MagicMock(status_code=200)
+        response.json.return_value = {"data": [{"id": "qwen/qwen3.8-max:free"}, {"id": "z-ai/glm-5.3"}]}
+        client = AsyncMock()
+        client.get.return_value = response
+        context = AsyncMock()
+        context.__aenter__.return_value = client
+        with patch("shadow.ai_slots.httpx.AsyncClient", return_value=context):
+            models = await fetch_provider_models("https://api.xkiro.com/v1", "sk-xt-example")
+        client.get.assert_awaited_once_with(
+            "https://api.xkiro.com/v1/models", headers={"Authorization": "Bearer sk-xt-example"}
+        )
+        self.assertEqual(models, ["qwen/qwen3.8-max:free", "z-ai/glm-5.3"])
 
 
 class AiSlotsTest(unittest.TestCase):

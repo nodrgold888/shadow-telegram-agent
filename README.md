@@ -139,6 +139,8 @@ The dashboard (Sozlamalar → AI modeli) lets you pick one model for everyday ch
 
 **Local model option:** [Run Shadow with Ollama](docs/local_ai.md) on an always-on computer or VPS. The local Compose stack keeps the model and Shadow state on persistent volumes and supplies a server-managed fallback to every Telegram account. Render Free cannot run that stack continuously. If Shadow stays on Render, the model needs its own always-on host and an authenticated HTTPS gateway.
 
+**Cloud fallback without a local host:** The dashboard's xKiro preset fills `https://api.xkiro.com/v1`. Create an API key at [xKiro API Keys](https://xkiro.com/dashboard/api/keys), load the model list, and choose a `:free` model if you want to use its daily free allowance. xKiro is an external service with usage limits; it does not keep a sleeping Render instance online or guarantee uninterrupted replies.
+
 OpenAI API credits are prepaid and separate from a ChatGPT/Codex plan's usage limits; with no API credits every reply fails with `insufficient_quota`. Shadow can use a second provider that speaks the OpenAI-compatible **Chat Completions** protocol (for example Groq, Google Gemini's OpenAI-compatible endpoint, OpenRouter, DeepSeek, or a self-hosted router). Set all three in Render → Environment:
 
 - `AI_BASE_URL`: the provider's base URL (https only), e.g. `https://openrouter.ai/api/v1`
