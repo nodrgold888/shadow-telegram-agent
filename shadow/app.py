@@ -14,9 +14,10 @@ from fastapi import Cookie, Depends, FastAPI, Header, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, Response
 
 from .config import Settings
+from .assistant import ShadowAssistant
 from .development import DevelopmentError, DevelopmentStudio
 from .guardian import Guardian
-from .ai_slots import apply_provider, fetch_provider_models, free_slot, parse_provider, provider_env, remove_slot, set_first, slot_env_names
+from .ai_slots import apply_provider, fetch_provider_models, free_slot, parse_provider, prepare_xkiro_bundle, ProviderSlotsFull, XKIRO_MODELS, provider_env, remove_slot, set_first, slot_env_names
 from .accounts import mask_label
 from .persist import delete_env_vars, save_env_vars, save_model_selection, save_reply_enabled, save_group_reply_enabled, save_group_reply_mode
 from .policy import parse_group_reply_update
@@ -686,6 +687,38 @@ async def dashboard_provider_models(
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     return {"models": models}
+
+
+@app.post("/dashboard/api/ai-providers/xkiro-bundle")
+async def dashboard_xkiro_bundle(
+    request: Request,
+    shadow_setup: str | None = Cookie(default=None),
+    authorization: str | None = Header(default=None),
+) -> dict[str, object]:
+    if not _dashboard_allowed(shadow_setup, authorization):
+        raise HTTPException(status_code=401, detail="Kirish kerak")
+    body = await request.json()
+    if not isinstance(body, dict):
+        raise HTTPException(status_code=400, detail="Forma notogri")
+    # Account switching uses this lock too, so the key stays with the selected account.
+    async with agent._setup_lock:
+        try:
+            updated, values, providers = prepare_xkiro_bundle(
+                agent.settings, body.get("api_key"), body.get("primary", XKIRO_MODELS[0][0])
+            )
+        except ProviderSlotsFull as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        persisted = await save_env_vars(values)
+        os.environ.update(values)
+        agent.settings = updated
+        if agent.assistant:
+            agent.assistant.update_settings(updated)
+        else:
+            agent.assistant = ShadowAssistant(updated)
+    return {"ok": True, "persisted": persisted, "primary": body.get("primary", XKIRO_MODELS[0][0]),
+            "providers": [{"name": p.name, "model": p.model, "slot": p.slot} for p in providers]}
 
 
 @app.post("/dashboard/api/ai-first")

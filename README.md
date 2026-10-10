@@ -141,6 +141,8 @@ The dashboard (Sozlamalar → AI modeli) lets you pick one model for everyday ch
 
 **Cloud fallback without a local host:** The dashboard's xKiro preset fills `https://api.xkiro.com/v1`. Create an API key at [xKiro API Keys](https://xkiro.com/dashboard/api/keys), load the model list, and choose a `:free` model if you want to use its daily free allowance. xKiro is an external service with usage limits; it does not keep a sleeping Render instance online or guarantee uninterrupted replies.
 
+For the four-model setup, open **AI provayderlar → xKiro tayyor toplam**, paste one xKiro API key and save. It adds Qwen3.8 Max Free, Claude Sonnet 5, GPT-6.1 Sol and Claude Opus 5.5 together, with Qwen first by default. Saving again updates the keys in the same slots; other providers remain available. The three paid models need usable xKiro billing. Sonnet 5.5 is not currently offered. Credentials stay with the active Telegram account, and the complete account bundle is persisted in one update.
+
 OpenAI API credits are prepaid and separate from a ChatGPT/Codex plan's usage limits; with no API credits every reply fails with `insufficient_quota`. Shadow can use a second provider that speaks the OpenAI-compatible **Chat Completions** protocol (for example Groq, Google Gemini's OpenAI-compatible endpoint, OpenRouter, DeepSeek, or a self-hosted router). Set all three in Render → Environment:
 
 - `AI_BASE_URL`: the provider's base URL (https only), e.g. `https://openrouter.ai/api/v1`

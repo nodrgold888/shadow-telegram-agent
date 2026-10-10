@@ -11,6 +11,46 @@ from .config import MAX_BACKUP_PROVIDERS, AIProvider, Settings, _ai_base_url
 
 _NAME_RE = re.compile(r"[^A-Za-z0-9 ._-]")
 _MODEL_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:/@+-]{0,99}$")
+XKIRO_BASE_URL = "https://api.xkiro.com/v1"
+XKIRO_MODELS = (
+    ("qwen/qwen3.8-max:free", "xKiro Qwen3.8 Max Free"),
+    ("anthropic/claude-sonnet-5", "xKiro Sonnet 5"),
+    ("openai/gpt-6.1-sol", "xKiro GPT-6.1 Sol"),
+    ("anthropic/claude-opus-5.5", "xKiro Opus 5.5"),
+)
+
+
+class ProviderSlotsFull(ValueError):
+    pass
+
+
+def prepare_xkiro_bundle(settings: Settings, api_key: str, primary: str) -> tuple[Settings, dict[str, str], list[AIProvider]]:
+    """Prepare all four models before any writes; reuse existing matching slots on retries."""
+    if not isinstance(primary, str) or primary not in {model for model, _ in XKIRO_MODELS}:
+        raise ValueError("Birinchi AI modelini tekshiring")
+    existing = {(p.base_url, p.model): p.slot for p in settings.backup_providers if p.slot <= MAX_BACKUP_PROVIDERS}
+    free = [slot for slot in range(1, MAX_BACKUP_PROVIDERS + 1)
+            if slot not in {p.slot for p in settings.backup_providers}]
+    needed = sum((XKIRO_BASE_URL, model) not in existing for model, _ in XKIRO_MODELS)
+    if needed > len(free):
+        raise ProviderSlotsFull(f"xKiro uchun {needed} ta bosh AI joyi kerak; hozir {len(free)} ta bosh")
+    updated, values, providers = settings, {}, []
+    for model, name in XKIRO_MODELS:
+        provider = parse_provider({"name": name, "base_url": XKIRO_BASE_URL, "model": model, "api_key": api_key})
+        slot = existing.get((XKIRO_BASE_URL, model))
+        if slot is None:
+            slot = free.pop(0)
+        provider = replace(provider, slot=slot)
+        # Replacing an extra slot must not append another copy of that slot.
+        updated = replace(updated, ai_extra_providers=tuple(p for p in updated.ai_extra_providers if p.slot != slot))
+        updated = apply_provider(updated, slot, provider)
+        values.update(provider_env(slot, provider))
+        providers.append(provider)
+    updated, order = set_first(updated, next(p.slot for p in providers if p.model == primary))
+    values.update(order)
+    return updated, values, providers
+
+
 MODEL_CATALOG_BASE_URLS = frozenset({
     "http://ollama:11434/v1",
     "https://api.openai.com/v1",

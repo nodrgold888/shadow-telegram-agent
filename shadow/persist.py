@@ -502,6 +502,14 @@ async def save_video_unknown(enabled: bool) -> bool:
 
 async def save_env_vars(values: dict[str, str]) -> bool:
     """Write several variables to the Render service (a restart follows). Never logs values."""
+    # Resolve the whole account bundle before awaiting I/O: one persisted snapshot instead
+    # of separate Render updates that can restart midway through a multi-model setup.
+    with _scope_lock:
+        writes: dict[str, str] = {}
+        for key, value in values.items():
+            target, scoped_value = _scoped_write(key, value)
+            writes[target] = scoped_value
+    values = writes
     local_state = os.getenv("SHADOW_STATE_FILE", "").strip()
     if local_state:
         try:
