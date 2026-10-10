@@ -37,7 +37,11 @@ export function createGateway({accessKey,adminPassword,backendPort=3001,requestT
     }
     const inference=pathname==='/v1'||pathname.startsWith('/v1/');
     if(inference) {
-      if(!sameSecret(req.headers['x-shadow-gateway-key'],accessKey))return reply(res,401,{error:'gateway_access_required'});
+      // The built-in Playground sends the unified key and the signed browser
+      // cookie, not Shadow's private edge header. Upstream still validates the
+      // actual unified key; a dashboard session alone cannot invoke inference.
+      const playground=cookieValid(req.headers.cookie)&&/^Bearer\s+freellmapi-\S+$/i.test(req.headers.authorization||'');
+      if(!sameSecret(req.headers['x-shadow-gateway-key'],accessKey)&&!playground)return reply(res,401,{error:'gateway_access_required'});
       if(!/^Bearer\s+\S+$/i.test(req.headers.authorization||''))return reply(res,401,{error:'unified_key_required'});
     } else {
       const header=req.headers.authorization||'';

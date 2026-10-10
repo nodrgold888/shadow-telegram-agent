@@ -13,6 +13,8 @@ Read `integrations/freellmapi/README.md` for the current connection and deployme
 
 Use `integrations/freellmapi/render.yaml` as a separate Render Blueprint, not the root Shadow Blueprint. The paid Starter service includes a 1 GB persistent disk and generated secrets. The pinned upstream image runs privately on loopback behind `gateway.mjs`; only `/healthz` is public. API requests require `X-Shadow-Gateway-Key` plus the upstream unified Bearer key. Browser access uses username `shadow` and `GATEWAY_ADMIN_PASSWORD`, followed by the upstream admin login. The wrapper bootstraps the initial admin and preserves the existing account on restart.
 
+The built-in Playground uses the signed browser access cookie and the unified key instead of Shadow's edge header. Upstream validates the actual key; a dashboard session token alone cannot authorize inference. External API clients still require the edge header.
+
 Set `SHADOW_FREE_GATEWAY_ACCESS_KEY` on Shadow to the gateway's `GATEWAY_ACCESS_KEY`; the extra header is sent only to the approved endpoint. Never log keys. Preserve and securely back up `ENCRYPTION_KEY` and the disk: the encrypted provider keys cannot be recovered with a different encryption key.
 
 The local Compose option still binds to loopback. Upstream must not be exposed directly to the public internet; use HTTPS and an authenticated proxy. Read installers before executing them; do not pipe unreviewed downloads into a shell.

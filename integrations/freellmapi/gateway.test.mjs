@@ -71,3 +71,16 @@ test('edge cookie preserves FreeLLMAPI dashboard bearer authentication',()=>fixt
  assert.equal((await fetch(base+'/v1/models',{headers:{Cookie:cookie,Authorization:'Bearer dashboard-session'}})).status,401);
  assert.equal((await fetch(base+'/api/keys',{headers:{Cookie:'shadow_gateway_edge=0000000000.forged',Authorization:'Bearer dashboard-session'}})).status,401);
 }));
+
+test('Playground requests use its signed browser cookie and unified key',()=>fixture(async base=>{
+ const first=await fetch(base+'/',{headers:{Authorization:basic}});
+ const cookie=first.headers.get('set-cookie').split(';')[0];
+ const body=JSON.stringify({model:'auto:smart',messages:[{role:'user',content:'salom'}],stream:true});
+ const auth={Cookie:cookie,Authorization:'Bearer freellmapi-test-unified-key'};
+ const response=await fetch(base+'/v1/chat/completions',{method:'POST',headers:{...auth,'content-type':'application/json'},body});
+ assert.equal(response.status,200);const actual=await response.json();
+ assert.equal(actual.body,body);assert.equal(actual.headers.authorization,auth.Authorization);
+ assert(!actual.headers.cookie?.includes('shadow_gateway_edge'));
+ assert.equal((await fetch(base+'/v1/models',{headers:{Authorization:auth.Authorization}})).status,401);
+ assert.equal((await fetch(base+'/v1/models',{headers:{...auth,Cookie:'shadow_gateway_edge=0000000000.forged'}})).status,401);
+}));

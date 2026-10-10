@@ -14,7 +14,7 @@ This integration uses a pinned upstream Docker image. The wrapper keeps the upst
 6. Sign in to the FreeLLMAPI dashboard with **`admin@shadow.local`** and that same password. The initial account is created before the server accepts requests. On later starts, the existing account and routing choices are retained.
 7. On **Keys**, add keys from providers' free tiers. On **Models / Fallback**, keep only free routes enabled and order the available models. Do not add paid custom endpoints to this gateway's free pool. Copy the **unified API key** from the API-key section of Keys.
 
-The raw upstream port is not published. API clients need both the unified API key and an extra gateway access key; dashboard access has a separate password. Render supplies HTTPS. The public health check exposes only availability.
+The raw upstream port is not published. External API clients need both the unified API key and an extra gateway access key; dashboard access has a separate password. The built-in Playground uses its signed browser access cookie plus the unified key, which upstream still validates. Render supplies HTTPS. The public health check exposes only availability.
 
 ## Connect Shadow
 
