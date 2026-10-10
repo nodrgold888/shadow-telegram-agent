@@ -18,7 +18,8 @@ from .assistant import ShadowAssistant
 from .model_routing import WORK_MODES, ordered_backup_providers
 from .development import DevelopmentError, DevelopmentStudio
 from .guardian import Guardian
-from .ai_slots import apply_provider, fetch_provider_models, free_slot, parse_provider, prepare_xkiro_bundle, ProviderSlotsFull, XKIRO_MODELS, provider_env, remove_slot, set_first, slot_env_names
+from .ai_slots import apply_provider, fetch_provider_models, free_slot, parse_provider, prepare_xkiro_bundle, prepare_xkiro_defaults, ProviderSlotsFull, XKIRO_MODELS, provider_env, remove_slot, set_first, slot_env_names
+from .provider_catalog import XKIRO_BASE_URL
 from .accounts import mask_label
 from .persist import delete_env_vars, save_env_vars, save_model_selection, save_reply_enabled, save_group_reply_enabled, save_group_reply_mode
 from .policy import parse_group_reply_update
@@ -678,17 +679,25 @@ async def dashboard_add_ai_provider(
         provider = parse_provider(await request.json())
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    slot = free_slot(settings=agent.settings)
-    if slot is None:
-        raise HTTPException(status_code=409, detail="Barcha 8 ta AI joyi band")
-    values = provider_env(slot, provider)
-    persisted = await save_env_vars(values)
-    os.environ.update(values)
-    updated = apply_provider(agent.settings, slot, provider)
-    agent.settings = updated
-    if agent.assistant:
-        agent.assistant.update_settings(updated)
-    return {"ok": True, "slot": slot, "name": provider.name, "model": provider.model, "persisted": persisted}
+    async with agent._setup_lock:
+        slot = free_slot(settings=agent.settings)
+        if slot is None:
+            raise HTTPException(status_code=409, detail=f"Barcha {MAX_BACKUP_PROVIDERS} ta AI joyi band")
+        values = provider_env(slot, provider)
+        updated = apply_provider(agent.settings, slot, provider)
+        if provider.base_url == XKIRO_BASE_URL:
+            try:
+                updated, defaults = prepare_xkiro_defaults(updated)
+            except ProviderSlotsFull as exc:
+                raise HTTPException(status_code=409, detail=str(exc)) from None
+            values.update(defaults)
+        persisted = await save_env_vars(values)
+        os.environ.update(values)
+        agent.settings = updated
+        if agent.assistant:
+            agent.assistant.update_settings(updated)
+    return {"ok": True, "slot": slot, "name": provider.name, "model": provider.model, "persisted": persisted,
+            "xkiro_defaults": provider.base_url == XKIRO_BASE_URL}
 
 
 @app.post("/dashboard/api/ai-providers/models")

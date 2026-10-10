@@ -13,7 +13,7 @@ with concurrent workers in `shadow/runtime.py`, deployed on Render. The owner sp
   bundle over the globals and `_save_local`/`_put_env_var` redirect those keys into it. `_activate_client` enters the
   scope (first account keeps its old settings, later ones start blank). New per-account setting = add it to SCOPED_DEFAULTS.
 - `shadow/assistant.py` AI calls: OpenAI Responses API first, then the backup provider chain
-  (OpenAI-compatible Chat Completions, slots `AI_*`, `AI_*_2`..`_5`), tools (calculator, Word, Excel).
+  (OpenAI-compatible Chat Completions, slots `AI_*`, `AI_*_2`..`_12`), tools (calculator, Word, Excel).
 - `shadow/skills/*.md` prompt skills (human chat, banking, video download); `shadow/agents.py` per-chat agents.
 - `shadow/config.py` env settings and model catalog; `shadow/persist.py` Render env / local state persistence.
 - `integrations/freellmapi/` + `.claude/skills/freellmapi/SKILL.md`: FreeLLMAPI as a backup AI (not vendored).

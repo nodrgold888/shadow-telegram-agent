@@ -3,15 +3,13 @@ from __future__ import annotations
 
 import re
 from typing import TYPE_CHECKING
+from .provider_catalog import XKIRO_BASE_URL, XKIRO_MODELS
 
 if TYPE_CHECKING:
     from .config import AIProvider, Settings
 
 WORK_MODES = frozenset({"professional", "economy", "manual"})
-_QWEN = "qwen/qwen3.8-max:free"
-_SONNET = "anthropic/claude-sonnet-5"
-_GPT = "openai/gpt-6.1-sol"
-_OPUS = "anthropic/claude-opus-5.5"
+_QWEN, _SONNET, _GPT, _OPUS = (model for model, _ in XKIRO_MODELS)
 _TASK_MODELS = {
     "selection": (_QWEN, _SONNET, _GPT, _OPUS),
     "development": (_SONNET, _OPUS, _GPT, _QWEN),
@@ -29,7 +27,7 @@ def ordered_backup_providers(settings: Settings, purpose: str = "chat") -> tuple
     if mode == "manual" or not preferred:
         return tuple(providers)
     positions = [i for i, p in enumerate(providers)
-                 if p.base_url == "https://api.xkiro.com/v1" and p.model in preferred]
+                 if p.base_url == XKIRO_BASE_URL and p.model in preferred]
     ranked = sorted((providers[i] for i in positions), key=lambda p: preferred.index(p.model))
     for i, provider in zip(positions, ranked):
         providers[i] = provider

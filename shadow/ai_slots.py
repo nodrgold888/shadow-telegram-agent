@@ -8,16 +8,10 @@ import httpx
 
 from .anthropic_compat import ANTHROPIC_BASE_URL
 from .config import MAX_BACKUP_PROVIDERS, AIProvider, Settings, _ai_base_url
+from .provider_catalog import XKIRO_BASE_URL, XKIRO_MODELS, XKIRO_DEFAULTS_VERSION
 
 _NAME_RE = re.compile(r"[^A-Za-z0-9 ._-]")
 _MODEL_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:/@+-]{0,99}$")
-XKIRO_BASE_URL = "https://api.xkiro.com/v1"
-XKIRO_MODELS = (
-    ("qwen/qwen3.8-max:free", "xKiro Qwen3.8 Max Free"),
-    ("anthropic/claude-sonnet-5", "xKiro Sonnet 5"),
-    ("openai/gpt-6.1-sol", "xKiro GPT-6.1 Sol"),
-    ("anthropic/claude-opus-5.5", "xKiro Opus 5.5"),
-)
 
 
 class ProviderSlotsFull(ValueError):
@@ -48,7 +42,34 @@ def prepare_xkiro_bundle(settings: Settings, api_key: str, primary: str) -> tupl
         providers.append(provider)
     updated, order = set_first(updated, next(p.slot for p in providers if p.model == primary))
     values.update(order)
+    values["XKIRO_DEFAULTS_VERSION"] = XKIRO_DEFAULTS_VERSION
     return updated, values, providers
+
+
+def prepare_xkiro_defaults(settings: Settings) -> tuple[Settings, dict[str, str]]:
+    """Complete older single-model setups without changing existing keys or other providers."""
+    configured = [p for p in settings.backup_providers if p.base_url == XKIRO_BASE_URL]
+    if not configured:
+        return settings, {}
+    existing = {p.model for p in configured}
+    missing = [(model, name) for model, name in XKIRO_MODELS if model not in existing]
+    free = [slot for slot in range(1, MAX_BACKUP_PROVIDERS + 1)
+            if slot not in {p.slot for p in settings.backup_providers}]
+    if len(missing) > len(free):
+        raise ProviderSlotsFull("Tortta xKiro modeli uchun AI joylari yetarli emas. Boshqa AI lar saqlandi.")
+    updated, values = settings, {}
+    for slot, (model, name) in zip(free, missing):
+        provider = parse_provider({"name": name, "base_url": XKIRO_BASE_URL,
+                                   "model": model, "api_key": configured[0].api_key})
+        updated = apply_provider(updated, slot, provider)
+        values.update(provider_env(slot, provider))
+    if not settings.ai_first_slot and settings.ai_work_mode != "manual":
+        qwen = next(p for p in updated.backup_providers if p.base_url == XKIRO_BASE_URL
+                    and p.model == XKIRO_MODELS[0][0])
+        updated, order = set_first(updated, qwen.slot)
+        values.update(order)
+    values["XKIRO_DEFAULTS_VERSION"] = XKIRO_DEFAULTS_VERSION
+    return updated, values
 
 
 MODEL_CATALOG_BASE_URLS = frozenset({
@@ -125,7 +146,7 @@ def slot_env_names(slot: int) -> dict[str, str]:
 
 
 def free_slot(env: dict[str, str] | None = None, settings: Settings | None = None) -> int | None:
-    """First backup slot (1..8) whose URL, key and model are not all set."""
+    """First user slot whose URL, key and model are not all set."""
     if settings is not None:
         occupied = {provider.slot for provider in settings.backup_providers}
         return next((slot for slot in range(1, MAX_BACKUP_PROVIDERS + 1) if slot not in occupied), None)

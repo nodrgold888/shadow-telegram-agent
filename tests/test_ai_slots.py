@@ -3,7 +3,7 @@ import unittest
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from shadow.ai_slots import apply_provider, fetch_provider_models, free_slot, parse_provider, provider_env, remove_slot, set_first
-from shadow.config import _first_slot
+from shadow.config import _first_slot, MAX_BACKUP_PROVIDERS, LOCAL_AI_SLOT
 from shadow.persist import delete_env_vars, save_env_vars
 from tests.test_ai_fallback import make_settings
 
@@ -53,9 +53,9 @@ class AiSlotsTest(unittest.TestCase):
         half2 = {**full1, "AI_BASE_URL_2": "https://b"}
         self.assertEqual(free_slot(half2), 2)
         everything = dict(full1)
-        for n in range(2, 9):
+        for n in range(2, MAX_BACKUP_PROVIDERS + 1):
             everything.update({f"AI_BASE_URL_{n}": "https://b", f"AI_API_KEY_{n}": "k", f"AI_MODEL_{n}": "m"})
-            self.assertEqual(free_slot(everything), n + 1 if n < 8 else None)
+            self.assertEqual(free_slot(everything), n + 1 if n < MAX_BACKUP_PROVIDERS else None)
 
     def test_provider_env_names(self):
         p = parse_provider(body())
@@ -92,7 +92,7 @@ class AiSlotsTest(unittest.TestCase):
         self.assertEqual([p.slot for p in settings.backup_providers][-1], 3)
 
     def test_first_slot_env_parsing(self):
-        self.assertEqual([_first_slot(x) for x in ("", "abc", "0", "3", " 2 ", "9", "-1")], [0, 0, 0, 3, 2, 0, 0])
+        self.assertEqual([_first_slot(x) for x in ("", "abc", "0", "3", " 2 ", str(MAX_BACKUP_PROVIDERS + 1), "-1")], [0, 0, 0, 3, 2, 0, 0])
 
     def test_set_first_puts_the_provider_in_front_and_before_openai(self):
         settings = apply_provider(apply_provider(make_settings(), 2, parse_provider(body(name="A"))), 3, parse_provider(body(name="B")))
@@ -116,18 +116,18 @@ class AiSlotsTest(unittest.TestCase):
     def test_server_managed_local_ai_is_shared_inference_and_not_removable(self):
         settings = make_settings(local_ai_base_url="http://ollama:11434/v1",
                                  local_ai_api_key="ollama-local", local_ai_model="qwen2.5-coder:7b")
-        self.assertEqual(settings.backup_providers[0].slot, 9)
+        self.assertEqual(settings.backup_providers[0].slot, LOCAL_AI_SLOT)
         self.assertEqual(settings.backup_providers[0].model, "qwen2.5-coder:7b")
         self.assertNotIn("ollama-local", repr(settings))
         with self.assertRaises(ValueError):
-            set_first(settings, 9)
+            set_first(settings, LOCAL_AI_SLOT)
 
     def test_local_provider_comes_from_host_even_with_blank_account_settings(self):
         env = {"SHADOW_LOCAL_AI_BASE_URL": "http://ollama:11434/v1",
                "SHADOW_LOCAL_AI_API_KEY": "ollama-local", "SHADOW_LOCAL_AI_MODEL": "qwen2.5-coder:7b"}
         with patch.dict(os.environ, env, clear=True), patch("shadow.config.load_local_settings", return_value={"AI_BASE_URL": "", "AI_API_KEY": "", "AI_MODEL": ""}):
             settings = __import__("shadow.config", fromlist=["Settings"]).Settings.from_env()
-        self.assertEqual([provider.slot for provider in settings.backup_providers], [9])
+        self.assertEqual([provider.slot for provider in settings.backup_providers], [LOCAL_AI_SLOT])
         self.assertTrue(settings.ai_ready)
 
     def test_removing_the_first_provider_clears_the_preference(self):

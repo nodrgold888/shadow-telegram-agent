@@ -170,6 +170,33 @@ class RuntimeTests(unittest.IsolatedAsyncioTestCase):
         bundles = json.loads(json.loads(self.path.read_text())["TELEGRAM_ACCOUNT_SETTINGS"])
         self.assertEqual((bundles["11"]["REPLY_ENABLED"], bundles["22"]["REPLY_ENABLED"]), ("false", "true"))
 
+    async def test_saved_xkiro_key_migrates_only_its_account_and_survives_restart(self):
+        from shadow.ai_slots import XKIRO_MODELS, remove_slot, slot_env_names
+        from shadow.model_routing import ordered_backup_providers
+        key = "sk-xt-account-one-test"
+        with account_scope("11"):
+            await persist.save_env_vars({"AI_BASE_URL": "https://api.xkiro.com/v1", "AI_API_KEY": key,
+                                         "AI_MODEL": XKIRO_MODELS[0][0], "AI_NAME": "xKiro"})
+        await self.runtime.stop()
+        self.runtime = AccountRuntime(Settings.from_env())
+        await self.runtime.start()
+        await self.wait_connected()
+        one, two = self.runtime._workers["11"], self.runtime._workers["22"]
+        self.assertEqual(one.settings.ai_work_mode, "professional")
+        self.assertEqual(len(one.settings.backup_providers), 4)
+        for purpose, index in (("chat", 0), ("development", 1), ("analysis", 3), ("review", 2)):
+            self.assertEqual(ordered_backup_providers(one.settings, purpose)[0].model, XKIRO_MODELS[index][0])
+        self.assertEqual(two.settings.backup_providers, ())
+        self.assertNotIn(key, json.dumps(self.runtime.status()))
+        # A later explicit removal is a customization, not a reason to reinstall.
+        with account_scope("11"):
+            await persist.delete_env_vars(list(slot_env_names(2).values()))
+            one.settings = remove_slot(one.settings, 2, env={})
+            with mock.patch('shadow.runtime.save_env_vars', new_callable=mock.AsyncMock) as save:
+                await one._enter_account_scope(11)
+                save.assert_not_awaited()
+            self.assertEqual(len(one.settings.backup_providers), 3)
+
     async def test_concurrent_render_writes_keep_both_account_updates(self):
         arrived, release = threading.Event(), threading.Event()
         writes = []

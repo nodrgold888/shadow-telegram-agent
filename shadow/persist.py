@@ -13,6 +13,7 @@ from contextvars import ContextVar
 from pathlib import Path
 
 from .chat_memory import MAX_CHAT_PROFILE_BYTES, normalize_chat_profiles
+from .provider_catalog import MAX_BACKUP_PROVIDERS
 
 log = logging.getLogger("shadow.persist")
 
@@ -35,9 +36,10 @@ SCOPED_DEFAULTS = {
     "OPENAI_API_KEY": "", "OPENAI_MODEL": "gpt-5-mini", "OPENAI_COMPLEX_MODEL": "gpt-6-luna",
     "AI_BASE_URL": "", "AI_API_KEY": "", "AI_MODEL": "", "AI_NAME": "", "AI_PRIMARY": "", "AI_FIRST_SLOT": "",
     "AI_WORK_MODE": "professional",
+    "XKIRO_DEFAULTS_VERSION": "",
     "ALWAYS_ONLINE": "true", "PUBLIC_BANK_REPLY": "false", "CONTEXT_MESSAGES": "12", "MAX_REPLY_CHARS": "3800",
 }
-for _slot in range(2, 9):
+for _slot in range(2, MAX_BACKUP_PROVIDERS + 1):
     for _field in ("BASE_URL", "API_KEY", "MODEL", "NAME"):
         SCOPED_DEFAULTS[f"AI_{_field}_{_slot}"] = ""
 _LOCAL_KEYS.update(SCOPED_DEFAULTS)

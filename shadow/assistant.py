@@ -16,6 +16,7 @@ from .model_routing import needs_reasoning_model, ordered_backup_providers
 
 from .agents import agent_role
 from .natural_chat_agent import conversation_style_agent
+from .provider_catalog import LOCAL_AI_SLOT
 from .config import Settings
 from .diagnostics import safe_error_detail
 from . import gemini_audio
@@ -347,7 +348,7 @@ class ShadowAssistant:
         self.settings = settings
         # Without OPENAI_API_KEY (backup-only setups) the OpenAI SDK would refuse to build a client.
         self.client = self._openai_client(settings)
-        # Backup providers in the order they are tried: slot 1, then 2..8.
+        # Backup providers in the order they are tried: the selected slot, then the remaining configured slots.
         self.compat_clients = self._backup_clients(settings)
         self.last_model: str | None = None
         self.last_provider: str | None = None
@@ -370,7 +371,7 @@ class ShadowAssistant:
             (provider, AnthropicCompatClient(provider.api_key, timeout=BACKUP_TIMEOUT)
              if provider.base_url == ANTHROPIC_BASE_URL else
              AsyncOpenAI(base_url=provider.base_url, api_key=provider.api_key,
-                         timeout=120.0 if provider.slot == 9 else BACKUP_TIMEOUT, max_retries=0))
+                         timeout=120.0 if provider.slot == LOCAL_AI_SLOT else BACKUP_TIMEOUT, max_retries=0))
             for provider in settings.backup_providers
         ]
 
