@@ -62,6 +62,20 @@ class GuardianTests(unittest.IsolatedAsyncioTestCase):
         await self.guardian.close()
         self.assertFalse(self.guardian.snapshot()["running"])
 
+    async def test_local_model_check_reports_loaded_model_and_missing_model(self):
+        self.agent.settings = SimpleNamespace(ai_ready=True, local_ai_base_url="http://ollama:11434/v1",
+                                              local_ai_api_key="ollama-local", local_ai_model="qwen2.5-coder:7b")
+        real_client = httpx.AsyncClient
+        models = ["qwen2.5-coder:7b"]
+        def transport(request):
+            self.assertEqual(request.headers.get("authorization"), "Bearer ollama-local")
+            return httpx.Response(200, json={"data": [{"id": name} for name in models]})
+        with mock.patch("shadow.guardian.httpx.AsyncClient", side_effect=lambda **kwargs: real_client(
+                transport=httpx.MockTransport(transport), **kwargs)):
+            self.assertEqual((await self.guardian._local_ai_check())["state"], "ok")
+            models.clear()
+            self.assertEqual((await self.guardian._local_ai_check())["state"], "warning")
+
     async def test_pause_and_preferences_survive_restart(self):
         self.guardian.configure(enabled=False, interval_seconds=300, ai_review=False)
         resumed = Guardian(self.agent, self.studio, clock=lambda: self.timestamp)

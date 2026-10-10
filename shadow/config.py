@@ -73,11 +73,15 @@ def _boolean(name: str, default: bool = False, value: str | None = None) -> bool
 
 
 def _ai_base_url(raw: str) -> str:
-    """Base URL of an OpenAI-compatible API. https only (plain http just for localhost)."""
+    """Base URL of an OpenAI-compatible API.
+
+    Plain HTTP is confined to loopback or the fixed Ollama service name in the
+    local Docker Compose stack. A remotely hosted Shadow needs an HTTPS gateway.
+    """
     value = raw.strip().rstrip("/")
     if not value:
         return ""
-    if value.startswith("https://") or re.match(r"^http://(localhost|127\.0\.0\.1)(:\d+)?(/|$)", value):
+    if value.startswith("https://") or re.match(r"^http://(localhost|127\.0\.0\.1)(:\d+)?(/|$)", value) or value == "http://ollama:11434/v1":
         return value
     raise ValueError("AI_BASE_URL must start with https://")
 
@@ -148,6 +152,10 @@ class Settings:
     ai_extra_providers: tuple["AIProvider", ...] = ()
     ai_first_slot: int = 0
     group_reply_enabled: bool = True
+    # Shared inference host: no Telegram account data or permissions are shared.
+    local_ai_base_url: str = ""
+    local_ai_api_key: str = field(default="", repr=False)
+    local_ai_model: str = ""
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -198,16 +206,23 @@ class Settings:
             ai_name=re.sub(r"[^A-Za-z0-9 ._-]", "", local.get("AI_NAME", os.getenv("AI_NAME", ""))).strip()[:30] or "zaxira",
             ai_extra_providers=_extra_providers(local),
             ai_first_slot=_first_slot(local.get("AI_FIRST_SLOT", os.getenv("AI_FIRST_SLOT", ""))),
+            local_ai_base_url=_ai_base_url(os.getenv("SHADOW_LOCAL_AI_BASE_URL", "")),
+            local_ai_api_key=os.getenv("SHADOW_LOCAL_AI_API_KEY", "").strip(),
+            local_ai_model=os.getenv("SHADOW_LOCAL_AI_MODEL", "").strip(),
         )
 
     @property
     def backup_providers(self) -> tuple[AIProvider, ...]:
         """Configured backup providers in the order they are tried (slot 1 first)."""
+        local = (
+            (AIProvider("Ollama local", self.local_ai_base_url, self.local_ai_api_key, self.local_ai_model, 9),)
+            if self.local_ai_base_url and self.local_ai_api_key and self.local_ai_model else ()
+        )
         first = (
             (AIProvider(self.ai_name, self.ai_base_url, self.ai_api_key, self.ai_model, 1),)
             if self.ai_base_url and self.ai_api_key and self.ai_model else ()
         )
-        providers = first + self.ai_extra_providers
+        providers = local + first + self.ai_extra_providers
         if self.ai_first_slot:
             # The owner picked one provider (panel "Birinchi qilish"): it is tried before the others.
             providers = tuple(sorted(providers, key=lambda p: p.slot != self.ai_first_slot))

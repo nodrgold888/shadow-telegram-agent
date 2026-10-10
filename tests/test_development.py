@@ -10,7 +10,8 @@ from unittest import mock
 
 import httpx
 
-from shadow.development import DevelopmentError, DevelopmentStudio, prepare_changes, read_sources, source_path
+from shadow.development import DevelopmentError, DevelopmentStudio, ask_ai, prepare_changes, read_sources, source_path
+from tests.test_ai_fallback import make_settings
 
 SETTINGS = SimpleNamespace(ai_ready=True)
 
@@ -57,6 +58,35 @@ class SourceTests(unittest.TestCase):
         self.assertIn('--- /dev/null',patch)
         self.assertIn('+new = True',patch)
         self.assertIn('Python syntax parsed; code was not executed',files[0]['checks'])
+
+
+class LocalAiFallbackTests(unittest.IsolatedAsyncioTestCase):
+    async def test_development_uses_local_model_after_cloud_balance_error(self):
+        class BalanceError(Exception):
+            status_code = 402
+
+        attempted = []
+        class Client:
+            def __init__(self, **options):
+                attempted.append(options.get('base_url'))
+                if options.get('base_url') is None:
+                    self.responses = SimpleNamespace(create=mock.AsyncMock(side_effect=BalanceError()))
+                else:
+                    reply = SimpleNamespace(choices=[SimpleNamespace(message=SimpleNamespace(content='{"ok":true}'))])
+                    self.chat = SimpleNamespace(completions=SimpleNamespace(create=mock.AsyncMock(return_value=reply)))
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, *args):
+                return False
+
+        settings = make_settings(local_ai_base_url='http://ollama:11434/v1',
+                                 local_ai_api_key='ollama-local', local_ai_model='qwen2.5-coder:7b')
+        with mock.patch('shadow.development.AsyncOpenAI', side_effect=Client):
+            result = await ask_ai(settings, [{'role': 'user', 'content': 'Check'}], 200)
+        self.assertEqual(result, {'ok': True})
+        self.assertEqual(attempted, [None, 'http://ollama:11434/v1'])
 
 
 class DevelopmentTests(unittest.IsolatedAsyncioTestCase):

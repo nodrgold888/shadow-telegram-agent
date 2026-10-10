@@ -137,6 +137,8 @@ The dashboard (Sozlamalar → AI modeli) lets you pick one model for everyday ch
 
 ## Backup AI provider (when OpenAI has no credits)
 
+**Local model option:** [Run Shadow with Ollama](docs/local_ai.md) on an always-on computer or VPS. The local Compose stack keeps the model and Shadow state on persistent volumes and supplies a server-managed fallback to every Telegram account. Render Free cannot run that stack continuously. If Shadow stays on Render, the model needs its own always-on host and an authenticated HTTPS gateway.
+
 OpenAI API credits are prepaid and separate from a ChatGPT/Codex plan's usage limits; with no API credits every reply fails with `insufficient_quota`. Shadow can use a second provider that speaks the OpenAI-compatible **Chat Completions** protocol (for example Groq, Google Gemini's OpenAI-compatible endpoint, OpenRouter, DeepSeek, or a self-hosted router). Set all three in Render → Environment:
 
 - `AI_BASE_URL`: the provider's base URL (https only), e.g. `https://openrouter.ai/api/v1`

@@ -12,6 +12,7 @@ from .config import MAX_BACKUP_PROVIDERS, AIProvider, Settings, _ai_base_url
 _NAME_RE = re.compile(r"[^A-Za-z0-9 ._-]")
 _MODEL_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:/@+-]{0,99}$")
 MODEL_CATALOG_BASE_URLS = frozenset({
+    "http://ollama:11434/v1",
     "https://api.openai.com/v1",
     ANTHROPIC_BASE_URL,
     "https://openrouter.ai/api/v1",
@@ -161,6 +162,8 @@ def set_first(settings: Settings, slot: int) -> tuple[Settings, dict[str, str]]:
     that holds no provider."""
     if slot == 0:
         return replace(settings, ai_primary=False, ai_first_slot=0), {"AI_PRIMARY": "false", "AI_FIRST_SLOT": "0"}
+    if slot > MAX_BACKUP_PROVIDERS:
+        raise ValueError("Serverda sozlangan lokal AI tartibi bu panelda o‘zgarmaydi")
     if slot not in {p.slot for p in settings.backup_providers}:
         raise ValueError("Bunday AI topilmadi")
     return (

@@ -97,6 +97,23 @@ class AiSlotsTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             set_first(make_settings(), 5)
 
+    def test_server_managed_local_ai_is_shared_inference_and_not_removable(self):
+        settings = make_settings(local_ai_base_url="http://ollama:11434/v1",
+                                 local_ai_api_key="ollama-local", local_ai_model="qwen2.5-coder:7b")
+        self.assertEqual(settings.backup_providers[0].slot, 9)
+        self.assertEqual(settings.backup_providers[0].model, "qwen2.5-coder:7b")
+        self.assertNotIn("ollama-local", repr(settings))
+        with self.assertRaises(ValueError):
+            set_first(settings, 9)
+
+    def test_local_provider_comes_from_host_even_with_blank_account_settings(self):
+        env = {"SHADOW_LOCAL_AI_BASE_URL": "http://ollama:11434/v1",
+               "SHADOW_LOCAL_AI_API_KEY": "ollama-local", "SHADOW_LOCAL_AI_MODEL": "qwen2.5-coder:7b"}
+        with patch.dict(os.environ, env, clear=True), patch("shadow.config.load_local_settings", return_value={"AI_BASE_URL": "", "AI_API_KEY": "", "AI_MODEL": ""}):
+            settings = __import__("shadow.config", fromlist=["Settings"]).Settings.from_env()
+        self.assertEqual([provider.slot for provider in settings.backup_providers], [9])
+        self.assertTrue(settings.ai_ready)
+
     def test_removing_the_first_provider_clears_the_preference(self):
         settings = apply_provider(make_settings(), 2, parse_provider(body()))
         out, _ = set_first(settings, 2)

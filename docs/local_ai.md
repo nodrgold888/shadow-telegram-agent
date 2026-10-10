@@ -1,0 +1,14 @@
+# Shadow with a local AI model
+
+The optional [local Compose stack](../compose.local.yml) runs Shadow and Ollama on the same always-on computer. It adds `qwen2.5-coder:7b` as a server-managed provider. If OpenAI is configured, Shadow tries it first and then the local model before other backup providers; a manually selected first provider still takes priority. The local model can answer Telegram chats and Development Studio jobs without API credits. It is available to each Telegram account as shared inference only; chat permissions and data remain account scoped. Response quality and speed depend on CPU/GPU and memory. Plan for roughly 12–16 GB RAM and several GB of disk for a useful 7B model; a smaller Ollama model can be configured if the host has less memory.
+
+1. On the machine that will stay on, install Docker with Compose. Copy `.env.example` to `.env` and fill in your Telegram API ID/hash and a strong `SETUP_TOKEN` or `ADMIN_TOKEN`. Keep `.env` private. You can link the Telegram account using Shadow's dashboard after startup. Do not run the same Telegram session on Render and this stack at the same time.
+2. Start the stack: `docker compose -f compose.local.yml up -d --build`.
+3. Download the model once: `docker compose -f compose.local.yml exec ollama ollama pull qwen2.5-coder:7b`. The named `ollama-models` volume retains it across restarts.
+4. Open `http://localhost:10000/dashboard`, sign in, and use **AI ni tekshirish**. The AI providers list shows **Ollama local**. In Development Studio, try a small audit before asking for a large code change.
+
+The Compose services restart after a process crash or host reboot, as long as Docker starts on boot. The `shadow-state` volume retains Shadow's local account settings and development jobs. Keep a backup of that volume. A powered-off computer, lost connection, or stopped Docker engine still causes an outage; no software can guarantee zero interruptions. A VPS or always-on machine is required for continuous availability. Render's free plan can sleep and cannot reliably host a useful local model alongside Shadow.
+
+To keep Shadow on Render while Ollama runs on your machine, put Ollama behind an **HTTPS gateway that checks a bearer token** and is reachable from Render. In the AI providers panel choose **Ollama (shaxsiy server)**, enter the gateway URL ending in `/v1`, its token, and the exact model ID shown by `ollama list`. The panel uses manual model entry for this provider. Do not expose port 11434 directly to the Internet. A browser's `localhost` refers to your device, but the Render server's `localhost` refers to Render, so that address cannot connect the two machines.
+
+Check local logs with `docker compose -f compose.local.yml logs --tail=100 shadow ollama`. If the model is not yet downloaded or the host is too small, the other AI providers still remain available. For 24/7 use, keep at least one working cloud provider as another fallback.

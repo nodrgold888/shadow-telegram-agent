@@ -370,7 +370,7 @@ class ShadowAssistant:
             (provider, AnthropicCompatClient(provider.api_key, timeout=BACKUP_TIMEOUT)
              if provider.base_url == ANTHROPIC_BASE_URL else
              AsyncOpenAI(base_url=provider.base_url, api_key=provider.api_key,
-                         timeout=BACKUP_TIMEOUT, max_retries=0))
+                         timeout=120.0 if provider.slot == 9 else BACKUP_TIMEOUT, max_retries=0))
             for provider in settings.backup_providers
         ]
 

@@ -251,14 +251,15 @@ async def ask_ai(settings: Settings, messages: list[dict], max_tokens: int) -> d
                 )
                 result = json_object(response.choices[0].message.content or "")
             else:
-                async with AsyncOpenAI(api_key=key, base_url=base, timeout=80, max_retries=0) as client:
+                async with AsyncOpenAI(api_key=key, base_url=base,
+                                       timeout=180 if name == "Ollama local" else 80, max_retries=0) as client:
                     if base is None:
                         response = await client.responses.create(model=model, input=messages, max_output_tokens=max_tokens)
                         result = json_object(response.output_text)
                     else:
                         response = await client.chat.completions.create(model=model, messages=messages, max_tokens=max_tokens)
                         result = json_object(response.choices[0].message.content or "")
-                return result
+            return result
         except asyncio.CancelledError:
             raise
         except Exception as exc:
@@ -268,7 +269,7 @@ async def ask_ai(settings: Settings, messages: list[dict], max_tokens: int) -> d
                 reason = "API kaliti yoki ruxsatni tekshiring"
             elif status == 404:
                 reason = "model ID yoki API manzili topilmadi"
-            elif status == 429:
+            elif status in (402, 429):
                 reason = "limit yoki balans tugagan"
             elif isinstance(exc, (TimeoutError, httpx.TimeoutException)):
                 reason = "provayder javobi vaqtida kelmadi"

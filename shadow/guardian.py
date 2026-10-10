@@ -11,6 +11,8 @@ import tempfile
 import time
 from pathlib import Path
 
+import httpx
+
 from .development import DevelopmentError
 
 log = logging.getLogger("shadow.guardian")
@@ -183,6 +185,27 @@ class Guardian:
                 "detail": ("Tekshirish kerak: " + ", ".join(failures)) if failures else
                           "Asosiy fayllar mavjud; Python sintaksisi tekshirildi. Funksional testlar bajarilmadi."}
 
+    async def _local_ai_check(self) -> dict | None:
+        settings = self.agent.settings
+        if not all((getattr(settings, "local_ai_base_url", ""), getattr(settings, "local_ai_api_key", ""),
+                    getattr(settings, "local_ai_model", ""))):
+            return None
+        healthy = False
+        try:
+            async with httpx.AsyncClient(timeout=5, follow_redirects=False) as client:
+                response = await client.get(settings.local_ai_base_url + "/models",
+                                            headers={"Authorization": "Bearer " + settings.local_ai_api_key})
+                response.raise_for_status()
+                payload = response.json()
+            models = payload.get("data", []) if isinstance(payload, dict) else []
+            healthy = any(isinstance(model, dict) and model.get("id") == settings.local_ai_model
+                          for model in models)
+        except (httpx.HTTPError, ValueError, TypeError):
+            pass
+        return {"id": "local_ai", "title": "Lokal AI modeli", "state": "ok" if healthy else "warning",
+                "detail": "Model yuklangan va javob berishga tayyor" if healthy else
+                          "Ollama ulanmagan yoki model yuklanmagan; lokal server va modelni tekshiring"}
+
     async def check_once(self):
         async with self.lock:
             key, state = self._scope()
@@ -213,6 +236,11 @@ class Guardian:
                     {"id": "replies", "title": "Javob xatolari", "state": "warning" if status.get("last_reply_error") else "ok",
                      "detail": "Oxirgi javobda xato qayd etilgan; Monitoring bo‘limini ko‘ring" if status.get("last_reply_error") else "Javob xatosi qayd etilmagan"},
                 ]
+                local_ai = await self._local_ai_check()
+                if key != self.scope_key():
+                    return
+                if local_ai:
+                    checks.append(local_ai)
                 if recovery_failed:
                     checks.append({"id": "recovery", "title": "Avtomatik tiklash", "state": "warning", "detail": "Tiklash tugamadi; keyingi davrada qayta uriniladi"})
                 if self.source_result is None or self.clock() - self.source_checked_at >= 900:

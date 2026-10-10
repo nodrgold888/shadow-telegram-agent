@@ -16,6 +16,8 @@ COPY scripts ./scripts
 COPY tests ./tests
 COPY README.md ./README.md
 
+RUN mkdir -p /app/data && chown shadowagent:shadowagent /app/data
+
 USER shadowagent
 EXPOSE 10000
 

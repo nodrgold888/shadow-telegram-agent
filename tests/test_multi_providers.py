@@ -52,6 +52,15 @@ class ProviderChainTests(unittest.IsolatedAsyncioTestCase):
     async def ask(self, assistant):
         return await assistant.reply_with_files(chat_title="C", history="", message="Salom", directory=Path("."))
 
+    async def test_local_provider_answers_after_cloud_quota_error(self):
+        settings = make_settings(local_ai_base_url="http://ollama:11434/v1",
+                                 local_ai_api_key="ollama-local", local_ai_model="local-model")
+        assistant, clients = build(settings, {"local-model": "salom", "backup-model": QuotaError()})
+        answer, _files = await self.ask(assistant)
+        self.assertEqual(answer, "salom")
+        self.assertEqual(assistant.last_provider, "Ollama local")
+        clients["https://api.backup.example/v1"].chat.completions.create.assert_not_awaited()
+
     async def test_first_provider_answers_and_second_is_untouched(self):
         assistant, clients = build(settings_with_two(), {"backup-model": "Birinchi", "model-2": "Ikkinchi"})
         answer, _ = await self.ask(assistant)
