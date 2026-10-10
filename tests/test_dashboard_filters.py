@@ -5,20 +5,20 @@ HTML = (Path(__file__).resolve().parents[1] / "shadow" / "dashboard.html").read_
 
 
 class ChatTabFilterTests(unittest.TestCase):
-    def test_chats_tab_shows_only_private_chats_and_groups_tab_groups_and_channels(self):
+    def test_each_tab_shows_only_its_own_kind(self):
         start = HTML.index("function filterChats()")
         body = HTML[start:HTML.index("}", HTML.index("noMatches.hidden", start))]
-        self.assertIn("currentView==='groups'?(row.dataset.kind==='Guruh'||row.dataset.kind==='Kanal')", body)
-        self.assertIn("currentView==='chats'?row.dataset.kind==='Shaxsiy chat'", body)
+        self.assertIn("kindByView={chats:'Shaxsiy chat',groups:'Guruh',channels:'Kanal',bots:'Bot'}", body)
+        self.assertIn("row.dataset.kind===kindByView[currentView]", body)
 
     def test_list_labels_follow_the_tab(self):
-        for text in ("Shaxsiy suhbatlar", "Guruhlar va kanallar", "Guruh yoki kanal nomini qidirish", "applyListLabels();$('.top h1')",
-                     "Suhbatlar yoki Guruhlar va kanallar bo‘limida"):
+        for text in ("Shaxsiy suhbatlar", "Barcha guruhlar", "Guruh nomini qidirish", "Kanal nomini qidirish", "Bot nomini qidirish",
+                     "applyListLabels();$('.top h1')"):
             self.assertIn(text, HTML)
 
     def test_kinds_used_by_the_filter_match_what_the_server_sends(self):
         agent = (Path(__file__).resolve().parents[1] / "shadow" / "telegram_agent.py").read_text(encoding="utf-8")
-        for kind in ("Kanal", "Guruh", "Shaxsiy chat"):
+        for kind in ("Kanal", "Guruh", "Shaxsiy chat", "Bot"):
             self.assertIn(f'"{kind}"', agent)
 
 

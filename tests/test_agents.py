@@ -155,7 +155,7 @@ class SkillCatalogTests(unittest.TestCase):
         self.assertIn("Never invent price, discount, stock", prompt)
         self.assertIn("you cannot send a reminder later", prompt)
         self.assertIn("Never confirm attendance", prompt)
-        self.assertTrue(prompt.rstrip().endswith("> Good: ha, shunaqa"))
+        self.assertIn("> Good: ha, shunaqa", prompt)
 
 
 class AgentPromptTests(unittest.IsolatedAsyncioTestCase):

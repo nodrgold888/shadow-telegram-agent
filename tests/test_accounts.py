@@ -60,6 +60,9 @@ class FakeClient:
     async def is_user_authorized(self):
         return self.authorized
 
+    async def get_me(self):
+        return SimpleNamespace(id={"session-a": 1, "session-b": 2}.get(self.session_string, 0))
+
     async def disconnect(self):
         self.disconnected = True
 
