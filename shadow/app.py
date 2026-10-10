@@ -29,6 +29,7 @@ from .keepalive import build_keepalive
 from .integrations.catalog import catalog as integration_catalog
 from .panel_login import PanelLogin, LoginError
 from .telegram_agent import TelegramAgent, TelegramSetupTimeout
+from .runtime import AccountRuntime
 
 logging.basicConfig(
     level=logging.INFO,
@@ -36,7 +37,7 @@ logging.basicConfig(
 )
 
 settings = Settings.from_env()
-agent = TelegramAgent(settings)
+agent = AccountRuntime(settings)
 keepalive = build_keepalive()
 panel_login = PanelLogin()
 development = DevelopmentStudio()
@@ -61,6 +62,21 @@ async def lifespan(_: FastAPI):
 
 log = logging.getLogger("shadow.app")
 app = FastAPI(title="Shadow", version="0.1.0", lifespan=lifespan)
+
+
+@app.middleware("http")
+async def account_request_context(request: Request, call_next):
+    # Snapshot the selected worker once per request. Telegram sign-ins remain
+    # bound to that account even when another browser selects a different one.
+    if isinstance(agent, AccountRuntime):
+        token = request.cookies.get("shadow_setup")
+        selected = panel_login.session_account(token)
+        if selected is not None and selected not in agent._workers:
+            panel_login.end_session(token)
+            return JSONResponse({"detail": "Akkaunt olib tashlangan. Qayta kiring."}, status_code=401)
+        with agent.request_context(selected):
+            return await call_next(request)
+    return await call_next(request)
 
 _DASHBOARD_FILE = Path(__file__).with_name("dashboard.html")
 _DASHBOARD_THEME_FILE = Path(__file__).with_name("dashboard-theme.css")
@@ -254,7 +270,10 @@ async def dashboard_auth_info() -> JSONResponse:
         "accounts": [{
             "key": str(index),
             "label": mask_label(str(account["label"])) if str(account["label"]).isdigit() else account["label"],
-            "active": bool(agent.connected and account["active"]),
+            "active": bool(account["active"]),
+            "connected": bool(account.get("connected", agent.connected and account["active"])),
+            "runtime_state": account.get("runtime_state", "connected" if
+                                             agent.connected and account["active"] else "stopped"),
         } for index, account in enumerate(accounts)],
     }, headers={"Cache-Control": "no-store"})
 
@@ -871,6 +890,7 @@ async def dashboard_accounts_switch(
     except Exception as exc:
         log.warning("Switching Telegram account failed: %s", type(exc).__name__)
         raise HTTPException(status_code=502, detail="Akkauntga ulanib bo‘lmadi. Hozirgi akkaunt o‘z holicha qoldi.") from None
+    panel_login.select_session_account(shadow_setup, str(result.get("account_id", account_id)))
     return {**result, "accounts": agent.account_list(), "session_persisted": agent.session_persisted}
 
 
@@ -948,8 +968,12 @@ async def telegram_setup_verify(request: Request, shadow_setup: str | None = Coo
         result = await agent.complete_login(code)
     except TelegramSetupTimeout as exc:
         raise HTTPException(status_code=504, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from None
     if isinstance(result, str):
         return {"status": result}
+    if result.get("status") == "connected":
+        panel_login.select_session_account(shadow_setup, str(result["account_id"]))
     return result
 
 
@@ -961,4 +985,8 @@ async def telegram_setup_password(request: Request, shadow_setup: str | None = C
         result = await agent.complete_password(password)
     except TelegramSetupTimeout as exc:
         raise HTTPException(status_code=504, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from None
+    if result.get("status") == "connected":
+        panel_login.select_session_account(shadow_setup, str(result["account_id"]))
     return result

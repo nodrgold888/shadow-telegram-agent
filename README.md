@@ -77,7 +77,7 @@ Forward a message to a trusted ID helper or temporarily inspect Telethon logs lo
 
 ## Render deployment
 
-`render.yaml` defines a free web service in Frankfurt. Free services can sleep, so the keep-alive checks below are best-effort and do not guarantee continuous 24/7 availability. Choose a paid Render instance in the Render dashboard if you need guaranteed always-on hosting. Create a Blueprint from this repository, add the required secret values, and deploy.
+`render.yaml` defines a free web service in Frankfurt. Free services can sleep, so the keep-alive checks below are best-effort and do not guarantee continuous 24/7 availability. Choose a paid Render instance in the Render dashboard to avoid idle sleep. Paid hosting still needs monitoring and can experience outages. Create a Blueprint from this repository, add the required secret values, and deploy.
 
 Required secrets:
 
@@ -212,7 +212,7 @@ On Render's free plan the service sleeps after about 15 minutes without inbound 
 1. **In-process ping** (`shadow/keepalive.py`). Every 5 minutes (with ±10% jitter) Shadow calls its own public URL. Each ping has a 60s timeout, to survive cold starts, and retries after 5s, 15s and 45s. It starts automatically when `RENDER_EXTERNAL_URL` is set (Render sets it). Override with `KEEPALIVE_URL` and `KEEPALIVE_INTERVAL_SECONDS` (minimum 60). Its counters and last error are in `/admin/status` under `keepalive`.
 2. **External ping** (`.github/workflows/keepalive.yml`). GitHub Actions calls `/ping` every 5 minutes from outside. Unlike the in-process ping, it can wake a service that is already asleep or crashed. It targets `https://shadow-telegram-agent.onrender.com` by default; set the optional repository variable `PING_URL` (Settings → Secrets and variables → Actions → Variables) if your service URL differs. It retries up to 4 times with a 90s timeout.
 
-GitHub's scheduler can run a few minutes late, and GitHub disables scheduled workflows after 60 days without repository activity (re-enable in the Actions tab). These pingers reduce idle time but cannot guarantee 24/7 uptime; a paid always-on instance is the only guarantee.
+GitHub's scheduler can run a few minutes late, and GitHub disables scheduled workflows after 60 days without repository activity (re-enable in the Actions tab). These pingers reduce idle time but cannot guarantee 24/7 uptime; an always-on host avoids idle sleep but cannot eliminate every outage.
 
 ## Surviving restarts (no re-login)
 
@@ -387,7 +387,7 @@ work to finish and produces an audit in Development Studio; code patches and dep
 remain separate actions. Failed audits consume their scheduled slot to prevent retry
 storms. The last five completed automatic audits per account are retained; manual jobs
 and patches are not pruned. Settings, counters, events and AI scheduling are isolated
-by the active account, and stale checks are discarded after account switches.
+per account. The background loop checks each saved account in its own context; changing the dashboard selection does not stop another account's supervision.
 
 Set `SHADOW_GUARDIAN_ENABLED=false` to default new account schedules to paused. Guardian
 stores preferences and a bounded event log in `SHADOW_DEV_DIR/guardian-state.json`;
@@ -400,3 +400,25 @@ The loop stops when the server process stops. Render Free can sleep and its disk
 ephemeral; existing keep-alive pings cannot guarantee availability. Uninterrupted
 24/7 operation requires an always-on host and persistent storage. No paid hosting
 upgrade is performed automatically.
+
+## Concurrent Telegram accounts
+
+Every saved Telegram account now has an independent client, reply listener, settings,
+chat permissions, memory and recovery task (`shadow/runtime.py`). All saved accounts
+start concurrently. Selecting another account changes the dashboard view; it does not
+disconnect the previous account. Adding an account preserves existing workers and
+starts the new account with replies disabled and an empty private settings bundle.
+Telegram panel sessions stay bound to their selected account until the user switches
+it explicitly. Deployments still invalidate in-memory panel sessions.
+
+Startup serves health probes without waiting for Telegram. Recovery checks run every
+15 seconds with a 20-second connection deadline and failure backoff up to 60 seconds.
+A revoked session requires a fresh Telegram login. Each account keeps its own reply
+switch; connection recovery never enables replies or grants chat permissions. Login
+and account cards show actual socket connection status separately from the account
+selected in the panel. These checks do not prove AI inference or 24/7 availability.
+
+Render Free can still sleep, and delayed GitHub scheduled pings cannot prevent every
+idle period. For both accounts to remain running overnight, use an always-on Render
+instance or VPS and persistent storage. Provider outages, quota and Telegram limits
+remain external dependencies.

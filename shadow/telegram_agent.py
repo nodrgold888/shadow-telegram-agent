@@ -44,6 +44,10 @@ log = logging.getLogger("shadow.telegram")
 # "start over") behind a lock that never releases. This bounds that wait so
 # a stall surfaces as a clear, retryable error instead of a silent freeze.
 SETUP_NETWORK_TIMEOUT_SECONDS = 20
+CONNECTION_TIMEOUT_SECONDS = 20
+DISCONNECT_TIMEOUT_SECONDS = 3
+WATCHDOG_INTERVAL_SECONDS = 15
+MAX_RECONNECT_DELAY_SECONDS = 60
 
 
 def spoken_media(message, *, include_video: bool = False) -> tuple[str | None, object | None]:
@@ -102,6 +106,10 @@ class TelegramAgent:
         self.friend_ids: dict[int, str] = load_friend_chats()
         self.session_persisted = bool(settings.telegram_session)
         self._watchdog_task: asyncio.Task | None = None
+        self._connection_attempts = 0
+        self._connection_failures = 0
+        self._last_connected_at: float | None = None
+        self._next_reconnect_at: float | None = None
         self.presence = OnlinePresence(settings.always_online)
         self.public_bank = PublicBankState()
         self.greeting = GreetingState()
@@ -116,13 +124,27 @@ class TelegramAgent:
         self.accounts = parse_accounts(load_accounts_raw())
 
     async def start(self) -> None:
+        # Serve the dashboard and health probes even when Telegram is unreachable.
+        # Keep this worker alive after setup or a revoked session is replaced.
+        if self._watchdog_task is None or self._watchdog_task.done():
+            self._watchdog_task = asyncio.create_task(self._watchdog(), name="shadow-telegram-recovery")
         if not self.settings.telegram_api_ready or not self.settings.telegram_session:
             self.last_error = "configuration_required"
             log.warning("Shadow is waiting for Telegram session setup")
-            return
 
-        await self._connect_saved_session()
-        self._watchdog_task = asyncio.create_task(self._watchdog())
+    @property
+    def connection_alive(self) -> bool:
+        try:
+            return bool(self.connected and self.client and self.client.is_connected())
+        except Exception:
+            return False
+
+    @staticmethod
+    async def _disconnect_client(client) -> None:
+        try:
+            await asyncio.wait_for(client.disconnect(), timeout=DISCONNECT_TIMEOUT_SECONDS)
+        except Exception:
+            log.warning("Telegram disconnect did not complete")
 
     async def _connect_saved_session(self) -> None:
         client: TelegramClient | None = None
@@ -132,60 +154,81 @@ class TelegramAgent:
                 self.settings.telegram_api_id,
                 self.settings.telegram_api_hash,
                 auto_reconnect=True,
-                connection_retries=None,
+                connection_retries=5,
                 retry_delay=3,
             )
-            await client.connect()
-            if not await client.is_user_authorized():
-                await client.disconnect()
-                self.session_revoked = True
-                raise RuntimeError("The Telegram session is not authorized")
-            await self._activate_client(client)
+            async with asyncio.timeout(CONNECTION_TIMEOUT_SECONDS):
+                await client.connect()
+                if not await client.is_user_authorized():
+                    self.session_revoked = True
+                    raise RuntimeError("The Telegram session is not authorized")
+                await self._activate_client(client)
             await self._remember_account(self.settings.telegram_session)
         except asyncio.CancelledError:
             if client is not None:
-                try:
-                    await client.disconnect()
-                except Exception:
-                    pass
+                await self._disconnect_client(client)
             raise
         except Exception as exc:
             if client is not None:
-                try:
-                    await client.disconnect()
-                except Exception:
-                    pass
+                await self._disconnect_client(client)
             self.connected = False
-            self.last_error = type(exc).__name__
-            log.exception("Telegram connection failed")
+            self.last_error = "reconnect_timeout" if isinstance(exc, TimeoutError) else type(exc).__name__
+            log.warning("Telegram connection failed: %s", self.last_error)
 
     async def _watchdog(self) -> None:
         """Keep the saved session connected without manual re-setup.
 
         Telethon already reconnects dropped sockets; this covers a failed boot
         (Telegram/network briefly unreachable) and a client left disconnected.
-        A revoked session cannot be fixed automatically, so we stop retrying it.
+        A revoked session needs a new login. The worker stays alive but does not
+        retry it, so recovery resumes after the owner replaces that session.
         """
         while True:
-            await asyncio.sleep(60)
-            if self.session_revoked:
-                return
+            delay = WATCHDOG_INTERVAL_SECONDS
             try:
-                async with self._recovery_lock:
-                    if self.session_revoked:
-                        return
-                    if self.client is None:
-                        await self._connect_saved_session()
-                    elif not self.client.is_connected():
-                        await self.client.connect()
-                        self.connected = self.client.is_connected()
-                        if self.connected:
-                            self.last_error = None
-                            log.info("Telegram connection restored")
+                # Match Guardian's lock order; never reconnect an old session
+                # concurrently with adding or switching Telegram accounts.
+                async with self._setup_lock:
+                    async with self._recovery_lock:
+                        if (not self.session_revoked and self.settings.telegram_api_ready
+                                and self.settings.telegram_session and not self.connection_alive):
+                            self.connected = False
+                            self._connection_attempts += 1
+                            if self.client is None:
+                                await self._connect_saved_session()
+                            else:
+                                async with asyncio.timeout(CONNECTION_TIMEOUT_SECONDS):
+                                    await self.client.connect()
+                                    if await self.client.is_user_authorized():
+                                        self.connected = self.client.is_connected()
+                                        self.last_error = None if self.connected else "telegram_disconnected"
+                                    else:
+                                        self.session_revoked = True
+                                        self.last_error = "session_revoked"
+                            if self.connection_alive:
+                                self._connection_failures = 0
+                                self._last_connected_at = time.time()
+                                log.info("Telegram connection restored")
+                            else:
+                                self._connection_failures += 1
+                        if self.connection_alive and self.reply_enabled and self.settings.ai_ready:
+                            if self.assistant is None:
+                                self.assistant = ShadowAssistant(self.settings)
+                            registered = any(callback == self._on_message for callback, _ in
+                                             self.client.list_event_handlers())
+                            if not registered:
+                                self.client.add_event_handler(self._on_message, events.NewMessage(incoming=True))
             except Exception as exc:
                 self.connected = False
-                self.last_error = type(exc).__name__
+                self._connection_failures += 1
+                self.last_error = "reconnect_timeout" if isinstance(exc, TimeoutError) else type(exc).__name__
                 log.warning("Telegram reconnect attempt failed: %s", type(exc).__name__)
+            if self._connection_failures:
+                delay = min(MAX_RECONNECT_DELAY_SECONDS, delay * 2 ** min(self._connection_failures - 1, 3))
+            pending = (not self.connection_alive and not self.session_revoked
+                       and self.settings.telegram_api_ready and bool(self.settings.telegram_session))
+            self._next_reconnect_at = time.time() + delay if pending else None
+            await asyncio.sleep(delay)
 
     async def _persist_login(self, client: TelegramClient) -> None:
         session = client.session.save()
@@ -199,10 +242,15 @@ class TelegramAgent:
         self.presence.stop()
         if self._watchdog_task:
             self._watchdog_task.cancel()
+            try:
+                await self._watchdog_task
+            except asyncio.CancelledError:
+                pass
+            self._watchdog_task = None
         if self.client:
-            await self.client.disconnect()
+            await self._disconnect_client(self.client)
         if self._login_client and self._login_client is not self.client:
-            await self._login_client.disconnect()
+            await self._disconnect_client(self._login_client)
         self.connected = False
 
     async def _enter_account_scope(self, account_id: int) -> None:
@@ -241,6 +289,7 @@ class TelegramAgent:
                 "ai_api_key": fresh.ai_api_key, "ai_model": fresh.ai_model, "ai_name": fresh.ai_name,
                 "ai_primary": fresh.ai_primary, "ai_first_slot": fresh.ai_first_slot,
                 "ai_extra_providers": fresh.ai_extra_providers,
+                "ai_work_mode": fresh.ai_work_mode,
                 "context_messages": fresh.context_messages, "max_reply_chars": fresh.max_reply_chars,
                 "always_online": fresh.always_online, "public_bank_reply": fresh.public_bank_reply,
             }
@@ -273,7 +322,7 @@ class TelegramAgent:
         self.assistant = ShadowAssistant(self.settings) if self.reply_enabled else None
 
     async def _activate_client(self, client: TelegramClient) -> None:
-        me = await client.get_me()
+        me = await asyncio.wait_for(client.get_me(), timeout=CONNECTION_TIMEOUT_SECONDS)
         await self._enter_account_scope(me.id)
         previous = self.client if self.client is not client else None
         # Authenticate the new account before detaching the working connection.
@@ -294,12 +343,13 @@ class TelegramAgent:
         # Owner commands (/rasm) work whether or not auto-replies are on.
         client.add_event_handler(self._on_owner_command, events.NewMessage(outgoing=True))
         self.connected = True
+        self._last_connected_at = time.time()
         self.last_error = None
         log.info("Shadow connected to Telegram account %s", self.account_label)
         self.presence.start(lambda: self.client)
         if previous is not None:
             try:
-                await previous.disconnect()
+                await self._disconnect_client(previous)
             except Exception as exc:
                 log.warning("Could not disconnect previous account: %s", type(exc).__name__)
 
@@ -309,7 +359,7 @@ class TelegramAgent:
         async with self._setup_lock:
             # Never drop the live account just because a new login was started.
             if self._login_client and self._login_client is not self.client:
-                await self._login_client.disconnect()
+                await self._disconnect_client(self._login_client)
             self._login_client = None
             self._login_phone = None
             self._login_hash = None
@@ -324,12 +374,12 @@ class TelegramAgent:
                     client.send_code_request(phone), timeout=SETUP_NETWORK_TIMEOUT_SECONDS
                 )
             except (asyncio.TimeoutError, TimeoutError) as exc:
-                await client.disconnect()
+                await self._disconnect_client(client)
                 raise TelegramSetupTimeout(
                     "Telegram serveriga ulanib bo'lmadi (vaqt tugadi). Qaytadan urinib ko'ring."
                 ) from exc
             except Exception:
-                await client.disconnect()
+                await self._disconnect_client(client)
                 raise
             self._login_client = client
             self._login_phone = phone
@@ -358,7 +408,7 @@ class TelegramAgent:
         self.accounts = remember(self.accounts, me.id, label, client.session.save())
         persisted = await save_accounts(dump_accounts(self.accounts))
         try:
-            await client.disconnect()
+            await self._disconnect_client(client)
         except Exception as exc:
             log.warning("Could not disconnect temporary Telegram login client: %s", type(exc).__name__)
         finally:
@@ -413,7 +463,10 @@ class TelegramAgent:
         """Keep the account that is connected right now in the saved list, so it can be switched back to."""
         if self.account_id is None or not session:
             return
-        self.accounts = remember(self.accounts, self.account_id, self.account_label or str(self.account_id), session)
+        updated = remember(self.accounts, self.account_id, self.account_label or str(self.account_id), session)
+        if updated == self.accounts and parse_accounts(load_accounts_raw()) == updated:
+            return
+        self.accounts = updated
         await save_accounts(dump_accounts(self.accounts))
 
     def account_list(self) -> list[dict[str, object]]:
@@ -432,24 +485,24 @@ class TelegramAgent:
         async with self._setup_lock:
             client = TelegramClient(
                 StringSession(saved["session"]), self.settings.telegram_api_id, self.settings.telegram_api_hash,
-                auto_reconnect=True, connection_retries=None, retry_delay=3,
+                auto_reconnect=True, connection_retries=5, retry_delay=3,
             )
             try:
                 await asyncio.wait_for(client.connect(), timeout=SETUP_NETWORK_TIMEOUT_SECONDS)
                 if not await asyncio.wait_for(client.is_user_authorized(), timeout=SETUP_NETWORK_TIMEOUT_SECONDS):
-                    await client.disconnect()
+                    await self._disconnect_client(client)
                     raise ValueError("Bu akkauntning sessiyasi tugagan. Uni o‘chirib, qayta qo‘shing.")
                 me = await asyncio.wait_for(client.get_me(), timeout=SETUP_NETWORK_TIMEOUT_SECONDS)
                 if me is None or str(me.id) != str(account_id):
-                    await client.disconnect()
+                    await self._disconnect_client(client)
                     raise ValueError("Saqlangan akkaunt mos kelmadi. Hozirgi akkaunt o‘zgarishsiz qoldi.")
             except (asyncio.TimeoutError, TimeoutError) as exc:
-                await client.disconnect()
+                await self._disconnect_client(client)
                 raise TelegramSetupTimeout("Telegram serveriga ulanib bo‘lmadi (vaqt tugadi). Qaytadan urinib ko‘ring.") from exc
             except ValueError:
                 raise
             except Exception:
-                await client.disconnect()
+                await self._disconnect_client(client)
                 raise
             await self._activate_client(client)
             await self._persist_login(client)
@@ -481,7 +534,7 @@ class TelegramAgent:
             await asyncio.wait_for(client.send_message(me.id, text), timeout=SETUP_NETWORK_TIMEOUT_SECONDS)
         finally:
             if client.is_connected():
-                await client.disconnect()
+                await self._disconnect_client(client)
 
     def setup_result(self) -> dict[str, object]:
         """Return safe account and persistence details after private login."""
@@ -1209,16 +1262,19 @@ class TelegramAgent:
                 )
             except Exception:
                 listener_registered = False
-        client_connected = False
-        if self.client:
-            try:
-                client_connected = bool(self.client.is_connected())
-            except Exception:
-                client_connected = False
+        client_connected = self.connection_alive
         reply_ready = bool(self.connected and client_connected and self.settings.ai_ready and approved)
         return {
             "configured": self.settings.configured or self.connected,
-            "connected": self.connected,
+            "connected": client_connected,
+            "recovery": {
+                "running": bool(self._watchdog_task and not self._watchdog_task.done()),
+                "attempts": self._connection_attempts,
+                "consecutive_failures": self._connection_failures,
+                "last_connected_at": self._last_connected_at,
+                "next_retry_at": self._next_reconnect_at,
+                "session_revoked": self.session_revoked,
+            },
             "account": self.account_label,
             "account_id": self.account_id,
             "approved_chat_count": "all" if approved == "*" else len(approved),

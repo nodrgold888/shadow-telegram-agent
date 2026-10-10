@@ -1,4 +1,5 @@
 import unittest
+from unittest import mock
 
 from shadow.panel_login import (
     CODE_TTL_SECONDS,
@@ -13,6 +14,19 @@ from shadow.panel_login import (
 
 
 class PanelLoginTests(unittest.TestCase):
+    def test_verified_session_keeps_account_and_expiry_cleans_binding(self):
+        login = PanelLogin()
+        token = login.verify_code(login.issue_code(now=1000, account_id="11"), now=1001)
+        with mock.patch("shadow.panel_login.time.time", return_value=1002):
+            self.assertEqual(login.session_account(token), "11")
+            login.select_session_account(token, "22")
+            self.assertEqual(login.session_account(token), "22")
+            login.select_session_account("s.forged", "11")
+            self.assertIsNone(login.session_account("s.forged"))
+        with mock.patch("shadow.panel_login.time.time", return_value=1002 + SESSION_TTL_SECONDS):
+            self.assertIsNone(login.session_account(token))
+            self.assertNotIn(token, login._session_accounts)
+
     def test_happy_path_creates_session_and_code_is_single_use(self):
         login = PanelLogin()
         code = login.issue_code(now=1000)

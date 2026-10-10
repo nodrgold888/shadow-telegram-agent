@@ -272,7 +272,70 @@
   :root[data-theme] .panel-grid{grid-template-columns:1fr}
 }
 /* A quiet assistant identity and readable service controls replace the face HUD. */
+:root[data-theme] .login-wrap{grid-template-columns:minmax(0,480px);gap:0;width:100%;min-height:100dvh;padding:32px 18px;background:transparent}
+:root[data-theme] .login-aside{display:none}
+:root[data-theme] .login{min-width:0;padding:32px;border:1px solid var(--v-line2);border-radius:18px;background:var(--v-surface);box-shadow:0 20px 64px #0002}
+:root[data-theme] .login>.brand{display:flex;margin:0 0 28px;gap:11px}
+:root[data-theme] .login .brand .mark{width:40px;height:40px;border-radius:12px;background:linear-gradient(145deg,#37b8c9,#4e6ed5 65%,#8b68cb);color:white;box-shadow:none}
+:root[data-theme] .login .brand strong{color:var(--v-ink);font-size:13px;letter-spacing:.16em}
+:root[data-theme] .login .brand small{color:var(--v-muted);font-size:9px;letter-spacing:.08em}
+:root[data-theme] .login .theme-toggle{top:32px;right:32px}
+:root[data-theme] .login-overline{color:var(--v-accent);font-size:9px;font-weight:700;letter-spacing:.14em}
+:root[data-theme] .login h1{margin:8px 0;font-size:28px;line-height:1.2;letter-spacing:-.04em}
+:root[data-theme] .login-heading p{margin:0;color:var(--v-muted);font-size:13px;line-height:1.6}
+:root[data-theme] .login-runtime{display:flex;align-items:center;gap:8px;margin:22px 0;padding:10px 12px;border:1px solid var(--v-line);border-radius:8px;background:var(--v-surface2);color:var(--v-muted);font-size:11px}
+:root[data-theme] .login-runtime i{width:6px;height:6px;flex:none;border-radius:50%;background:var(--v-muted)}
+:root[data-theme] .login-runtime[data-state="connected"] i{background:var(--v-accent)}
+:root[data-theme] .login-runtime[data-state="warning"] i{background:var(--v-warn)}
+:root[data-theme] .login-runtime small{margin-left:auto;font-size:8px;letter-spacing:.06em;white-space:nowrap}
+:root[data-theme] .login .alt-login{margin:0;padding:0;border:0}
+:root[data-theme] .alt-account-picker{margin:0;padding:0;border:0;background:transparent}
+:root[data-theme] .alt-account-picker legend{margin-bottom:12px;padding:0;color:var(--v-ink);font-size:12px;font-weight:650}
+:root[data-theme] .account-picker-list{display:grid;gap:9px}
+:root[data-theme] .login-account-choice{grid-template-columns:16px 36px minmax(0,1fr) auto;gap:10px;min-height:68px;padding:12px;border:1px solid var(--v-line);border-radius:10px;background:var(--v-surface2);transition:background .15s,border-color .15s}
+:root[data-theme] .login-account-choice:hover{border-color:var(--v-line2)}
+:root[data-theme] .login-account-choice:has(input:checked){border-color:var(--v-accent);background:color-mix(in srgb,var(--v-accent) 7%,var(--v-surface));box-shadow:inset 3px 0 var(--v-accent)}
+:root[data-theme] .login-account-avatar{width:36px;height:36px;border:1px solid color-mix(in srgb,var(--console-blue) 25%,var(--v-line));border-radius:10px;background:color-mix(in srgb,var(--console-blue) 8%,var(--v-surface));color:var(--console-blue)}
+:root[data-theme] .login-account-avatar svg{width:20px;height:20px;stroke:currentColor;stroke-width:1.5;stroke-linecap:round}
+:root[data-theme] .login-account-info strong{font-size:13px;font-weight:650}
+:root[data-theme] .login-account-info small{font-size:10px;line-height:1.6}
+:root[data-theme] .login-account-state{color:var(--v-muted);font-size:10px}
+:root[data-theme] .login-account-state[data-state="connected"]{color:var(--v-accent)}
+:root[data-theme] .login-account-state[data-state="reconnecting"],:root[data-theme] .login-account-state[data-state="login_required"]{color:var(--v-warn)}
+:root[data-theme] .account-picker-help{margin:13px 0 18px;color:var(--v-muted);font-size:11px;line-height:1.6}
+:root[data-theme] .login .primary,:root[data-theme] .login .primary.alt-btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;min-height:46px;padding:10px 14px;border:1px solid transparent;border-radius:9px;background:var(--v-accent);color:var(--button-ink);font-size:13px;font-weight:650}
+:root[data-theme] .login .primary:disabled{opacity:.5;cursor:not-allowed}
+:root[data-theme] .login .alt-link{display:flex;align-items:center;justify-content:center;gap:8px;margin:16px 0 22px;padding:12px;border:1px dashed var(--v-line2);border-radius:9px;color:var(--v-ink);font-size:12px;text-decoration:none}
+:root[data-theme] .login .alt-link:hover{border-color:var(--v-accent);color:var(--v-accent)}
+:root[data-theme] .login .alt-link span{color:var(--v-accent);font-size:18px}
+:root[data-theme] .token-login{padding-top:18px;border-top:1px solid var(--v-line);color:var(--v-muted);font-size:12px}
+:root[data-theme] .token-login summary{cursor:pointer;list-style-position:inside}
+:root[data-theme] .token-login form{margin-top:16px}
+:root[data-theme] .login label:not(.login-account-choice){display:block;margin-bottom:6px;color:var(--v-muted);font-size:11px}
+:root[data-theme] .login form input{width:100%;min-width:0;min-height:46px;margin-bottom:10px;font-size:13px}
+:root[data-theme] .login .alt-note{margin:12px 0;color:var(--v-muted);font-size:11px;line-height:1.6;overflow-wrap:anywhere}
+:root[data-theme] .login .error{font-size:12px;line-height:1.6}
+:root[data-theme] .login .error:empty{display:none}
+:root[data-theme] .login-footnote{display:flex;align-items:flex-start;gap:8px;margin:20px 0 0;color:var(--v-muted);font-size:10px;line-height:1.6}
+:root[data-theme] .login-footnote svg{flex:none;width:16px;height:16px;stroke:var(--v-accent);stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
+@media(max-width:480px){
+  :root[data-theme] .login-wrap{padding:20px 12px}
+  :root[data-theme] .login{padding:24px 20px;border-radius:15px}
+  :root[data-theme] .login .theme-toggle{top:24px;right:20px}
+  :root[data-theme] .login h1{font-size:25px}
+  :root[data-theme] .login-account-choice{grid-template-columns:16px 32px minmax(0,1fr);gap:4px 9px;padding:11px}
+  :root[data-theme] .login-account-choice input,:root[data-theme] .login-account-avatar{grid-row:1 / span 2}
+  :root[data-theme] .login-account-avatar{width:32px;height:32px}
+  :root[data-theme] .login-account-state{grid-column:3;grid-row:2}
+  :root[data-theme] .login-account-info strong{font-size:13px}
+}
 :root[data-theme] .mobile-menu-toggle{display:none}
+:root[data-theme] .acc-avatar svg{width:22px;height:22px;stroke:currentColor;stroke-width:1.5;stroke-linecap:round}
+:root[data-theme] .acc-runtime-state[data-state="connected"]{color:var(--v-accent);border-color:color-mix(in srgb,var(--v-accent) 35%,var(--v-line))}
+:root[data-theme] .acc-runtime-state[data-state="reconnecting"],:root[data-theme] .acc-runtime-state[data-state="login_required"]{color:var(--v-warn)}
+:root[data-theme] .acc-selected{color:var(--v-muted);font-size:11px}
+:root[data-theme] .acc-info{min-width:0}
+:root[data-theme] .acc-info strong{overflow-wrap:anywhere}
 :root[data-theme] .content,:root[data-theme] .command-copy{min-width:0}
 :root[data-theme] .command-hero{grid-template-columns:minmax(0,1fr) 144px;gap:18px 28px;min-height:0;padding:26px;border:1px solid var(--v-line2);border-radius:16px;background:linear-gradient(115deg,color-mix(in srgb,var(--console-blue) 5%,var(--v-surface)),var(--v-surface) 68%);box-shadow:var(--v-shadow)}
 :root[data-theme] .command-hero:before,:root[data-theme] .command-hero:after,:root[data-theme] .command-visual:before,:root[data-theme] .command-visual:after{content:none;animation:none}

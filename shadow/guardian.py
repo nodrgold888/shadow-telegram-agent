@@ -9,6 +9,7 @@ import logging
 import os
 import tempfile
 import time
+from contextlib import nullcontext
 from pathlib import Path
 
 import httpx
@@ -149,24 +150,36 @@ class Guardian:
     async def _run(self):
         while True:
             self.heartbeat = self.clock()
-            key, state = self._scope()
-            try:
-                if state["enabled"] and (not state["next_check_at"] or self.clock() >= state["next_check_at"]):
-                    await self.check_once()
-            except asyncio.CancelledError:
-                raise
-            except Exception:
-                # Never let one bad check kill supervision or store an exception with secrets.
-                self._event(state, "Tekshiruv bajarilmadi; keyingi davrada qayta uriniladi", "error")
-                state["next_check_at"] = self.clock() + state["interval_seconds"]
-                self._save()
-                log.warning("Guardian cycle failed")
+            await self._check_due_accounts()
             self.heartbeat = self.clock()
             try:
                 await asyncio.wait_for(self.wake.wait(), timeout=5)
             except TimeoutError:
                 pass
             self.wake.clear()
+
+    async def _check_due_accounts(self):
+        multi = callable(getattr(self.agent, "request_context", None))
+        account_ids = [item["id"] for item in self.agent.account_list()] if multi else []
+        for account_id in account_ids or [None]:
+            try:
+                context = self.agent.request_context(account_id) if multi else nullcontext()
+                with context:
+                    _, state = self._scope()
+                    try:
+                        if state["enabled"] and (not state["next_check_at"] or self.clock() >= state["next_check_at"]):
+                            await self.check_once()
+                    except asyncio.CancelledError:
+                        raise
+                    except Exception:
+                        # One bad account must not prevent checks for the others.
+                        self._event(state, "Tekshiruv bajarilmadi; keyingi davrada qayta uriniladi", "error")
+                        state["next_check_at"] = self.clock() + state["interval_seconds"]
+                        self._save()
+                        log.warning("Guardian cycle failed")
+            except ValueError:
+                # The account may have been removed while another check awaited.
+                continue
 
     def _source_check(self) -> dict:
         failures = []

@@ -8,6 +8,8 @@ import urllib.request
 from urllib.error import HTTPError
 import tempfile
 import threading
+from contextlib import contextmanager
+from contextvars import ContextVar
 from pathlib import Path
 
 from .chat_memory import MAX_CHAT_PROFILE_BYTES, normalize_chat_profiles
@@ -43,6 +45,30 @@ _scope: str | None = None
 _scope_checked = False
 _bundles: dict[str, dict[str, str]] | None = None
 _scope_lock = threading.RLock()
+_default_scope = object()
+_task_scope = ContextVar("shadow_account_scope", default=_default_scope)
+_render_write_lock = threading.Lock()
+
+
+@contextmanager
+def account_scope(account_id: str | None):
+    """Pin background workers and requests to their own account, including to_thread calls."""
+    token = _task_scope.set(account_id)
+    try:
+        yield
+    finally:
+        _task_scope.reset(token)
+
+
+def select_scope(account_id: str | None) -> None:
+    """Select the administrator's default view without changing any worker's context."""
+    global _scope, _scope_checked
+    with _scope_lock:
+        _scope, _scope_checked = account_id, True
+
+
+def set_task_scope(account_id: str | None) -> None:
+    _task_scope.set(account_id)
 
 
 def _raw_local_settings() -> dict[str, str]:
@@ -100,6 +126,9 @@ def _derive_scope() -> None:
 
 
 def current_scope() -> str | None:
+    pinned = _task_scope.get()
+    if pinned is not _default_scope:
+        return pinned
     with _scope_lock:
         if not _scope_checked:
             _derive_scope()
@@ -143,7 +172,10 @@ async def enter_scope(account_id: str, migrate_globals: bool) -> bool:
             # old global settings after a restart makes them the active Telegram session.
             bundle["__legacy_migrated__"] = "1"
             changed = True
-        _scope, _scope_checked = account_id, True
+        if _task_scope.get() is _default_scope:
+            _scope, _scope_checked = account_id, True
+        else:
+            _task_scope.set(account_id)
         snapshot = json.dumps(bundles, ensure_ascii=False, separators=(",", ":"))
     if not changed:
         return True
@@ -155,6 +187,7 @@ def reset_scope() -> None:
     global _scope, _scope_checked, _bundles
     with _scope_lock:
         _scope, _scope_checked, _bundles = None, False, None
+    _task_scope.set(_default_scope)
 
 
 def _scoped_write(key: str, value: str) -> tuple[str, str]:
@@ -173,6 +206,9 @@ def _scoped_write(key: str, value: str) -> tuple[str, str]:
 def _save_local(key: str, value: str) -> None:
     key, value = _scoped_write(key, value)
     with _local_lock:
+        if key == "TELEGRAM_ACCOUNT_SETTINGS":
+            with _scope_lock:
+                value = json.dumps(_load_bundles(), ensure_ascii=False, separators=(",", ":"))
         path = Path(os.environ["SHADOW_STATE_FILE"]).resolve()
         path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
         data = _raw_local_settings()
@@ -195,6 +231,16 @@ def persistence_available() -> bool:
 
 def _put_env_var(service_id: str, api_key: str, key: str, value: str) -> None:
     key, value = _scoped_write(key, value)
+    # Serialize remote writes and refresh the shared bundle after acquiring the
+    # lock: concurrent account saves must never overwrite each other's settings.
+    with _render_write_lock:
+        if key == "TELEGRAM_ACCOUNT_SETTINGS":
+            with _scope_lock:
+                value = json.dumps(_load_bundles(), ensure_ascii=False, separators=(",", ":"))
+        _put_env_var_serial(service_id, api_key, key, value)
+
+
+def _put_env_var_serial(service_id: str, api_key: str, key: str, value: str) -> None:
     headers = {
         "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json",

@@ -36,6 +36,7 @@ class PanelLogin:
     _last_request: float = float("-inf")
     _locked_until: float = 0
     _sessions: dict[str, float] = field(default_factory=dict)
+    _session_accounts: dict[str, str] = field(default_factory=dict)
     _code_account_id: str | None = None
 
     def issue_code(self, now: float | None = None, account_id: str | None = None) -> str:
@@ -71,12 +72,18 @@ class PanelLogin:
                 self._code_account_id = None
                 self._locked_until = now + LOCKOUT_SECONDS
             raise LoginError("Kod noto‘g‘ri.", 400)
+        account_id = self._code_account_id
         self._code = None
         self._code_account_id = None
-        return self._new_session(now)
+        token = self._new_session(now)
+        if account_id is not None:
+            self._session_accounts[token] = account_id
+        return token
 
     def _new_session(self, now: float) -> str:
         self._sessions = {token: exp for token, exp in self._sessions.items() if exp > now}
+        self._session_accounts = {token: account for token, account in self._session_accounts.items()
+                                  if token in self._sessions}
         token = SESSION_PREFIX + secrets.token_urlsafe(32)
         self._sessions[token] = now + SESSION_TTL_SECONDS
         return token
@@ -90,9 +97,18 @@ class PanelLogin:
             return False
         if expires <= now:
             self._sessions.pop(token, None)
+            self._session_accounts.pop(token, None)
             return False
         return True
 
     def end_session(self, token: str | None) -> None:
         if token:
             self._sessions.pop(token, None)
+            self._session_accounts.pop(token, None)
+
+    def session_account(self, token: str | None) -> str | None:
+        return self._session_accounts.get(token) if self.session_valid(token) else None
+
+    def select_session_account(self, token: str | None, account_id: str) -> None:
+        if self.session_valid(token):
+            self._session_accounts[token] = str(account_id)
