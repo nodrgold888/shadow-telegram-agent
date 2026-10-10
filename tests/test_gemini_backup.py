@@ -21,11 +21,12 @@ def client_with(side_effect):
 
 
 class ChatCreateTests(unittest.IsolatedAsyncioTestCase):
-    async def test_retries_without_max_tokens_when_the_provider_rejects_it(self):
+    async def test_retries_with_bounded_completion_tokens_when_provider_rejects_old_name(self):
         client, create = client_with([Rejects(400, "Unsupported parameter: max_tokens"), "ok"])
         self.assertEqual(await chat_create(client, model="m", messages=[], max_tokens=50), "ok")
         self.assertIn("max_tokens", create.call_args_list[0].kwargs)
         self.assertNotIn("max_tokens", create.call_args_list[1].kwargs)
+        self.assertEqual(create.call_args_list[1].kwargs["max_completion_tokens"], 50)
 
     async def test_other_errors_are_not_retried(self):
         for error in (Rejects(400, "tools are not supported"), Rejects(429, "max_tokens quota"), Rejects(500, "boom")):

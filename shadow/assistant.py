@@ -12,7 +12,7 @@ from openai import AsyncOpenAI
 
 from .anthropic_compat import ANTHROPIC_BASE_URL, AnthropicCompatClient
 from .work_tools import calculate, create_excel, create_word
-from .model_routing import needs_reasoning_model
+from .model_routing import needs_reasoning_model, ordered_backup_providers
 
 from .agents import agent_role
 from .natural_chat_agent import conversation_style_agent
@@ -43,15 +43,14 @@ def _checked(response):
 
 
 async def chat_create(client, **request):
-    """chat.completions.create that tolerates providers which reject max_tokens.
-
-    Some OpenAI-compatible providers answer 400 for the parameter (they want another name or none);
-    retrying once without it keeps the provider usable, at the cost of an unbounded answer length."""
+    """Tolerate the newer token-limit name while keeping the requested output budget."""
     try:
         return _checked(await client.chat.completions.create(**request))
     except Exception as exc:
         if getattr(exc, "status_code", None) == 400 and "max_tokens" in request and "max_tokens" in str(exc).lower():
+            max_tokens = request["max_tokens"]
             request = {key: value for key, value in request.items() if key != "max_tokens"}
+            request["max_completion_tokens"] = max_tokens
             return _checked(await client.chat.completions.create(**request))
         raise
 
@@ -72,6 +71,7 @@ OPENAI_TIMEOUT = 60.0
 # Reasoning models (Gemini 3.x, free routers) spend part of the budget on hidden thinking, so a tiny
 # limit makes them answer with nothing; the AI check needs room for the visible word as well.
 CHECK_MAX_TOKENS = 512
+CHECK_TIMEOUT = 30.0
 
 
 def is_transient(exc: BaseException) -> bool:
@@ -500,15 +500,26 @@ class ShadowAssistant:
         return answer
 
     async def check(self) -> dict[str, object]:
-        """Minimal request to every configured model. Per-model failures are reported, not raised."""
-        checked: list[dict[str, object]] = []
+        """Check every model with bounded parallel requests and record latency and failures."""
+        limiter = asyncio.Semaphore(4)
+        calls = []
 
-        async def attempt(label: str, call) -> None:
-            try:
-                text = await call()
-                checked.append({"model": label, "replied": bool(text)})
-            except Exception as exc:
-                checked.append({"model": label, "replied": False, "error": type(exc).__name__, "detail": safe_error_detail(exc)})
+        async def attempt(key: str, label: str, call) -> dict[str, object]:
+            async with limiter:
+                started = time.monotonic()
+                try:
+                    async with asyncio.timeout(CHECK_TIMEOUT):
+                        text = await call()
+                    if not text:
+                        raise EmptyProviderReply("Model returned an empty diagnostic reply")
+                    self._cooldowns.pop(key, None)
+                    result = {"model": label, "replied": True}
+                except Exception as exc:
+                    self._start_cooldown(key, exc)
+                    result = {"model": label, "replied": False, "error": type(exc).__name__,
+                              "detail": safe_error_detail(exc)}
+                result["seconds"] = round(time.monotonic() - started, 2)
+                return result
 
         if self.settings.openai_api_key:
             for model in dict.fromkeys((self.settings.openai_model, self.settings.complex_openai_model)):
@@ -517,20 +528,21 @@ class ShadowAssistant:
                         model=model, input="Salom", store=False, max_output_tokens=64,
                     )
                     return (response.output_text or "").strip()
-                await attempt(model, ask)
+                calls.append(attempt("openai", model, ask))
         for provider, client in self.compat_clients:
             async def ask_backup(provider=provider, client=client):
                 response = await chat_create(
                     client, model=provider.model,
                     messages=[{"role": "system", "content": "Qisqa javob bering."},
-                              {"role": "user", "content": "Salom, bitta so‘z bilan javob bering."}],
+                              {"role": "user", "content": "Salom, bitta soz bilan javob bering."}],
                     max_tokens=CHECK_MAX_TOKENS,
                 )
                 return (response.choices[0].message.content or "").strip()
-            await attempt(f"{provider.model} ({provider.name})", ask_backup)
-        return {"models": checked}
+            calls.append(attempt(f"{provider.slot}:{provider.name}",
+                                 f"{provider.model} ({provider.name})", ask_backup))
+        return {"models": await asyncio.gather(*calls)}
 
-    async def chat_test(self, budget: float = 120.0) -> dict[str, object]:
+    async def chat_test(self, budget: float = 60.0) -> dict[str, object]:
         """Run a real chat reply (same path and tools as a Telegram message) and report how it went.
 
         Never raises. Used by the dashboard check to explain a chat that stays on "typing"."""
@@ -551,7 +563,7 @@ class ShadowAssistant:
         return {"ok": True, "seconds": seconds, "provider": self.last_provider, "model": self.last_model,
                 "preview": text[:60]}
 
-    async def _try_providers(self, call):
+    async def _try_providers(self, call, purpose: str = "chat"):
         """Run call(provider, client) on each backup provider in order; the first success wins.
 
         Every provider's failure is logged by class only; if all fail, the last error is raised.
@@ -561,14 +573,19 @@ class ShadowAssistant:
         last: Exception | None = None
         empty = None
         # Providers that recently hit a usage limit go last, so the others answer first.
-        ordered = sorted(self.compat_clients, key=lambda pc: self._cooling(f"{pc[0].slot}:{pc[0].name}"))
+        rank = {p.slot: i for i, p in enumerate(ordered_backup_providers(self.settings, purpose))}
+        ordered = sorted(self.compat_clients,
+                         key=lambda pc: (self._cooling(f"{pc[0].slot}:{pc[0].name}"), rank[pc[0].slot]))
         started = time.monotonic()
         for provider, client in ordered:
-            if last is not None and time.monotonic() - started > CHAIN_BUDGET:
+            remaining = CHAIN_BUDGET - (time.monotonic() - started)
+            if remaining <= 0:
                 log.warning("AI provider chain used its %d s budget; giving up", int(CHAIN_BUDGET))
+                last = last or TimeoutError("AI provider chain time limit reached")
                 break
             try:
-                result = await self._retry_once(lambda: call(provider, client))
+                async with asyncio.timeout(remaining):
+                    result = await self._retry_once(lambda: call(provider, client))
             except Exception as exc:
                 last = exc
                 self._start_cooldown(f"{provider.slot}:{provider.name}", exc)
@@ -577,6 +594,7 @@ class ShadowAssistant:
             if _is_empty_reply(result):
                 if empty is None:
                     empty = result
+                self._start_cooldown(f"{provider.slot}:{provider.name}", EmptyProviderReply("Empty reply"))
                 log.warning("Backup AI provider %s returned an empty reply", provider.name)
                 continue
             self.last_model = provider.model
@@ -656,6 +674,7 @@ class ShadowAssistant:
         chat_profile: dict[str, str] | None = None,
     ) -> tuple[str, list[Path]]:
         prompt = self._build_prompt(chat_title, history, message, document_preview, chat_profile)
+        purpose = "reasoning" if needs_reasoning_model(message, has_document=bool(document_preview)) else "chat"
         role = agent_role(chat_profile) + conversation_style_agent(history, message)
         if is_small_talk(message, has_document=bool(document_preview)) and not wants_bank_skills(prompt, role):
             instructions = SYSTEM_PROMPT + "\n\n" + SMALL_TALK_PROMPT + role
@@ -663,7 +682,7 @@ class ShadowAssistant:
             return answer, []
         if self._use_compat_first():
             try:
-                return await self._compat_reply(prompt, directory, role)
+                return await self._compat_reply(prompt, directory, role, purpose)
             except Exception as exc:
                 if self.client is None:
                     raise
@@ -679,7 +698,7 @@ class ShadowAssistant:
                 return result
         if self.compat_clients and self._cooling("openai"):
             try:
-                return await self._compat_reply(prompt, directory, role)
+                return await self._compat_reply(prompt, directory, role, purpose)
             except Exception as exc:  # the backups failed too: still try OpenAI below
                 log.warning("Backup AI providers failed while OpenAI is cooling down (%s)", type(exc).__name__)
         try:
@@ -690,7 +709,7 @@ class ShadowAssistant:
             self._start_cooldown("openai", exc)
             if self.compat_clients and should_fall_back(exc):
                 log.warning("OpenAI failed (%s); using the backup AI provider", type(exc).__name__)
-                return await self._compat_reply(prompt, directory, role)
+                return await self._compat_reply(prompt, directory, role, purpose)
             raise
         self.last_provider = "openai"
         self._cooldowns.pop("openai", None)
@@ -757,7 +776,7 @@ class ShadowAssistant:
         except (ValueError, TypeError, KeyError, ArithmeticError, SyntaxError) as exc:
             return json.dumps({"error": str(exc)[:300], "retry_with_valid_arguments": True})
 
-    async def _compat_reply(self, prompt: str, directory: Path | None, role: str = "") -> tuple[str, list[Path]]:
+    async def _compat_reply(self, prompt: str, directory: Path | None, role: str = "", purpose: str = "chat") -> tuple[str, list[Path]]:
         """Backup-provider reply with the same calculator/Word/Excel tools (function calling).
 
         Providers are tried in order. A provider that rejects tools is retried once as plain text."""
@@ -811,7 +830,7 @@ class ShadowAssistant:
                     messages.append({"role": "tool", "tool_call_id": tool.id, "content": result})
             return "So‘rov juda murakkab bo‘ldi. Uni kichikroq qismlarga ajrating.", files
 
-        return await self._try_providers(call)
+        return await self._try_providers(call, purpose)
 
     async def _openai_reply(
         self, prompt: str, message: str, directory: Path | None, document_preview: str, role: str = "",

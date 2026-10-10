@@ -938,7 +938,9 @@ class TelegramAgent:
             return {"ok": False, "error": type(exc).__name__, "detail": safe_error_detail(exc),
                     "model": self.settings.openai_model}
         models = result["models"]
-        chat_test = await assistant.chat_test()
+        chat_test = await assistant.chat_test() if any(m["replied"] for m in models) else {
+            "ok": False, "error": "all_models_unavailable", "detail": "Barcha modellar tekshiruvdan otmadi"
+        }
         if any(m["replied"] for m in models):
             return {"ok": True, "models": models, "chat_test": chat_test}
         first = next((m for m in models if m.get("error")), {})
@@ -1229,6 +1231,7 @@ class TelegramAgent:
             "group_reply_enabled": self.settings.group_reply_enabled,
             "last_ai_model": self.assistant.last_model if self.assistant else None,
             "openai_model": self.settings.openai_model,
+            "ai_work_mode": self.settings.ai_work_mode,
             "ai_backup": {"configured": self.settings.compat_ai_ready, "model": self.settings.ai_model or None, "primary": self.settings.ai_primary, "first_slot": self.settings.ai_first_slot, "last_provider": self.assistant.last_provider if self.assistant else None, "providers": [{"name": p.name, "model": p.model, "slot": p.slot} for p in self.settings.backup_providers]},
             "supported_models": [{"id": model_id, "label": label} for model_id, label in AVAILABLE_MODELS],
             "complex_openai_model": self.settings.complex_openai_model,

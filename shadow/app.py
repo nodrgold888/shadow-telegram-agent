@@ -15,6 +15,7 @@ from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, Res
 
 from .config import Settings
 from .assistant import ShadowAssistant
+from .model_routing import WORK_MODES, ordered_backup_providers
 from .development import DevelopmentError, DevelopmentStudio
 from .guardian import Guardian
 from .ai_slots import apply_provider, fetch_provider_models, free_slot, parse_provider, prepare_xkiro_bundle, ProviderSlotsFull, XKIRO_MODELS, provider_env, remove_slot, set_first, slot_env_names
@@ -743,6 +744,46 @@ async def dashboard_ai_first(
     if agent.assistant:
         agent.assistant.update_settings(updated)
     return {"ok": True, "slot": slot, "persisted": persisted}
+
+
+@app.get("/dashboard/api/ai-work-mode")
+async def dashboard_ai_work_mode(
+    shadow_setup: str | None = Cookie(default=None),
+    authorization: str | None = Header(default=None),
+) -> dict[str, object]:
+    if not _dashboard_allowed(shadow_setup, authorization):
+        raise HTTPException(status_code=401, detail="Kirish kerak")
+    routes = {
+        purpose: [{"name": p.name, "model": p.model} for p in ordered_backup_providers(agent.settings, purpose)]
+        for purpose in ("chat", "development", "analysis", "review")
+    }
+    if agent.settings.openai_api_key:
+        primary = {"name": "OpenAI", "model": agent.settings.openai_model}
+        for route in routes.values():
+            route.insert(len(route) if agent.settings.ai_primary else 0, primary)
+    return {"mode": agent.settings.ai_work_mode, "routes": routes}
+
+
+@app.post("/dashboard/api/ai-work-mode")
+async def dashboard_save_ai_work_mode(
+    request: Request,
+    shadow_setup: str | None = Cookie(default=None),
+    authorization: str | None = Header(default=None),
+) -> dict[str, object]:
+    if not _dashboard_allowed(shadow_setup, authorization):
+        raise HTTPException(status_code=401, detail="Kirish kerak")
+    body = await request.json()
+    mode = body.get("mode") if isinstance(body, dict) else None
+    if not isinstance(mode, str) or mode not in WORK_MODES:
+        raise HTTPException(status_code=400, detail="AI ishlash rejimini tekshiring")
+    async with agent._setup_lock:
+        values = {"AI_WORK_MODE": mode}
+        persisted = await save_env_vars(values)
+        os.environ.update(values)
+        agent.settings = replace(agent.settings, ai_work_mode=mode)
+        if agent.assistant:
+            agent.assistant.update_settings(agent.settings)
+    return {"ok": True, "mode": mode, "persisted": persisted}
 
 
 @app.delete("/dashboard/api/ai-providers/{slot}")

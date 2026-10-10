@@ -238,10 +238,10 @@ class DownProviderTests(unittest.IsolatedAsyncioTestCase):
     async def test_the_chain_gives_up_when_its_time_budget_is_used(self):
         assistant, clients = build(settings_with_two(), {"backup-model": APITimeoutError(), "model-2": "Ikkinchi"})
         with patch("shadow.assistant.CHAIN_BUDGET", -1.0):
-            with self.assertRaises(APITimeoutError):
+            with self.assertRaises(TimeoutError):
                 await self.ask(assistant)
-        second = next(c for url, c in clients.items() if "second" in url)
-        second.chat.completions.create.assert_not_awaited()
+        for client in clients.values():
+            client.chat.completions.create.assert_not_awaited()
 
 
 class Overloaded(Exception):
