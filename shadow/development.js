@@ -105,7 +105,7 @@
   function render(job) {
     detail=job;el('devEmpty').hidden=true;el('devDetail').hidden=false;
     text('devJobState',stage(job)+(taskTypes[job.task_type]?' · '+taskTypes[job.task_type]:''));text('devResultTitle',job.title||job.objective);text('devResultSummary',job.error||job.summary||'Agent vazifani bajarishni boshladi.');
-    el('devJobState').dataset.state=job.state;
+    el('devJobState').dataset.state=job.auto_deploy?job.auto_deploy_state:job.state;
     el('devReleaseStatus').hidden=!job.auto_deploy;text('devReleaseStatus',(releaseLabels[job.auto_deploy_state]||'')+' · '+(job.release_note||''));
     el('devAutoRelease').hidden=job.state!=='ready'||!job.patch;
 

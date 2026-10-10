@@ -73,7 +73,7 @@ class AgentRunner:
             if not isinstance(data, dict):
                 raise ValueError('Tool arguments must be an object')
             key = name + ':' + json.dumps(data, sort_keys=True, ensure_ascii=False)
-            if key in self.cache:
+            if key in self.cache and name != 'project_task_status':
                 return self.cache[key]
             if self.calls >= MAX_CALLS:
                 raise ValueError('Tool call limit reached. Finish with existing results.')

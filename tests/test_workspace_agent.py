@@ -106,6 +106,21 @@ class WorkspaceAgentTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn('error', failure)
         self.assertEqual(runner.events[-1]['state'], 'error')
 
+    async def test_project_status_reads_are_fresh_while_actions_stay_deduplicated(self):
+        project={'id':'project-1','state':'published','auto_deploy_state':'waiting_ci'}
+        async def refresh(task_id):
+            if project['auto_deploy_state']=='waiting_ci':project['auto_deploy_state']='deploying'
+            else:project['auto_deploy_state']='deployed'
+        studio=SimpleNamespace(get=lambda *args:project,release_status=AsyncMock(side_effect=refresh),public=lambda job:dict(job))
+        runner=self.runner(studio);project['account_scope']=runner.scope
+        arguments=json.dumps({'task_id':'project-1'})
+        first=json.loads(await runner.run('project_task_status',arguments))
+        second=json.loads(await runner.run('project_task_status',arguments))
+        self.assertEqual(first['auto_deploy_state'],'deploying')
+        self.assertEqual(second['auto_deploy_state'],'deployed')
+        self.assertEqual(studio.release_status.await_count,2)
+        self.assertEqual(runner.calls,2)
+
     async def test_identical_actions_are_not_repeated_across_fallback(self):
         settings = make_settings(ai_work_mode='free', ai_base_url='https://openrouter.ai/api/v1', ai_model='one:free',
             ai_extra_providers=(AIProvider('second','https://openrouter.ai/api/v1','own-key','two:free',2),))
