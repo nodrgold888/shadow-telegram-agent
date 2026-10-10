@@ -21,6 +21,7 @@ from openai import AsyncOpenAI, DefaultAsyncHttpxClient
 
 from .anthropic_compat import ANTHROPIC_BASE_URL, AnthropicCompatClient
 from .config import Settings
+from .release_policy import AUTO_LABEL, auto_deploy_enabled, automatic_paths_allowed, github_token, release_readiness
 from .assistant import chat_create, cooldown_seconds, is_rejected, is_unhealthy, DEFAULT_COOLDOWN, UNHEALTHY_COOLDOWN
 from .model_routing import ordered_backup_providers, free_gateway_headers
 
@@ -377,7 +378,7 @@ class DevelopmentStudio:
 
     def public(self, job: dict, detail: bool = False) -> dict:
         keys = ("id", "objective", "mode", "task_type", "state", "created_at", "finished_at", "title", "summary", "error",
-                "findings", "verification", "events", "feedback", "pr_url", "branch", "origin")
+                "findings", "verification", "events", "feedback", "pr_url", "branch", "origin", "auto_deploy", "auto_deploy_state", "release_note", "pr_number", "commit_sha", "deployment_url", "ci_url")
         result = {key: job[key] for key in keys if key in job}
         result["files"] = [{key: value for key, value in f.items() if key not in {"content", "base_hash"}} for f in job.get("files", [])]
         if detail:
@@ -386,8 +387,8 @@ class DevelopmentStudio:
 
     def status(self, settings: Settings, account_scope: str | None = None) -> dict:
         self._load()
-        return {"ai_ready": settings.ai_ready, "github_ready": bool(os.getenv("SHADOW_DEV_GITHUB_TOKEN", "").strip()),
-                "repository": os.getenv("SHADOW_DEV_GITHUB_REPO", "nodrgold888/shadow-telegram-agent"),
+        return {"ai_ready": settings.ai_ready, "github_ready": bool(github_token()),
+                "auto_deploy": release_readiness(), "repository": os.getenv("SHADOW_DEV_GITHUB_REPO", "nodrgold888/shadow-telegram-agent"),
                 "busy": bool(self.task and not self.task.done()), "history_limit": MAX_JOBS,
                 "task_types": [{"id": key, **{field: value[field] for field in ("mode", "category", "label", "description")},
                                 "guide": ("GitHub agent: " + Path(COMMUNITY_TASK_AGENTS[key]).stem) if key in COMMUNITY_TASK_AGENTS
@@ -402,7 +403,7 @@ class DevelopmentStudio:
         self._save(job)
 
     async def start(self, settings: Settings, objective: str, mode: str, runtime: dict | None = None,
-                    task_type: str | None = None, *, origin: str = "manual", account_scope: str | None = None) -> dict:
+                    task_type: str | None = None, *, origin: str = "manual", account_scope: str | None = None, auto_deploy: bool = False) -> dict:
         self._load()
         if self.task and not self.task.done():
             raise DevelopmentError("A development task is already running")
@@ -416,7 +417,9 @@ class DevelopmentStudio:
             raise DevelopmentError("Configure an AI provider first")
         if len(self.jobs) >= MAX_JOBS:
             raise DevelopmentError("History is full. Download and remove an old task first")
-        job = {"id": uuid.uuid4().hex, "objective": objective.strip(), "mode": mode, "task_type": task_type, "state": "queued",
+        if type(auto_deploy) is not bool:
+            raise DevelopmentError("Invalid automatic deployment choice")
+        job = {"auto_deploy": auto_deploy and mode == "build", "auto_deploy_state": "building" if auto_deploy and mode == "build" else "preview", "id": uuid.uuid4().hex, "objective": objective.strip(), "mode": mode, "task_type": task_type, "state": "queued",
                "created_at": now(), "events": [], "files": [], "patch": "", "feedback": {},
                "origin": origin, "account_scope": account_scope}
         self._save(job)
@@ -531,6 +534,13 @@ class DevelopmentStudio:
                     path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
                     path.write_text(file["content"], encoding="utf-8")
                 self.event(job, "ready", "Review is ready. Changes exist only in this task workspace")
+                if job.get("auto_deploy"):
+                    try:
+                        await self.publish(job["id"], auto_deploy=True)
+                    except DevelopmentError as exc:
+                        job["auto_deploy_state"] = "blocked"
+                        job["release_note"] = str(exc)
+                        self.event(job, "ready", "Avto deploy toxtadi: " + str(exc))
         except asyncio.CancelledError:
             job["finished_at"] = now()
             self.event(job, "cancelled", "Task cancelled by owner or server shutdown")
@@ -574,21 +584,63 @@ class DevelopmentStudio:
         shutil.rmtree(self.state_dir / job_id)
         del self.jobs[job_id]
 
-    async def publish(self, job_id: str) -> dict:
+    async def release_status(self, job_id):
+        job = self.get(job_id)
+        if not job.get('auto_deploy') or not job.get('pr_number') or not github_token():
+            return
+        import time
+        if time.time() - job.get('_release_checked', 0) < 20:
+            return
+        job['_release_checked'] = time.time()
+        repo = os.getenv('SHADOW_DEV_GITHUB_REPO', 'nodrgold888/shadow-telegram-agent')
+        try:
+            async with httpx.AsyncClient(base_url='https://api.github.com', timeout=12,
+                    headers={'Authorization': 'Bearer '+github_token(), 'Accept': 'application/vnd.github+json'}) as client:
+                pull = await client.get(f'/repos/{repo}/pulls/{job["pr_number"]}')
+                checks = await client.get(f'/repos/{repo}/commits/{job["commit_sha"]}/check-runs')
+                if not pull.is_success or not checks.is_success:
+                    job['release_note'] = 'GitHub natijasini oqish ruxsatini tekshiring. PR havolasida jonli holat bor.'
+                    return
+                pr, rows = pull.json(), checks.json().get('check_runs', [])
+                release = next((r for r in rows if r['name'] == 'Shadow automatic deployment' and r.get('app', {}).get('slug') == 'github-actions' and r.get('head_sha') == job['commit_sha']), None)
+                state = 'deploying' if pr.get('merged') else 'waiting_ci'
+                if release:
+                    job['ci_url'] = release.get('details_url', '')
+                    summary = release.get('output', {}).get('summary', '')
+                    match = re.search(r'SHADOW_DEPLOY_STATE=(deployed|rolled_back|blocked|failed)', summary)
+                    if match:
+                        state = match.group(1)
+                elif pr.get('state') == 'closed' and not pr.get('merged'):
+                    state = 'blocked'
+                job['auto_deploy_state'] = state
+                if state in {'blocked', 'failed'}:
+                    job['release_note'] = (release or {}).get('output', {}).get('summary', 'Avto deploy toxtadi. GitHub natijasini oching.')[:1600]
+                if state == 'deployed':
+                    job['deployment_url'] = 'https://shadow-telegram-agent.onrender.com/dashboard'
+                    job['release_note'] = 'Testlar otdi va yangi revision jonli health checkdan otdi.'
+                elif state == 'rolled_back':
+                    job['release_note'] = 'Jonli tekshiruvdan otmadi. Oldingi kodga rollback qilindi; GitHub natijasini korib chiqing.'
+                self._save(job)
+        except (httpx.HTTPError, ValueError, KeyError):
+            job['release_note'] = 'GitHub natijasini tekshirib bolmadi. PR havolasini oching.'
+
+    async def publish(self, job_id: str, *, auto_deploy: bool = False) -> dict:
         async with self.publish_lock:
             job = self.get(job_id)
-            if job.get("pr_url"):
+            if job.get("pr_url") and (not auto_deploy or job.get("auto_deploy_state") != "blocked"):
                 return self.public(job, True)
             if job["state"] != "ready" or not job.get("files") or job.get("feedback", {}).get("decision") == "rejected":
                 raise DevelopmentError("Only a ready, non-rejected build can open a pull request")
-            token = os.getenv("SHADOW_DEV_GITHUB_TOKEN", "").strip()
+            token = github_token()
             repo = os.getenv("SHADOW_DEV_GITHUB_REPO", "nodrgold888/shadow-telegram-agent")
             base = os.getenv("SHADOW_DEV_GITHUB_BRANCH", "main")
             if not token:
-                raise DevelopmentError("Set SHADOW_DEV_GITHUB_TOKEN on the server to enable draft pull requests")
+                raise DevelopmentError("Development Studio da GitHub kalitini ulang yoki Render da SHADOW_DEV_GITHUB_TOKEN sozlang.")
+            if auto_deploy and (not auto_deploy_enabled() or not automatic_paths_allowed(job['files'])):
+                raise DevelopmentError("Automatic release policy files need a reviewed PR; automatic deployment cannot change its own test/release gates.")
             if not re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", repo) or not re.fullmatch(r"[A-Za-z0-9_./-]+", base):
                 raise DevelopmentError("Invalid GitHub repository configuration")
-            self.event(job, "publishing", "Preparing a draft pull request on a separate branch")
+            self.event(job, "publishing", "Preparing an automatic-release PR" if auto_deploy else "Preparing a draft pull request on a separate branch")
             try:
                 async with httpx.AsyncClient(base_url="https://api.github.com", timeout=25,
                         headers={"Authorization": "Bearer " + token, "Accept": "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28"}) as client:
@@ -618,25 +670,41 @@ class DevelopmentStudio:
                         tree = await request("POST", "git/trees", json={"base_tree": commit["tree"]["sha"], "tree": [
                             {"path": source_path(f["path"], writing=True), "mode": "100644", "type": "blob", "content": f["content"]} for f in job["files"]]})
                         new = await request("POST", "git/commits", json={"message": job["title"], "tree": tree["sha"], "parents": [head]})
-                        job.update(commit_sha=new["sha"], branch=branch)
+                        job.update(commit_sha=new["sha"], branch=branch, base_sha=head)
                         self._save(job)
                     existing = await request("GET", "git/ref/heads/" + quote(branch, safe=""), missing=True)
                     if existing is None:
                         await request("POST", "git/refs", json={"ref": "refs/heads/" + branch, "sha": job["commit_sha"]})
                     elif existing["object"]["sha"] != job["commit_sha"]:
                         raise DevelopmentError("Draft branch changed externally; inspect it before retrying")
+                    if auto_deploy:
+                        # Create the trusted label before the PR so CI sees it immediately.
+                        label = await request("GET", "labels/" + AUTO_LABEL, missing=True)
+                        if label is None:
+                            await request("POST", "labels", json={"name": AUTO_LABEL, "color": "20B2AA", "description": "Owner requested test-gated automatic deployment"})
                     pulls = await request("GET", "pulls", params={"state": "all", "head": repo.split('/')[0] + ':' + branch})
                     if pulls:
                         pull = pulls[0]
                     else:
                         body = job["summary"] + "\n\n## Validation\n\nExact edits and Python/JSON syntax checked. Generated code was not executed.\n\n## Review checks\n\n" + "\n".join("- " + v for v in job.get("verification", []))
-                        pull = await request("POST", "pulls", json={"title": job["title"], "body": body, "head": branch, "base": base, "draft": True})
+                        if auto_deploy:
+                            body += "\n\nOwner requested automatic release after CI.\n<!-- shadow-auto-deploy:v1 job=" + job['id'] + " -->"
+                        pull = await request("POST", "pulls", json={"title": job["title"], "body": body, "head": branch, "base": base, "draft": not auto_deploy})
                     job.pop("error", None)
                     job["pr_url"] = pull["html_url"]
-                    self.event(job, "published", "Draft pull request created; production has not been changed")
+                    if auto_deploy:
+                        if pull.get("draft") or pull.get("state", "open") != "open":
+                            raise DevelopmentError("Existing PR is not an open automatic-release PR. Start a new task.")
+                        job['pr_number'] = pull['number']
+                        await request("POST", f"issues/{pull['number']}/labels", json={"labels": [AUTO_LABEL]})
+                        job.update(auto_deploy=True, auto_deploy_state='waiting_ci',
+                                   release_note='CI testlari → merge → Render deploy → jonli health check. Natija GitHub da korsatiladi.')
+                    self.event(job, "published", "Automatic-release PR created; waiting for CI" if auto_deploy else "Draft pull request created; production has not been changed")
             except Exception as exc:
                 message = str(exc) if isinstance(exc, DevelopmentError) else "GitHub connection failed; retry to resume publishing"
                 job["error"] = message
+                if auto_deploy:
+                    job.update(auto_deploy_state="blocked", release_note=message)
                 self.event(job, "ready", message)
                 raise DevelopmentError(message) from exc
             return self.public(job, True)

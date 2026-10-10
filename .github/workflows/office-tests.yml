@@ -3,6 +3,8 @@ on:
   pull_request:
   push:
     branches: [main]
+permissions:
+  contents: read
 jobs:
   office:
     runs-on: ubuntu-latest
@@ -21,3 +23,4 @@ jobs:
           node-version: "22"
       - run: node --test integrations/freellmapi/gateway.test.mjs
       - run: node scripts/update_free_catalog.mjs --check
+      - run: node --test scripts/auto-deploy.test.cjs

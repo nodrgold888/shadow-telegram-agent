@@ -218,12 +218,81 @@ class DevelopmentTests(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(any('merge' in path for path,_ in writes))
 
 
+    async def test_auto_build_keeps_patch_when_github_is_missing(self):
+        self.responses=[{'files':['shadow/example.py']},self.plan(),self.plan()]
+        with mock.patch('shadow.development.github_token',return_value=''):
+            job=await self.studio.start(SETTINGS,'Improve the example module','build',auto_deploy=True)
+            await self.studio.task
+        result=self.studio.get(job['id'])
+        self.assertEqual(result['state'],'ready')
+        self.assertEqual(result['auto_deploy_state'],'blocked')
+        self.assertIn('GitHub',result['release_note'])
+        self.assertTrue(result['patch'])
+        self.assertEqual((self.root/'shadow/example.py').read_text(),'answer = 1\n')
+
+    async def test_auto_publication_resumes_labels_without_duplicate_pr(self):
+        job=await self.build();writes=[];pulls=[];label_attempts=0
+        def handle(request):
+            nonlocal label_attempts
+            path=request.url.path;body=json.loads(request.content) if request.content else {}
+            if request.method=='POST':writes.append((path,body))
+            if '/git/ref/heads/main' in path:return httpx.Response(200,json={'object':{'sha':'base'}})
+            if '/contents/' in path:return httpx.Response(200,json={'type':'file','encoding':'base64','content':base64.b64encode(b'answer = 1\n').decode()})
+            if path.endswith('/git/commits/base'):return httpx.Response(200,json={'tree':{'sha':'tree'}})
+            if path.endswith('/git/trees'):return httpx.Response(201,json={'sha':'newtree'})
+            if path.endswith('/git/commits'):return httpx.Response(201,json={'sha':'head'})
+            if '/git/ref/heads/shadow' in path:return httpx.Response(200,json={'object':{'sha':'head'}})
+            if '/labels/shadow-auto-deploy' in path:return httpx.Response(200,json={'name':'shadow-auto-deploy'})
+            if path.endswith('/pulls'):
+                if request.method=='GET':return httpx.Response(200,json=pulls)
+                pull={'html_url':'https://github.com/owner/repo/pull/7','number':7,'draft':body['draft'],'state':'open'}
+                pulls.append(pull);return httpx.Response(201,json=pull)
+            if path.endswith('/issues/7/labels'):
+                label_attempts+=1;return httpx.Response(503 if label_attempts==1 else 200,json=[])
+            raise AssertionError(path)
+        real_client=httpx.AsyncClient
+        with mock.patch('shadow.development.github_token',return_value='private-test-key'), mock.patch('shadow.development.auto_deploy_enabled',return_value=True), mock.patch('shadow.development.httpx.AsyncClient',side_effect=lambda **kw:real_client(transport=httpx.MockTransport(handle),**kw)):
+            with self.assertRaises(DevelopmentError):await self.studio.publish(job['id'],auto_deploy=True)
+            result=await self.studio.publish(job['id'],auto_deploy=True)
+            await self.studio.publish(job['id'],auto_deploy=True)
+        posted=[body for path,body in writes if path.endswith('/pulls')]
+        self.assertEqual(len(posted),1);self.assertFalse(posted[0]['draft'])
+        self.assertIn('<!-- shadow-auto-deploy:v1 job='+job['id']+' -->',posted[0]['body'])
+        self.assertEqual(result['auto_deploy_state'],'waiting_ci')
+        self.assertEqual(result['pr_number'],7)
+        self.assertNotIn('private-test-key',json.dumps(result))
+        self.assertFalse(any('merge' in path for path,_ in writes))
+
+    async def test_auto_policy_files_cannot_be_published(self):
+        job=await self.build();job['files'][0]['path']='shadow/release_policy.py'
+        with mock.patch('shadow.development.github_token',return_value='test'), mock.patch('shadow.development.httpx.AsyncClient') as client:
+            with self.assertRaisesRegex(DevelopmentError,'policy files'):
+                await self.studio.publish(job['id'],auto_deploy=True)
+        client.assert_not_called()
+
+    async def test_release_status_only_trusts_github_actions_check(self):
+        job=await self.build();job.update(auto_deploy=True,pr_number=7,commit_sha='head')
+        check={'name':'Shadow automatic deployment','app':{'slug':'untrusted'},'head_sha':'head','output':{'summary':'SHADOW_DEPLOY_STATE=deployed'},'details_url':'https://github.com/owner/repo/actions/runs/9'}
+        def handle(request):
+            if request.url.path.endswith('/pulls/7'):return httpx.Response(200,json={'merged':True})
+            return httpx.Response(200,json={'check_runs':[check]})
+        real_client=httpx.AsyncClient
+        with mock.patch('shadow.development.github_token',return_value='private-test-key'), mock.patch('shadow.development.httpx.AsyncClient',side_effect=lambda **kw:real_client(transport=httpx.MockTransport(handle),**kw)):
+            await self.studio.release_status(job['id'])
+            self.assertEqual(job['auto_deploy_state'],'deploying')
+            self.assertNotIn('deployment_url',job)
+            job['_release_checked']=0;check['app']['slug']='github-actions'
+            await self.studio.release_status(job['id'])
+        self.assertEqual(job['auto_deploy_state'],'deployed')
+        self.assertIn('/dashboard',job['deployment_url'])
+        self.assertNotIn('private-test-key',json.dumps(self.studio.public(job,True)))
+
 class ApiAuthTests(unittest.IsolatedAsyncioTestCase):
     async def test_all_development_data_routes_require_auth(self):
         from shadow.app import app
         async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app),base_url='http://test') as client:
             for method,path,body in [('GET','',None),('POST','',{'objective':'Improve the UI','mode':'build'}),('GET','/bad',None),
-                ('GET','/bad/patch',None),('POST','/bad/cancel',{}),('POST','/bad/publish',{}),
+                ('GET','/bad/patch',None),('POST','/bad/cancel',{}),('POST','/bad/publish',{}),('POST','/bad/auto-deploy',{}),('POST','/github',{'api_key':'never-share-this-test-key'}),
                 ('POST','/bad/feedback',{'decision':'accepted','note':''}),('DELETE','/bad',None)]:
                 response=await client.request(method,'/dashboard/api/development'+path,json=body)
                 self.assertEqual(response.status_code,401,(method,path,response.text))

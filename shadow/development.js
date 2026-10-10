@@ -4,6 +4,8 @@
   const el = id => document.getElementById(id);
   const root = '/dashboard/api/development';
   const states = {queued:'Navbatda',inspecting:'Manbalarni o‘qiyapti',building:'Tayyorlayapti',validating:'Tekshiryapti',ready:'Ko‘rib chiqish',failed:'Xatolik',cancelled:'To‘xtatildi',interrupted:'Uzildi',publishing:'PR yaratilmoqda',published:'Draft PR tayyor'};
+  const releaseLabels={building:'Kod tayyorlanmoqda',waiting_ci:'GitHub testlari kutilmoqda',deploying:'Render deploy tekshirilmoqda',deployed:'Jonli versiya tekshirildi',rolled_back:'Oldingi kodga qaytarildi',blocked:'Avto deploy toxtadi',failed:'Deploy xatoligi',preview:'Faqat korib chiqish'};
+  const stage=job=>job.auto_deploy?(releaseLabels[job.auto_deploy_state]||states[job.state]||job.state):(states[job.state]||job.state);
   const taskTypes = Object.create(null);
   let taskCatalog = [];
   let taskTypesLoaded = false;
@@ -88,22 +90,25 @@
   function controls() {
     el('devStart').disabled=actionBusy||!status?.ai_ready||status?.busy;
     el('devStart').textContent=status?.busy?'Agent vazifani bajaryapti…':'Agentni ishga tushirish';
-    ['devPublish','devCancel','devDownload','devAccept','devReject','devDelete'].forEach(id=>el(id).disabled=actionBusy);
-    if(!status?.github_ready)el('devPublish').disabled=true;
+    ['devGitHubSave','devAutoRelease','devPublish','devCancel','devDownload','devAccept','devReject','devDelete'].forEach(id=>el(id).disabled=actionBusy);
+    if(!status?.github_ready)el('devPublish').disabled=true;el('devAutoRelease').disabled=actionBusy||!status?.auto_deploy?.ready;
   }
   function showJobs(jobs) {
     const list=el('devJobs');list.replaceChildren();
     if(!jobs.length)list.append(node('p','Hali vazifa yo‘q.','dev-empty'));
     jobs.forEach(job=>{
       const button=node('button','','dev-job'+(selected===job.id?' selected':''));button.type='button';button.setAttribute('aria-pressed',String(selected===job.id));
-      button.append(node('strong',job.title||job.objective),node('small',(taskTypes[job.task_type]||'Vazifa')+' · '+(states[job.state]||job.state)+' · '+new Date(job.created_at).toLocaleString('uz-UZ',{dateStyle:'short',timeStyle:'short'})));
+      button.append(node('strong',job.title||job.objective),node('small',(taskTypes[job.task_type]||'Vazifa')+' · '+stage(job)+' · '+new Date(job.created_at).toLocaleString('uz-UZ',{dateStyle:'short',timeStyle:'short'})));
       button.addEventListener('click',()=>{selected=job.id;loadDetail().catch(error=>notice(errorMessage(error),true));showJobs(jobs);});list.append(button);
     });
   }
   function render(job) {
     detail=job;el('devEmpty').hidden=true;el('devDetail').hidden=false;
-    text('devJobState',(states[job.state]||job.state)+(taskTypes[job.task_type]?' · '+taskTypes[job.task_type]:''));text('devResultTitle',job.title||job.objective);text('devResultSummary',job.error||job.summary||'Agent vazifani bajarishni boshladi.');
+    text('devJobState',stage(job)+(taskTypes[job.task_type]?' · '+taskTypes[job.task_type]:''));text('devResultTitle',job.title||job.objective);text('devResultSummary',job.error||job.summary||'Agent vazifani bajarishni boshladi.');
     el('devJobState').dataset.state=job.state;
+    el('devReleaseStatus').hidden=!job.auto_deploy;text('devReleaseStatus',(releaseLabels[job.auto_deploy_state]||'')+' · '+(job.release_note||''));
+    el('devAutoRelease').hidden=job.state!=='ready'||!job.patch;
+
     el('devEvents').replaceChildren(...(job.events||[]).map(event=>node('li',new Date(event.time).toLocaleTimeString('uz-UZ',{hour:'2-digit',minute:'2-digit'})+' · '+event.message)));
     const findings=el('devFindings');findings.replaceChildren();
     (job.findings||[]).forEach(finding=>{const row=node('article','','dev-finding');row.append(node('strong',finding.title),node('p',finding.detail));findings.append(row);});
@@ -128,7 +133,7 @@
     if(refreshing)return;refreshing=true;
     try {
       status=await api(root);if(!guardianBusy)renderGuardian(status.guardian);renderTaskTypes(status.task_types);text('devAiStatus',status.ai_ready?'AI sozlangan':'AI sozlash kerak');text('devGithubStatus',status.github_ready?'GitHub sozlangan':'GitHub: patch yuklash rejimi');
-      el('devAiStatus').classList.toggle('ready',status.ai_ready);el('devGithubStatus').classList.toggle('ready',status.github_ready);
+      el('devAiStatus').classList.toggle('ready',status.ai_ready);el('devGithubStatus').classList.toggle('ready',status.github_ready);text('devReleaseReady',status.auto_deploy?.note||'GitHub ulanishi kerak.');
       if(!status.jobs.some(j=>j.id===selected))selected=status.jobs[0]?.id||null;
       showJobs(status.jobs);controls();await loadDetail();
     }catch(error){notice(errorMessage(error),true);text('guardianState','Server bilan aloqa yo‘q');el('guardianState').dataset.state='stale';}finally{refreshing=false;}
@@ -137,7 +142,9 @@
     if(actionBusy)return;actionBusy=true;controls();notice('');
     try{await work();if(success)notice(success);}catch(error){notice(errorMessage(error),true);}finally{actionBusy=false;await refresh();controls();}
   }
-  el('devForm').addEventListener('submit',event=>{event.preventDefault();action(async()=>{const type=el('devMode').value,mode=el('devMode').selectedOptions[0]?.dataset.mode||'audit';const job=await api(root,json('POST',{objective:el('devObjective').value.trim(),mode,task_type:type}));selected=job.id;},'Vazifa boshlandi. Natija shu ish maydonida ko‘rinadi.');});
+  el('devForm').addEventListener('submit',event=>{event.preventDefault();action(async()=>{const type=el('devMode').value,mode=el('devMode').selectedOptions[0]?.dataset.mode||'audit';const job=await api(root,json('POST',{objective:el('devObjective').value.trim(),mode,task_type:type,auto_deploy:mode==='build'&&el('devAutoDeploy').checked}));selected=job.id;},'Vazifa boshlandi. Natija shu ish maydonida ko‘rinadi.');});
+  el('devGitHubForm').addEventListener('submit',event=>{event.preventDefault();action(async()=>{const result=await api(root+'/github',json('POST',{api_key:el('devGitHubKey').value.trim()}));el('devGitHubKey').value='';notice(result.persisted?'GitHub ulanishi saqlandi. Avto deploy tayyor.':'GitHub ulandi, lekin doimiy saqlanmadi. Render Environment da SHADOW_DEV_GITHUB_TOKEN ni sozlang.',!result.persisted);});});
+  el('devAutoRelease').addEventListener('click',()=>action(async()=>{await api(root+'/'+detail.id+'/auto-deploy',json('POST'));},'Test va avtomatik deploy navbatga qoyildi.'));
   el('devMode').addEventListener('change',updateTaskHint);
   el('guardianToggle').addEventListener('click',()=>guardianAction('','PATCH',{enabled:!guardian?.enabled}));
   el('guardianCheck').addEventListener('click',()=>guardianAction('/check','POST',{}));

@@ -16,6 +16,7 @@ from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, PlainTex
 from .config import Settings
 from .assistant import ShadowAssistant
 from .model_routing import WORK_MODES, ordered_backup_providers, free_gateway_base_url
+from .release_policy import release_readiness
 from .workspace_models import check_catalog_choice
 from .workspace import Workspace, WorkspaceError, close_assistant, workspace_reply, reply_error, validate_model_selection
 from .development import DevelopmentError, DevelopmentStudio
@@ -299,6 +300,7 @@ class DevelopmentTask(BaseModel):
     objective: str = Field(min_length=10, max_length=3000)
     mode: Literal["audit", "build"] = "audit"
     task_type: str | None = Field(default=None, max_length=40)
+    auto_deploy: bool = False
 
 
 class DevelopmentFeedback(BaseModel):
@@ -346,11 +348,48 @@ async def development_start(body: DevelopmentTask):
     runtime = {key: state.get(key) for key in ("connected", "reply_enabled", "reply_ready", "reply_count")}
     runtime["has_reply_error"] = bool(state.get("last_reply_error"))
     return await development.start(agent.settings, body.objective, body.mode, runtime, body.task_type,
-                                   account_scope=guardian.scope_key())
+                                   account_scope=guardian.scope_key(), auto_deploy=body.auto_deploy)
+
+
+class DevelopmentGitHubKey(BaseModel):
+    api_key: str = Field(min_length=20, max_length=500)
+
+
+@app.post("/dashboard/api/development/github", dependencies=[Depends(development_auth)])
+async def development_github_connect(body: DevelopmentGitHubKey):
+    import httpx
+    import re
+    key = body.api_key.strip()
+    if any(c.isspace() for c in key):
+        raise HTTPException(400, 'GitHub kalitini tekshiring.')
+    repo = os.getenv('SHADOW_DEV_GITHUB_REPO', 'nodrgold888/shadow-telegram-agent')
+    if not re.fullmatch(r'[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+', repo):
+        raise HTTPException(400, 'GitHub repository sozlamasi notogri.')
+    try:
+        async with httpx.AsyncClient(timeout=12, follow_redirects=False, headers={
+                'Authorization': 'Bearer '+key, 'Accept': 'application/vnd.github+json'}) as client:
+            response = await client.get('https://api.github.com/repos/'+repo)
+        if not response.is_success:
+            raise HTTPException(400, 'GitHub kaliti yoki repository ruxsati rad etildi. Contents va Pull requests: Read and write; Actions va Checks: Read.')
+        if not response.json().get('permissions', {}).get('push'):
+            raise HTTPException(400, 'Ushbu repository uchun yozish ruxsati kerak.')
+    except (httpx.HTTPError, ValueError):
+        raise HTTPException(400, 'GitHub bilan ulanishni tekshiring.') from None
+    persisted = await save_env_vars({'SHADOW_DEV_GITHUB_TOKEN': key})
+    os.environ['SHADOW_DEV_GITHUB_TOKEN'] = key
+    return {'ok': True, 'persisted': persisted, 'auto_deploy': release_readiness()}
+
+
+@app.post("/dashboard/api/development/{job_id}/auto-deploy", dependencies=[Depends(development_auth)])
+async def development_auto_deploy(job_id: str):
+    development.get(job_id, guardian.scope_key())
+    return await development.publish(job_id, auto_deploy=True)
 
 
 @app.get("/dashboard/api/development/{job_id}", dependencies=[Depends(development_auth)])
 async def development_detail(job_id: str):
+    development.get(job_id, guardian.scope_key())
+    await development.release_status(job_id)
     return development.public(development.get(job_id, guardian.scope_key()), detail=True)
 
 
@@ -1071,7 +1110,10 @@ async def ping() -> PlainTextResponse:
 async def health() -> dict[str, object]:
     # Render and keep-alive probes are public. Do not expose the connected
     # Telegram identity or account/session configuration here.
-    return {"ok": True, "connected": agent.connected,
+    revision = os.getenv('RENDER_GIT_COMMIT', '')
+    workers = list(agent._workers.values()) if isinstance(agent, AccountRuntime) else []
+    return {"ok": True, "connected": agent.connected, "revision": revision,
+            "accounts_configured": len(workers), "accounts_connected": sum(bool(w.connected) for w in workers),
             "guardian_running": bool(guardian.task and not guardian.task.done()),
             "guardian_heartbeat_fresh": bool(guardian.heartbeat and guardian.clock() - guardian.heartbeat < 90)}
 

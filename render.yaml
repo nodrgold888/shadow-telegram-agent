@@ -7,6 +7,10 @@ services:
     autoDeployTrigger: commit
     healthCheckPath: /healthz
     envVars:
+      - key: SHADOW_AGENT_AUTO_DEPLOY
+        value: "true"
+      - key: SHADOW_DEV_GITHUB_TOKEN
+        sync: false
       - key: TELEGRAM_API_ID
         sync: false
       - key: TELEGRAM_API_HASH

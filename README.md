@@ -163,7 +163,7 @@ OpenAI API credits are prepaid and separate from a ChatGPT/Codex plan's usage li
 
 **Agent mode** is the default for new website conversations. Write a command and the selected model can choose and execute tools, inspect results, and continue: calculator, configured web/news search, text/code artifacts, Python/JSON syntax checks without execution, and real Word/Excel downloads. The interface shows actual tool activity and preserves completed outputs after model failure or cancellation. Download routes enforce the signed-in account and conversation ownership. Files disappear if their conversation is deleted or the ephemeral Render disk is replaced; export important outputs.
 
-For changes to this Shadow project, Agent can start the existing Development Studio worker, which reads source, builds, reviews and validates a patch in its own task workspace. The response links to that task's panel. Starting a task is distinct from completed development, publishing a PR or applying a live deployment. Arbitrary shell commands, messaging, purchases and unrelated account integrations are not exposed by this agent. A task uses at most six model turns and twelve distinct tool calls, creates at most three files, and has a four-minute chat budget; development tasks continue within their existing separate eight-minute budget. Provider fallback retains tool receipts and deduplicates identical actions. Models that reject tool calling return an explicit error rather than silently switching to an answer that claims to have executed the command. Ordinary chat, code and research modes remain available.
+For changes to this Shadow project, Agent can start the existing Development Studio worker, which reads source, builds, reviews and validates a patch in its own task workspace. The response links to that task's panel. Requested project changes automatically publish a non-draft release PR when the repository connection is configured. The trusted release workflow waits for tests on the exact head, merges, checks the Render revision and account workers, and restores prior code if deployment fails. Say ‘preview only’ to keep the patch for review. Starting a task is distinct from completed development or a verified live deployment. Arbitrary shell commands, messaging, purchases and unrelated account integrations are not exposed by this agent. A task uses at most six model turns and twelve distinct tool calls, creates at most three files, and has a four-minute chat budget; development tasks continue within their existing separate eight-minute budget. Provider fallback retains tool receipts and deduplicates identical actions. Models that reject tool calling return an explicit error rather than silently switching to an answer that claims to have executed the command. Ordinary chat, code and research modes remain available.
 
 The workspace model button opens **Top AI modellar**, a curated shortlist of 12 distinct strong chat models. It retains the account's saved flagship Claude/GPT/Qwen routes, then fills the list from the signed catalog's publisher rankings. These are recommendations, not 12 guaranteed connections: each entry shows account-specific eligibility; unavailable recommendations have **Ulash** or **Sozlash** links. FreeLLMAPI availability is fetched with that account's own unified key, and selected catalog models are validated again before sending. **Avtomatik** keeps the configured fallback chain (including reserves hidden from the shortlist); a manual choice is tried first and falls back on inference failure. The conversation remembers the selection with the next message, and replies identify the actual model used. Choosing a catalog model sends its real ID through the saved gateway without replacing its automatic route or changing Telegram's settings. Paid models stay blocked in free mode. **Barcha AI modellar** opens the complete catalog.
 
@@ -360,14 +360,15 @@ to run. Accepted/rejected feedback and owner notes become context for future tas
 is preference memory, not model-weight training. The existing repair agent remains
 available under Monitoring for live connection and listener repairs.
 
-### Draft GitHub pull requests
+### Automatic deployment and draft pull requests
 
-To let the studio create update branches and draft pull requests, set these environment
+Connect GitHub once in **Development Studio → Avto deploy ulanishi**, or set these environment
 variables on the server:
 
 | Variable | Purpose |
 | --- | --- |
-| `SHADOW_DEV_GITHUB_TOKEN` | Fine-grained GitHub token for this repository, with Contents and Pull requests read/write permissions. |
+| `SHADOW_DEV_GITHUB_TOKEN` | Fine-grained GitHub token for this repository, with Contents and Pull requests read/write and Actions and Checks read permissions. |
+| `SHADOW_AGENT_AUTO_DEPLOY` | `true` by default; set `false` to disable automatic releases globally. |
 | `SHADOW_DEV_GITHUB_REPO` | Target `owner/repository`; defaults to `nodrgold888/shadow-telegram-agent`. |
 | `SHADOW_DEV_GITHUB_BRANCH` | Base branch; defaults to `main`. |
 | `SHADOW_DEV_MODEL` | Optional OpenAI model override for development tasks. Existing compatible backup providers retain their own models. |
@@ -376,9 +377,18 @@ variables on the server:
 The **Draft PR** button verifies that the inspected source still matches GitHub, writes
 only a new `shadow/development-…` branch, and opens a draft PR. If source changed, rebuild
 against the current deployed version. Retrying a failed publication resumes the same
-branch/PR rather than creating duplicates. The studio never merges PRs or pushes to the
-base branch. Review and test the PR, then merge it through your normal GitHub workflow;
-the existing Render deployment follows changes to `main`.
+branch/PR rather than creating duplicates. Draft publication remains manual. Review and test it, then merge through your normal workflow.
+
+Agent-mode project changes and the studio’s checked **Testlar otsa avtomatik deploy** option
+use `shadow-auto-deploy` PRs. `.github/workflows/shadow-auto-deploy.yml` runs trusted default-branch
+code only, waits for **Office and math tests** on the exact candidate SHA, and rejects stale main
+versions or changes to test/release gates. GitHub branch protection still applies. After merge,
+it waits for Render to report the merged revision and healthy Guardian/account workers.
+Failure restores the prior Git tree with a forward rollback commit; if main advanced meanwhile,
+it stops to preserve newer changes. This restores code, not database or external side effects.
+The GitHub check and task panel show the verified result. Render must have auto-deploy enabled.
+Missing repository permissions, failed tests, unavailable baseline health, and unavailable hosting
+block release instead of claiming completion. Automatic releases do not change model billing policy.
 
 Without a GitHub token, audit, build, diff review, feedback, and patch downloads still
 work. The workspace holds up to 30 tasks; download and remove old tasks to free space.
