@@ -1755,5 +1755,23 @@ observer.observe(el,{childList:true,characterData:true,subtree:true})});
 /* Sign-in screen: show which Telegram account receives the code */
 
 </script>
+<script>
+/* Public services share this project; personal AI and Telegram retain account sign-in. */
+(() => {
+ const nav=document.querySelector('.workspace-nav');
+ if(nav){
+  const link=document.createElement('a');link.className='nav';link.href='/anime';link.style.color='#ffb783';
+  const symbol=document.createElement('b');symbol.setAttribute('aria-hidden','true');
+  symbol.innerHTML='<svg viewBox="0 0 24 24"><path d="m8 5 11 7-11 7Z"/></svg>';
+  link.append(symbol,document.createTextNode('Anime Watch'));nav.insertBefore(link,nav.firstChild);
+  const home=document.createElement('a');home.className='nav';home.href='/';home.textContent='← Shadow home';nav.append(home);
+ }
+ const login=document.querySelector('#login .login-card')||document.querySelector('#login');
+ if(login){const links=document.createElement('div');links.style.cssText='display:flex;gap:18px;justify-content:center;padding:18px 0;font-size:12px';
+  for(const [name,url] of [['← Shadow home','/'],['Anime Watch ↗','/anime']]){const a=document.createElement('a');a.href=url;a.textContent=name;links.append(a);}
+  login.append(links);
+ }
+})();
+</script>
 <script src="/dashboard/development.js" defer></script>
 </body></html>

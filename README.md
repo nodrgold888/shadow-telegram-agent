@@ -4,6 +4,34 @@ Shadow is a private Telegram assistant for personal accounts. It can stay connec
 
 New deployments start in read-only connection mode with `REPLY_ENABLED=false`. In this mode Shadow connects to Telegram but does not register a message handler, mark messages read, show typing activity, or send replies.
 
+
+## Shadow home and Anime Watch
+
+`/` is the new service home: **Shadow AI** opens the private AI workspace and **Anime Watch**
+opens `/anime`. Telegram administration and existing sign-in remain at `/dashboard`.
+The dashboard also links directly to Anime Watch.
+
+Anime Watch has search, genre filters, rating/year sorting, pagination, posters, favorites,
+resume history, episode selection, automatic next episode, metadata-based intro skipping,
+cinema view, native fullscreen, supported picture-in-picture, and a JSON library export.
+The original interface uses the supplied anime sites as references; their source code and
+complete catalogs are not mirrored. YummyAnime and HDrezka search links open those sites separately.
+
+Metadata and public HLS streams come from AniLibria's API. **1080p is preferred when the actual
+selected episode supplies it**; available 720p/480p options and missing Full HD are shown accurately.
+Verified playback decoded a real 1920×1080 episode. Availability, dubbing, geo/copyright restrictions,
+and quality remain controlled by the source; blocked releases expose no streams and are not bypassed.
+Videos stream directly from the source to the browser, not through Render. HLS support is native where
+available and otherwise uses the locally bundled MIT-licensed hls.js 1.6.13 (license under `shadow/hub/vendor/`).
+No anime API key is required.
+
+Guest history is stored on that browser only and is kept separate from signed-in account libraries.
+Authenticated library routes enforce the selected account and reject writes from stale account pages.
+The private SQLite watch database defaults beside `SHADOW_CHAT_STORE`, at `/app/data/anime.sqlite3`
+in Docker; override with `SHADOW_ANIME_STORE`. Render Free's disk is ephemeral: use **Tarixni eksport
+qilish** for important history, or attach a persistent disk at `/app/data` for deploy persistence.
+Metadata caching is bounded to 32 MB; expired playback links are refreshed from the source.
+
 ## Run locally from GitHub
 
 Requires Python 3.12 or newer. No Render account is needed.

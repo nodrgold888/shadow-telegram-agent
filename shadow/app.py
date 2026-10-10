@@ -17,6 +17,7 @@ from .config import Settings
 from .assistant import ShadowAssistant
 from .model_routing import WORK_MODES, ordered_backup_providers, free_gateway_base_url
 from .release_policy import release_readiness
+from . import anime
 from .workspace_models import check_catalog_choice
 from .workspace import Workspace, WorkspaceError, close_assistant, workspace_reply, reply_error, validate_model_selection
 from .development import DevelopmentError, DevelopmentStudio
@@ -119,7 +120,28 @@ def _dashboard_page() -> HTMLResponse:
 
 @app.get("/", response_class=HTMLResponse)
 async def home() -> HTMLResponse:
-    return _dashboard_page()
+    return _hub_page('home')
+
+
+def _hub_page(page: str) -> HTMLResponse:
+    html = (Path(__file__).parent/'hub/index.html').read_text(encoding='utf-8')
+    return HTMLResponse(html.replace('__SHADOW_PAGE__', page), headers={'Cache-Control':'no-store'})
+
+
+@app.get('/anime', response_class=HTMLResponse)
+async def anime_home() -> HTMLResponse:
+    return _hub_page('anime')
+
+
+@app.get('/hub/{asset:path}')
+async def hub_asset(asset: str):
+    allowed = {'hub.css':'text/css', 'hub.js':'text/javascript', 'vendor/hls.min.js':'text/javascript',
+               'vendor/hls-LICENSE.txt':'text/plain'}
+    if asset not in allowed:
+        raise HTTPException(404, 'Not found')
+    return FileResponse(Path(__file__).parent/'hub'/asset, media_type=allowed[asset],
+                        headers={'Cache-Control':'public, max-age=86400' if asset.startswith('vendor/') else 'no-cache',
+                                 'X-Content-Type-Options':'nosniff'})
 
 
 @app.get("/dashboard", response_class=HTMLResponse)
@@ -193,6 +215,8 @@ def workspace_account(request: Request):
         raise HTTPException(409, "Avval Telegram akkauntini ulang.")
     return account
 
+
+app.include_router(anime.router(development_auth, workspace_account))
 
 @app.get("/dashboard/api/workspace", dependencies=[Depends(development_auth)])
 async def workspace_status(request: Request):
