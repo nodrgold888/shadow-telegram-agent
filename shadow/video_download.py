@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import re
 import sys
 from contextlib import asynccontextmanager
@@ -13,6 +14,7 @@ TIMEOUT_SECONDS = 120
 _DOWNLOAD_SLOTS = asyncio.Semaphore(2)
 EXIT_LOGIN_REQUIRED = 2
 EXIT_TOO_LARGE = 3
+log = logging.getLogger("shadow.video")
 
 
 class VideoDownloadError(Exception):
@@ -117,6 +119,7 @@ async def downloaded_video(url: str):
                 if process.returncode == EXIT_TOO_LARGE:
                     raise VideoDownloadError("Video 50 MB dan katta, Telegram orqali yubora olmayman.")
                 if process.returncode != 0:
+                    log.warning("Video worker failed with exit code %s", process.returncode)
                     raise VideoDownloadError("Videoni yuklab bo‘lmadi. Havola ochiq video bo‘lishi kerak. Sayt kirishni cheklagan yoki video 50 MB dan katta bo‘lishi mumkin.")
                 video = Path(directory) / "video.mp4"
                 if not video.is_file() or not 0 < video.stat().st_size <= MAX_BYTES:

@@ -100,3 +100,15 @@ def test_private_video_gets_specific_message(monkeypatch):
 
 def test_too_large_video_gets_specific_message(monkeypatch):
     assert "50 MB" in _run_failing_download(monkeypatch, videos.EXIT_TOO_LARGE)
+
+
+def test_other_failures_are_logged_with_the_exit_code(monkeypatch, caplog):
+    with caplog.at_level("WARNING", logger="shadow.video"):
+        assert "yuklab bo" in _run_failing_download(monkeypatch, 1)
+    assert "exit code 1" in caplog.text
+
+
+def test_tiktok_needs_browser_impersonation_so_curl_cffi_ships_with_yt_dlp():
+    from pathlib import Path
+    requirements = (Path(__file__).resolve().parents[1] / "requirements.txt").read_text(encoding="utf-8")
+    assert "yt-dlp[curl-cffi]==" in requirements
