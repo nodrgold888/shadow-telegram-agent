@@ -7,7 +7,9 @@ description: Configure and troubleshoot the protected FreeLLMAPI free-provider g
 
 [FreeLLMAPI](https://github.com/tashfeenahmed/freellmapi) (MIT) is a single-owner Node/SQLite router for free provider tiers. It exposes OpenAI-compatible chat completions, tools and streaming. Shadow's preferred alias is `auto:smart`; upstream routing can switch models and keys after quota or server failures. It does not bypass paid billing or guarantee continuous availability.
 
-Read `integrations/freellmapi/README.md` for the current connection and deployment procedure. Shadow supports twelve backup slots. In default free mode, a gateway must exactly match `SHADOW_FREE_GATEWAY_BASE_URL`, and its model must be `auto`, `auto:fast` or `auto:smart`. Keep only free upstream routes enabled. Each Telegram account saves its own provider slot and unified key; the gateway itself pools the owner's upstream quotas.
+Read `integrations/freellmapi/README.md` for the current connection and deployment procedure. Shadow supports twelve backup slots. In default free mode, a gateway must exactly match `SHADOW_FREE_GATEWAY_BASE_URL`, and its model must be an auto route or an enabled chat ID from the signed bundled catalog. Specific selections recheck gateway availability before saving and retain an automatic fallback. Keep only free upstream routes enabled. Each Telegram account saves its own provider slot and unified key; the gateway itself pools the owner's upstream quotas.
+
+The **AI modellar** page includes the full signed catalog, including media endpoints, and highlights eight distinct chat models by upstream's intelligence rank (lower is stronger). Gateway status is per model ID, not proof of successful inference or of a particular provider's key. Media availability is unverified and listing it does not enable Telegram media processing. Update the snapshot with `node scripts/update_free_catalog.mjs` on a development machine; CI verifies its signature with `--check`.
 
 ## Deployment
 

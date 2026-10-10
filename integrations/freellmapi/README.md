@@ -38,6 +38,16 @@ Shadow sends the extra gateway header only to the exact configured endpoint, inc
 
 ## Persistence and maintenance
 
+### All models and stronger choices
+
+Open **AI modellar** in Shadow's menu. The dedicated page includes every endpoint in the bundled, signed FreeLLMAPI catalog: chat, images, audio, embeddings, transcription and video. The version is visible. Eight distinct stronger chat models are highlighted using the catalog's `intelligenceRank` (lower numbers rank higher); this is the publisher's ranking, not a benchmark run by Shadow.
+
+Search by name or ID, filter by provider/type/status, compare context and quota details, or copy an ID. Gateway availability is checked with the signed-in Telegram account's saved unified key. Status applies to the logical model ID; the gateway chooses the provider route. Missing credentials, disabled models and exhausted keys are distinguished from ready entries. An offline gateway leaves the full catalog visible with unverified availability. Media entries are shown as unverified; listing them does not enable Telegram media replies.
+
+Use **Asosiy qilish** on an available chat model to save it as the first model for this account. Shadow rechecks availability before writing, preserves other providers, and keeps an `auto:smart` fallback in a second slot. Repeated changes reuse the same slots. If no fallback slot is free, the selection fails without changing existing settings. **Eng aqlli avto tanlash** returns to automatic smart routing. When no gateway key has been saved yet, **Tanlash** fills the provider form; save the unified key there first.
+
+The catalog comes from the upstream's signed public feed. On a development machine with Node.js, run `node scripts/update_free_catalog.mjs` from the repository root to refresh the snapshot, then run tests and commit it. The updater verifies the Ed25519 signature before writing; CI checks the bundled signature with `node scripts/update_free_catalog.mjs --check`. Refreshing the dashboard updates live gateway status while keeping the visible catalog version explicit.
+
 The disk at `/app/server/data` stores the encrypted provider keys, unified key, dashboard account and routing configuration. **Keep `ENCRYPTION_KEY` unchanged and back it up securely.** The wrapper preserves a 64-character hexadecimal key or derives one from Render's generated secret. Changing it would prevent existing provider keys from being decrypted.
 
 The upstream image is pinned by digest in `Dockerfile`; update it deliberately and repeat the checks below. Hosting, Telegram connectivity and provider quotas remain separate dependencies. No configuration guarantees zero outages.
@@ -58,7 +68,7 @@ This existing Compose setup binds the upstream to `127.0.0.1:3001`, creates a pe
 - `/healthz` returns 503: the private upstream is starting or unavailable; inspect Render logs.
 - `gateway_access_required`: Shadow's gateway access key is missing or differs from the gateway's key.
 - Upstream 401: check the unified API key copied from Keys.
-- Free mode reports no eligible AI: check the approved URL and use `auto`, `auto:fast` or `auto:smart`.
+- Free mode reports no eligible AI: check the approved URL and use an auto route or an available chat model from the signed catalog.
 - Quota/exhaustion errors: add another independent free provider or wait for its quota reset. Paid model credits cannot be bypassed.
 
 Run `node --test integrations/freellmapi/gateway.test.mjs` and `python -m pytest -q tests` from the repository root. Docker validation should also check initial admin login, dashboard requests with a Bearer session, protected `/v1/models`, and retention of the unified key after restart. A successful model-list request is not proof of inference: add real free-provider keys and run Shadow's model check to verify replies.

@@ -5,6 +5,7 @@ import os
 import re
 from typing import TYPE_CHECKING
 from .provider_catalog import XKIRO_BASE_URL, XKIRO_MODELS, OPENROUTER_BASE_URL, LOCAL_AI_SLOT
+from .free_catalog import AUTO_MODELS, free_chat_model_ids
 
 if TYPE_CHECKING:
     from .config import AIProvider, Settings
@@ -41,7 +42,8 @@ def is_free_provider(provider: AIProvider) -> bool:
     """
     gateway = free_gateway_base_url()
     return (provider.slot == LOCAL_AI_SLOT or
-            (bool(gateway) and provider.base_url == gateway and provider.model in {"auto", "auto:fast", "auto:smart"}) or
+            (bool(gateway) and provider.base_url == gateway and
+             (provider.model in AUTO_MODELS or provider.model in free_chat_model_ids())) or
             (provider.base_url in {XKIRO_BASE_URL, OPENROUTER_BASE_URL}
              and provider.model.endswith(":free")) or
             (provider.base_url == OPENROUTER_BASE_URL and provider.model == "openrouter/free"))

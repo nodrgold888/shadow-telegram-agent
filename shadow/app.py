@@ -20,6 +20,7 @@ from .development import DevelopmentError, DevelopmentStudio
 from .guardian import Guardian
 from .ai_slots import apply_provider, fetch_provider_models, free_slot, parse_provider, prepare_xkiro_bundle, prepare_xkiro_defaults, ProviderSlotsFull, XKIRO_MODELS, provider_env, remove_slot, set_first, slot_env_names
 from .provider_catalog import XKIRO_BASE_URL
+from .free_catalog import catalog_view, gateway_models, gateway_provider, model_status, AUTO_MODELS, free_chat_model_ids, prepare_gateway_selection
 from .accounts import mask_label
 from .persist import delete_env_vars, save_env_vars, save_model_selection, save_reply_enabled, save_group_reply_enabled, save_group_reply_mode
 from .policy import parse_group_reply_update
@@ -144,6 +145,18 @@ async def dashboard_design() -> Response:
 async def development_script() -> Response:
     return Response(Path(__file__).with_name("development.js").read_text(encoding="utf-8"),
                     media_type="text/javascript", headers={"Cache-Control": "no-store"})
+
+
+@app.get("/dashboard/model-catalog.js")
+async def model_catalog_script() -> Response:
+    return Response(Path(__file__).with_name("model-catalog.js").read_text(encoding="utf-8"),
+                    media_type="text/javascript", headers={"Cache-Control": "no-store"})
+
+
+@app.get("/dashboard/model-catalog.css")
+async def model_catalog_style() -> Response:
+    return Response(Path(__file__).with_name("model-catalog.css").read_text(encoding="utf-8"),
+                    media_type="text/css", headers={"Cache-Control": "no-store"})
 
 
 def development_auth(shadow_setup: str | None = Cookie(default=None),
@@ -679,12 +692,27 @@ async def dashboard_add_ai_provider(
         provider = parse_provider(await request.json())
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    if provider.base_url == free_gateway_base_url() and provider.model not in AUTO_MODELS:
+        if provider.model not in free_chat_model_ids():
+            raise HTTPException(status_code=400, detail="FreeLLMAPI katalogidagi chat modelini tanlang.")
+        try:
+            models = await gateway_models(provider.base_url, provider.api_key)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from None
+        if not any(m.get("id") == provider.model and model_status(m) in {"ready", "connected"} for m in models):
+            raise HTTPException(status_code=409, detail="Model hozir mavjud emas. Gateway da provayder kalitini sozlang yoki avto rejimni tanlang.")
     async with agent._setup_lock:
         slot = free_slot(settings=agent.settings)
         if slot is None:
             raise HTTPException(status_code=409, detail=f"Barcha {MAX_BACKUP_PROVIDERS} ta AI joyi band")
         values = provider_env(slot, provider)
         updated = apply_provider(agent.settings, slot, provider)
+        if provider.base_url == free_gateway_base_url() and provider.model not in AUTO_MODELS:
+            try:
+                updated, gateway_values = prepare_gateway_selection(updated, provider.model, slot=slot)
+            except ProviderSlotsFull as exc:
+                raise HTTPException(status_code=409, detail=str(exc)) from None
+            values.update(gateway_values)
         if provider.base_url == XKIRO_BASE_URL:
             try:
                 updated, defaults = prepare_xkiro_defaults(updated)
@@ -772,6 +800,62 @@ async def dashboard_ai_first(
     if agent.assistant:
         agent.assistant.update_settings(updated)
     return {"ok": True, "slot": slot, "persisted": persisted}
+
+
+@app.api_route("/dashboard/api/ai-catalog", methods=["GET", "POST"])
+async def dashboard_ai_catalog(
+    request: Request,
+    shadow_setup: str | None = Cookie(default=None),
+    authorization: str | None = Header(default=None),
+):
+    if not _dashboard_allowed(shadow_setup, authorization):
+        raise HTTPException(status_code=401, detail="Kirish kerak")
+    credentials = await request.json() if request.method == "POST" else None
+    if credentials is not None and not isinstance(credentials, dict):
+        raise HTTPException(status_code=400, detail="Forma notogri.")
+    try:
+        result = await catalog_view(agent.settings, credentials)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from None
+    result["account_id"] = agent.account_id
+    return JSONResponse(result, headers={"Cache-Control": "no-store"})
+
+
+@app.post("/dashboard/api/ai-catalog/select")
+async def dashboard_select_catalog_model(
+    request: Request,
+    shadow_setup: str | None = Cookie(default=None),
+    authorization: str | None = Header(default=None),
+):
+    if not _dashboard_allowed(shadow_setup, authorization):
+        raise HTTPException(status_code=401, detail="Kirish kerak")
+    body = await request.json()
+    model = body.get("model") if isinstance(body, dict) else None
+    if not isinstance(model, str) or model not in AUTO_MODELS | free_chat_model_ids():
+        raise HTTPException(status_code=400, detail="Katalogdagi chat modelini tanlang.")
+    async with agent._setup_lock:
+        saved = gateway_provider(agent.settings)
+        if saved is None:
+            raise HTTPException(status_code=409, detail="Avval shu akkauntga FreeLLMAPI unified API kalitini saqlang.")
+        try:
+            live = await gateway_models(saved.base_url, saved.api_key)
+            ready = {m["id"] for m in live if model_status(m) in {"ready", "connected"}}
+            if model in AUTO_MODELS:
+                if not ready & free_chat_model_ids():
+                    raise HTTPException(status_code=409, detail="Gateway da foydalanish mumkin bolgan chat modeli yoq. Provayder kalitini qoshing.")
+            elif model not in ready:
+                raise HTTPException(status_code=409, detail="Bu model hozir mavjud emas. Holatni yangilang yoki avto rejimni tanlang.")
+            updated, values = prepare_gateway_selection(agent.settings, model)
+        except ProviderSlotsFull as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from None
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from None
+        persisted = await save_env_vars(values)
+        os.environ.update(values)
+        agent.settings = updated
+        if agent.assistant:
+            agent.assistant.update_settings(updated)
+    return {"ok": True, "model": model, "persisted": persisted}
 
 
 @app.get("/dashboard/api/ai-work-mode")

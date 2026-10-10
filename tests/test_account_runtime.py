@@ -289,6 +289,30 @@ class RuntimeTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.runtime._workers["22"].client.sent, [("me", "test login code")])
         self.assertEqual(self.runtime._workers["11"].client.sent, [])
 
+    async def test_model_catalog_checks_only_the_signed_in_accounts_gateway_key(self):
+        from dataclasses import replace
+        from shadow import app as module
+        login = PanelLogin()
+        cookies = [login.verify_code(login.issue_code(account_id="11")), login._new_session(__import__('time').time())]
+        login.select_session_account(cookies[1], "22")
+        base = "https://gateway.example/v1"
+        for account, key in [("11", "private-one-key"), ("22", "private-two-key")]:
+            with self.runtime.request_context(account):
+                self.runtime.settings = replace(self.runtime.settings, ai_base_url=base,
+                    ai_api_key=key, ai_model="auto:smart")
+        with mock.patch.object(module, "agent", self.runtime), mock.patch.object(module, "panel_login", login), \
+             mock.patch.dict(os.environ, {"SHADOW_FREE_GATEWAY_BASE_URL": base}), \
+             mock.patch("shadow.free_catalog.gateway_models", mock.AsyncMock(return_value=[])) as fetch:
+            async with httpx.AsyncClient(transport=httpx.ASGITransport(app=module.app), base_url="http://test") as client:
+                for cookie, account in zip(cookies, [11, 22]):
+                    result = await client.get('/dashboard/api/ai-catalog', cookies={'shadow_setup': cookie})
+                    self.assertEqual(result.status_code, 200)
+                    self.assertEqual(result.json()['account_id'], account)
+                    self.assertEqual(result.headers['cache-control'], 'no-store')
+                    self.assertNotIn('private-one-key', result.text)
+                    self.assertNotIn('private-two-key', result.text)
+        self.assertEqual([call.args[1] for call in fetch.await_args_list], ['private-one-key', 'private-two-key'])
+
     async def test_unchanged_boot_does_not_rewrite_the_render_account_registry(self):
         with mock.patch('shadow.runtime.save_accounts', new_callable=mock.AsyncMock) as save:
             worker = self.runtime._workers["11"]

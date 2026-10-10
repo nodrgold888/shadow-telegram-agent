@@ -12,7 +12,7 @@ from .provider_catalog import XKIRO_BASE_URL, XKIRO_MODELS, XKIRO_DEFAULTS_VERSI
 from .model_routing import is_free_provider, free_gateway_base_url, free_gateway_headers
 
 _NAME_RE = re.compile(r"[^A-Za-z0-9 ._-]")
-_MODEL_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:/@+-]{0,99}$")
+_MODEL_RE = re.compile(r"^[A-Za-z0-9@][A-Za-z0-9._:/@+-]{0,99}$")
 
 
 class ProviderSlotsFull(ValueError):

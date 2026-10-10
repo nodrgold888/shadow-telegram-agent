@@ -20,3 +20,4 @@ jobs:
         with:
           node-version: "22"
       - run: node --test integrations/freellmapi/gateway.test.mjs
+      - run: node scripts/update_free_catalog.mjs --check
