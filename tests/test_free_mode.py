@@ -155,6 +155,9 @@ class FreeCallsTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(constructors), 2)
         self.assertTrue(all(c["default_headers"] == {"X-Shadow-Gateway-Key": "test-edge-key-only"}
                             for c in constructors))
+        for options in constructors:
+            self.assertFalse(options["http_client"].follow_redirects)
+            await options["http_client"].aclose()
         self.assertEqual(attempts, [(gateway.ai_base_url, "auto:smart")] * 2)
 
     async def test_development_falls_back_from_no_credits_without_paid_calls(self):

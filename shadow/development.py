@@ -17,7 +17,7 @@ from pathlib import Path, PurePosixPath
 from urllib.parse import quote
 
 import httpx
-from openai import AsyncOpenAI
+from openai import AsyncOpenAI, DefaultAsyncHttpxClient
 
 from .anthropic_compat import ANTHROPIC_BASE_URL, AnthropicCompatClient
 from .config import Settings
@@ -274,8 +274,9 @@ async def ask_ai(settings: Settings, messages: list[dict], max_tokens: int, *,
                 else:
                     async with AsyncOpenAI(api_key=key, base_url=base,
                                            timeout=min(remaining, 120 if name == "Ollama local" else 80), max_retries=0,
-                                           **({"default_headers": free_gateway_headers(base)}
-                                              if base and free_gateway_headers(base) else {})) as client:
+                                           **({"default_headers": headers,
+                                               "http_client": DefaultAsyncHttpxClient(follow_redirects=False)}
+                                              if base and (headers := free_gateway_headers(base)) else {})) as client:
                         if base is None:
                             response = await client.responses.create(model=model, input=messages, max_output_tokens=max_tokens)
                             result = json_object(response.output_text)

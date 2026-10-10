@@ -8,7 +8,7 @@ import time
 from tempfile import TemporaryDirectory
 from pathlib import Path
 
-from openai import AsyncOpenAI
+from openai import AsyncOpenAI, DefaultAsyncHttpxClient
 
 from .anthropic_compat import ANTHROPIC_BASE_URL, AnthropicCompatClient
 from .work_tools import calculate, create_excel, create_word
@@ -372,8 +372,9 @@ class ShadowAssistant:
              if provider.base_url == ANTHROPIC_BASE_URL else
              AsyncOpenAI(base_url=provider.base_url, api_key=provider.api_key,
                          timeout=120.0 if provider.slot == LOCAL_AI_SLOT else BACKUP_TIMEOUT, max_retries=0,
-                         **({"default_headers": free_gateway_headers(provider.base_url)}
-                            if free_gateway_headers(provider.base_url) else {})))
+                         **({"default_headers": headers,
+                             "http_client": DefaultAsyncHttpxClient(follow_redirects=False)}
+                            if (headers := free_gateway_headers(provider.base_url)) else {})))
             for provider in ordered_backup_providers(settings)
         ]
 
