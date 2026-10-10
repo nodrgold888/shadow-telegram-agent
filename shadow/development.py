@@ -22,7 +22,7 @@ from openai import AsyncOpenAI
 from .anthropic_compat import ANTHROPIC_BASE_URL, AnthropicCompatClient
 from .config import Settings
 from .assistant import chat_create, cooldown_seconds, is_rejected, is_unhealthy, DEFAULT_COOLDOWN, UNHEALTHY_COOLDOWN
-from .model_routing import ordered_backup_providers
+from .model_routing import ordered_backup_providers, free_gateway_headers
 
 MAX_SOURCE_BYTES = 800_000
 MAX_RESULT_BYTES = 1_500_000
@@ -273,7 +273,9 @@ async def ask_ai(settings: Settings, messages: list[dict], max_tokens: int, *,
                     result = json_object(response.choices[0].message.content or "")
                 else:
                     async with AsyncOpenAI(api_key=key, base_url=base,
-                                           timeout=min(remaining, 120 if name == "Ollama local" else 80), max_retries=0) as client:
+                                           timeout=min(remaining, 120 if name == "Ollama local" else 80), max_retries=0,
+                                           **({"default_headers": free_gateway_headers(base)}
+                                              if base and free_gateway_headers(base) else {})) as client:
                         if base is None:
                             response = await client.responses.create(model=model, input=messages, max_output_tokens=max_tokens)
                             result = json_object(response.output_text)

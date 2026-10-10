@@ -10,7 +10,7 @@ from shadow.assistant import ShadowAssistant
 from shadow.config import AIProvider, Settings
 from shadow.development import DevelopmentError, ask_ai
 from shadow.image_gen import gemini_api_key
-from shadow.model_routing import ordered_backup_providers
+from shadow.model_routing import ordered_backup_providers, free_gateway_headers
 from shadow.provider_catalog import OPENROUTER_BASE_URL, XKIRO_BASE_URL, LOCAL_AI_SLOT
 from tests.test_ai_work_mode import configured
 from tests.test_ai_fallback import make_settings
@@ -37,6 +37,26 @@ class FreePolicyTests(unittest.TestCase):
                              ["qwen/qwen3.8-max:free", "openrouter/free"])
         self.assertEqual(len(settings.backup_providers), 6)  # paid configuration is preserved
         self.assertTrue(settings.ai_ready)
+
+    def test_gateway_requires_operator_approval_and_free_routing_aliases(self):
+        gateway = make_settings(ai_work_mode="free", ai_base_url="https://gateway.example/v1",
+                                ai_model="auto:smart")
+        with patch.dict(os.environ, {"SHADOW_FREE_GATEWAY_BASE_URL": ""}):
+            self.assertFalse(gateway.ai_ready)
+        with patch.dict(os.environ, {"SHADOW_FREE_GATEWAY_BASE_URL": "https://gateway.example/v1/"}):
+            self.assertTrue(gateway.ai_ready)
+            self.assertTrue(replace(gateway, ai_model="auto").ai_ready)
+            self.assertTrue(replace(gateway, ai_model="auto:fast").ai_ready)
+            self.assertFalse(replace(gateway, ai_model="anthropic/claude-opus-5.5").ai_ready)
+            self.assertFalse(replace(gateway, ai_base_url="https://unapproved.example/v1").ai_ready)
+
+    def test_edge_secret_is_sent_only_to_the_approved_gateway(self):
+        with patch.dict(os.environ, {"SHADOW_FREE_GATEWAY_BASE_URL": "https://gateway.example/v1/",
+                                    "SHADOW_FREE_GATEWAY_ACCESS_KEY": "test-edge-key-only"}):
+            self.assertEqual(free_gateway_headers("https://gateway.example/v1"),
+                             {"X-Shadow-Gateway-Key": "test-edge-key-only"})
+            self.assertEqual(free_gateway_headers(OPENROUTER_BASE_URL), {})
+            self.assertEqual(free_gateway_headers("https://gateway.example.evil/v1"), {})
 
     def test_paid_credentials_do_not_count_as_free_readiness(self):
         settings = make_settings(ai_work_mode="free")
@@ -117,6 +137,25 @@ class FreeCallsTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(all(p["replied"] for p in results["models"]))
         self.assertEqual(len(constructors), 2)
         self.assertEqual(len(attempts), 2)
+
+    async def test_gateway_chat_and_development_receive_edge_auth_without_paid_client(self):
+        gateway = make_settings(ai_work_mode="free", ai_base_url="https://gateway.example/v1",
+                                ai_model="auto:smart")
+        factory, constructors, attempts = self.build(content='{"ok":true}')
+        with patch.dict(os.environ, {"SHADOW_FREE_GATEWAY_BASE_URL": gateway.ai_base_url,
+                                    "SHADOW_FREE_GATEWAY_ACCESS_KEY": "test-edge-key-only"}), \
+             patch("shadow.assistant.AsyncOpenAI", factory), \
+             patch("shadow.development.AsyncOpenAI", factory), \
+             patch.dict("shadow.development._DEV_COOLDOWNS", {}, clear=True):
+            assistant = ShadowAssistant(gateway)
+            result = await assistant.check()
+            self.assertTrue(result["models"][0]["replied"])
+            self.assertTrue((await ask_ai(gateway, [], 100, purpose="development"))["ok"])
+        self.assertIsNone(assistant.client)
+        self.assertEqual(len(constructors), 2)
+        self.assertTrue(all(c["default_headers"] == {"X-Shadow-Gateway-Key": "test-edge-key-only"}
+                            for c in constructors))
+        self.assertEqual(attempts, [(gateway.ai_base_url, "auto:smart")] * 2)
 
     async def test_development_falls_back_from_no_credits_without_paid_calls(self):
         factory, constructors, attempts = self.build(content='{"ok":true}', fail_xkiro=True)

@@ -15,7 +15,7 @@ from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, Res
 
 from .config import Settings
 from .assistant import ShadowAssistant
-from .model_routing import WORK_MODES, ordered_backup_providers
+from .model_routing import WORK_MODES, ordered_backup_providers, free_gateway_base_url
 from .development import DevelopmentError, DevelopmentStudio
 from .guardian import Guardian
 from .ai_slots import apply_provider, fetch_provider_models, free_slot, parse_provider, prepare_xkiro_bundle, prepare_xkiro_defaults, ProviderSlotsFull, XKIRO_MODELS, provider_env, remove_slot, set_first, slot_env_names
@@ -789,7 +789,9 @@ async def dashboard_ai_work_mode(
         primary = {"name": "OpenAI", "model": agent.settings.openai_model}
         for route in routes.values():
             route.insert(len(route) if agent.settings.ai_primary else 0, primary)
-    return {"mode": agent.settings.ai_work_mode, "routes": routes}
+    gateway = free_gateway_base_url()
+    return {"mode": agent.settings.ai_work_mode, "routes": routes,
+            "free_gateway": {"base_url": gateway, "model": "auto:smart"} if gateway else None}
 
 
 @app.post("/dashboard/api/ai-work-mode")

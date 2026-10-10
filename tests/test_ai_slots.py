@@ -15,6 +15,21 @@ def body(**over):
 
 
 class XkiroModelCatalogTest(unittest.IsolatedAsyncioTestCase):
+    async def test_approved_free_gateway_catalog_requires_edge_header(self):
+        response = MagicMock(status_code=200)
+        response.json.return_value = {"data": [{"id": "auto:smart"}]}
+        client = AsyncMock()
+        client.get.return_value = response
+        context = AsyncMock()
+        context.__aenter__.return_value = client
+        with patch.dict(os.environ, {"SHADOW_FREE_GATEWAY_BASE_URL": "https://gateway.example/v1",
+                                    "SHADOW_FREE_GATEWAY_ACCESS_KEY": "test-edge-key-only"}), \
+             patch("shadow.ai_slots.httpx.AsyncClient", return_value=context):
+            models = await fetch_provider_models("https://gateway.example/v1", "freellmapi-test-key")
+        self.assertEqual(models, ["auto:smart"])
+        client.get.assert_awaited_once_with("https://gateway.example/v1/models", headers={
+            "Authorization": "Bearer freellmapi-test-key", "X-Shadow-Gateway-Key": "test-edge-key-only"})
+
     async def test_public_catalog_uses_official_endpoint_and_preserves_free_model_ids(self):
         response = MagicMock(status_code=200)
         response.json.return_value = {"data": [{"id": "qwen/qwen3.8-max:free"}, {"id": "z-ai/glm-5.3"}]}

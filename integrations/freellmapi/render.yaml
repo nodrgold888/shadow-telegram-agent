@@ -1,0 +1,28 @@
+# Separate gateway service. Paid hosting and storage; review the cost in Render.
+# Deploy using this Blueprint path, not Shadow's root render.yaml.
+services:
+  - type: web
+    name: shadow-freellmapi
+    runtime: docker
+    plan: starter
+    region: frankfurt
+    dockerfilePath: ./integrations/freellmapi/Dockerfile
+    dockerContext: .
+    healthCheckPath: /healthz
+    disk:
+      name: freellmapi-data
+      mountPath: /app/server/data
+      sizeGB: 1
+    envVars:
+      - key: PORT
+        value: "10000"
+      - key: NODE_ENV
+        value: production
+      - key: ENCRYPTION_KEY
+        generateValue: true
+      - key: GATEWAY_ACCESS_KEY
+        generateValue: true
+      - key: GATEWAY_ADMIN_PASSWORD
+        generateValue: true
+      - key: GATEWAY_ADMIN_EMAIL
+        value: admin@shadow.local

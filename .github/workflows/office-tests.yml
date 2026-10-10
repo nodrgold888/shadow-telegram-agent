@@ -16,3 +16,7 @@ jobs:
       - run: python -m pip install -r requirements.txt pytest
       # One run picks up every tests/test_*.py file automatically (unittest- and pytest-style).
       - run: python -m pytest -q tests
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: node --test integrations/freellmapi/gateway.test.mjs

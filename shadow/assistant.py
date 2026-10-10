@@ -12,7 +12,7 @@ from openai import AsyncOpenAI
 
 from .anthropic_compat import ANTHROPIC_BASE_URL, AnthropicCompatClient
 from .work_tools import calculate, create_excel, create_word
-from .model_routing import needs_reasoning_model, ordered_backup_providers
+from .model_routing import needs_reasoning_model, ordered_backup_providers, free_gateway_headers
 
 from .agents import agent_role
 from .natural_chat_agent import conversation_style_agent
@@ -371,7 +371,9 @@ class ShadowAssistant:
             (provider, AnthropicCompatClient(provider.api_key, timeout=BACKUP_TIMEOUT)
              if provider.base_url == ANTHROPIC_BASE_URL else
              AsyncOpenAI(base_url=provider.base_url, api_key=provider.api_key,
-                         timeout=120.0 if provider.slot == LOCAL_AI_SLOT else BACKUP_TIMEOUT, max_retries=0))
+                         timeout=120.0 if provider.slot == LOCAL_AI_SLOT else BACKUP_TIMEOUT, max_retries=0,
+                         **({"default_headers": free_gateway_headers(provider.base_url)}
+                            if free_gateway_headers(provider.base_url) else {})))
             for provider in ordered_backup_providers(settings)
         ]
 

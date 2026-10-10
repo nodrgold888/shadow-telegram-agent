@@ -1,35 +1,24 @@
 ---
 name: freellmapi
-description: How FreeLLMAPI (free-tier multi-provider LLM router) is used with the Shadow Telegram agent as a backup AI provider - hosting, HTTPS/security cautions, Render env wiring (AI_BASE_URL/AI_API_KEY/AI_MODEL) and troubleshooting. Use when the user asks about free AI models, backup providers, "insufficient_quota", or FreeLLMAPI.
+description: Configure and troubleshoot the protected FreeLLMAPI free-provider gateway for Shadow, including Render Docker deployment, persistent storage, approved endpoints, per-account keys and automatic fallback.
 ---
 
 # FreeLLMAPI with Shadow
 
-**What it is.** https://github.com/tashfeenahmed/freellmapi (MIT): a self-hosted Node/SQLite router that
-aggregates free LLM tiers behind one OpenAI-compatible API (`/v1/chat/completions`, tool calling,
-streaming, model `auto`, `auto:fast`, `auto:smart`). Auth is one "unified key" (`freellmapi-...`).
-Health: `GET /api/ping`. Default port 3001. Docker image `ghcr.io/tashfeenahmed/freellmapi`.
+[FreeLLMAPI](https://github.com/tashfeenahmed/freellmapi) (MIT) is a single-owner Node/SQLite router for free provider tiers. It exposes OpenAI-compatible chat completions, tools and streaming. Shadow's preferred alias is `auto:smart`; upstream routing can switch models and keys after quota or server failures. It does not bypass paid billing or guarantee continuous availability.
 
-**How Shadow uses it.** Not vendored. Shadow's backup provider chain (`shadow/config.py` `AIProvider`,
-`shadow/assistant.py` `_try_providers`) talks to any OpenAI-compatible endpoint:
-`AI_BASE_URL=https://host/v1`, `AI_API_KEY=<unified key>`, `AI_MODEL=auto` (slots `_2`..`_5` for more).
-Backup is tried when OpenAI fails with 429/401/402/403/5xx/connection errors, or first with `AI_PRIMARY=true`.
-Calculator/Word/Excel tools work through function calling (providers rejecting tools get a plain-text retry).
+Read `integrations/freellmapi/README.md` for the current connection and deployment procedure. Shadow supports twelve backup slots. In default free mode, a gateway must exactly match `SHADOW_FREE_GATEWAY_BASE_URL`, and its model must be `auto`, `auto:fast` or `auto:smart`. Keep only free upstream routes enabled. Each Telegram account saves its own provider slot and unified key; the gateway itself pools the owner's upstream quotas.
 
-**Setup files.** `integrations/freellmapi/` has `docker-compose.yml` (loopback bind, required
-`ENCRYPTION_KEY`), `setup.sh` (creates `.env`, starts it, waits for `/api/ping`) and a README.
+## Deployment
 
-**Cautions to repeat to the user.**
-- It needs Docker plus a persistent disk, so it cannot live on Render's free web service; run it on an
-  always-on machine.
-- Upstream says it is single-user and must not be exposed to the internet. Shadow on Render must reach it,
-  so expose it only over HTTPS through a tunnel/proxy, keep the unified key secret, never paste keys in chat.
-- Shadow refuses plain `http://` base URLs except localhost.
-- Chat text goes to the free provider the router picks: do not use it for private chats the owner would not
-  send to those providers.
-- Never run `curl ... | bash` installers on the user's behalf without reading them.
+Use `integrations/freellmapi/render.yaml` as a separate Render Blueprint, not the root Shadow Blueprint. The paid Starter service includes a 1 GB persistent disk and generated secrets. The pinned upstream image runs privately on loopback behind `gateway.mjs`; only `/healthz` is public. API requests require `X-Shadow-Gateway-Key` plus the upstream unified Bearer key. Browser access uses username `shadow` and `GATEWAY_ADMIN_PASSWORD`, followed by the upstream admin login. The wrapper bootstraps the initial admin and preserves the existing account on restart.
 
-**Troubleshooting.** Use the dashboard "AI ni tekshirish" button (per-provider result, secret-free error
-detail). 401 = wrong unified key; 404 = wrong `AI_MODEL` or base URL missing `/v1`; connection errors =
-tunnel down or the container stopped (`docker compose logs freellmapi`); empty replies = the routed free
-model returned nothing, try `auto:smart`.
+Set `SHADOW_FREE_GATEWAY_ACCESS_KEY` on Shadow to the gateway's `GATEWAY_ACCESS_KEY`; the extra header is sent only to the approved endpoint. Never log keys. Preserve and securely back up `ENCRYPTION_KEY` and the disk: the encrypted provider keys cannot be recovered with a different encryption key.
+
+The local Compose option still binds to loopback. Upstream must not be exposed directly to the public internet; use HTTPS and an authenticated proxy. Read installers before executing them; do not pipe unreviewed downloads into a shell.
+
+## Checks
+
+Run the Node gateway tests and full Shadow pytest suite. Verify actual Docker health, protected routes, browser dashboard login and saved-key persistence after restart. Real inference requires configured free provider credentials; report missing credentials or hosting access honestly. Use the dashboard's model check for inference validation.
+
+401 `gateway_access_required` means the edge key is missing or wrong. An upstream 401 means the unified key is wrong. A 503 health response means the private upstream is unavailable. Quota exhaustion means another independent free provider or a quota reset is required.

@@ -9,7 +9,7 @@ import httpx
 from .anthropic_compat import ANTHROPIC_BASE_URL
 from .config import MAX_BACKUP_PROVIDERS, AIProvider, Settings, _ai_base_url
 from .provider_catalog import XKIRO_BASE_URL, XKIRO_MODELS, XKIRO_DEFAULTS_VERSION, OPENROUTER_BASE_URL, AI_COST_POLICY_VERSION
-from .model_routing import is_free_provider
+from .model_routing import is_free_provider, free_gateway_base_url, free_gateway_headers
 
 _NAME_RE = re.compile(r"[^A-Za-z0-9 ._-]")
 _MODEL_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:/@+-]{0,99}$")
@@ -127,7 +127,7 @@ async def fetch_provider_models(base_url: str, api_key: str) -> list[str]:
         base_url = _ai_base_url(base_url)
     except ValueError:
         raise ValueError("Provayder manzili noto‘g‘ri") from None
-    if base_url not in MODEL_CATALOG_BASE_URLS:
+    if base_url not in MODEL_CATALOG_BASE_URLS and base_url != free_gateway_base_url():
         raise ValueError("Bu provayder modeli ro‘yxatini avtomatik bermaydi")
     api_key = api_key.strip() if isinstance(api_key, str) else ""
     if not 8 <= len(api_key) <= 500 or re.search(r"\s", api_key):
@@ -136,6 +136,7 @@ async def fetch_provider_models(base_url: str, api_key: str) -> list[str]:
         async with httpx.AsyncClient(timeout=12, follow_redirects=False) as client:
             headers = ({"x-api-key": api_key, "anthropic-version": "2023-06-01"}
                        if base_url == ANTHROPIC_BASE_URL else {"Authorization": "Bearer " + api_key})
+            headers.update(free_gateway_headers(base_url))
             response = await client.get(base_url + "/models", headers=headers)
     except httpx.TimeoutException:
         raise ValueError("Provayder javob bermadi. Qayta urinib ko‘ring") from None

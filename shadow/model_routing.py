@@ -1,6 +1,7 @@
 """Conservative task triage: reserve the reasoning model for work that benefits from it."""
 from __future__ import annotations
 
+import os
 import re
 from typing import TYPE_CHECKING
 from .provider_catalog import XKIRO_BASE_URL, XKIRO_MODELS, OPENROUTER_BASE_URL, LOCAL_AI_SLOT
@@ -19,13 +20,28 @@ _TASK_MODELS = {
 }
 
 
+def free_gateway_base_url() -> str:
+    """Operator-approved FreeLLMAPI endpoint; its enabled upstreams must be free tiers."""
+    return os.getenv("SHADOW_FREE_GATEWAY_BASE_URL", "").strip().rstrip("/")
+
+
+def free_gateway_headers(base_url: str) -> dict[str, str]:
+    """Send the private edge key only to the explicitly configured gateway."""
+    access_key = os.getenv("SHADOW_FREE_GATEWAY_ACCESS_KEY", "").strip()
+    if access_key and base_url.rstrip("/") == free_gateway_base_url():
+        return {"X-Shadow-Gateway-Key": access_key}
+    return {}
+
+
 def is_free_provider(provider: AIProvider) -> bool:
     """Only explicit free cloud routes and the configured local host qualify.
 
     A name containing 'free', or an arbitrary endpoint's model suffix, is not
     evidence of zero-cost routing. Other providers remain opt-in in paid modes.
     """
+    gateway = free_gateway_base_url()
     return (provider.slot == LOCAL_AI_SLOT or
+            (bool(gateway) and provider.base_url == gateway and provider.model in {"auto", "auto:fast", "auto:smart"}) or
             (provider.base_url in {XKIRO_BASE_URL, OPENROUTER_BASE_URL}
              and provider.model.endswith(":free")) or
             (provider.base_url == OPENROUTER_BASE_URL and provider.model == "openrouter/free"))
