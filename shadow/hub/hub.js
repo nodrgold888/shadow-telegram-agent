@@ -26,7 +26,7 @@
   let current=null, episodeIndex=-1, quality='1080', hls=null, hlsPromise=null, playerEpoch=0, detailEpoch=0, episodeRequest=0, hero=null, toastTimer, lastSave=0, lastSaveError=0;
   function element(tag, text, className) { const el=document.createElement(tag); if(text!==undefined)el.textContent=text; if(className)el.className=className; return el; }
   function posterURL(value) { try { const url=new URL(value);return url.protocol==='https:'&&(url.hostname==='anilibria.top'||url.hostname.endsWith('.anilibria.top'))?url.href:''; }catch{return '';} }
-  function image(url, alt, thumbnail) { const img=element('img');img.alt=alt||'';img.loading='lazy';img.decoding='async';const src=posterURL(url);if(src)img.src=src;const thumb=posterURL(thumbnail);if(thumb&&src){img.srcset=thumb+' 240w, '+src+' 640w';img.sizes='(max-width:480px) 45vw, (max-width:980px) 20vw, 190px';}img.addEventListener('error',()=>img.remove(),{once:true});return img; }
+  function image(url, alt) { const img=element('img');img.alt=alt||'';img.loading='lazy';img.decoding='async';const src=posterURL(url);if(src)img.src=src;img.addEventListener('error',()=>img.remove(),{once:true});return img; }
   function toast(message) { clearTimeout(toastTimer);$('hubToast').textContent=message;$('hubToast').hidden=false;toastTimer=setTimeout(()=>$('hubToast').hidden=true,5000); }
   async function api(path, options={}) { const response=await fetch(path,{credentials:'same-origin',...options}); let data;try{data=await response.json();}catch{data={};}if(!response.ok){const error=new Error(typeof data.detail==='string'?data.detail:'Sorov bajarilmadi. Qayta urinib koring.');error.status=response.status;throw error;}return data; }
   function cleanRecords(rows) {
@@ -79,7 +79,7 @@
   }
   function cardNode(card, home=false, record=null) {
     const article=element('article',undefined,'poster-card'),open=element('button',undefined,'poster-open');open.type='button';open.setAttribute('aria-label',card.title+' — tomosha qilish');
-    const art=element('div',undefined,'poster-art');art.append(image(card.poster,'',card.poster_thumbnail));
+    const art=element('div',undefined,'poster-art');art.append(image(card.poster,''));
     const overlay=element('div',undefined,'poster-overlay');overlay.append(icon('play'));art.append(overlay);
     if(Number.isFinite(card.rating)&&card.rating>0){const rating=element('span',undefined,'poster-rating');rating.append(element('span','★'),element('b',Number(card.rating).toFixed(1)));art.append(rating);}
     if(card.ongoing)art.append(element('span','DAVOM ETMOQDA','poster-ongoing'));
