@@ -2,14 +2,14 @@
    Visual references: Tabler's restrained admin shell, Gentelella's direct controls,
    and Keen's responsive data grid. Existing dashboard markup and behavior stay intact. */
 :root[data-theme="dark"]{
-  --v-bg:#10172f;--v-side:#111c34;--v-surface:#17243d;--v-surface2:#1c2d49;
-  --v-line:#304362;--v-line2:#486080;--v-ink:#f1f6ff;--v-muted:#afc0da;
+  --v-bg:#0c1421;--v-side:#0e1826;--v-surface:#151f2e;--v-surface2:#1a2839;
+  --v-line:#2a384b;--v-line2:#3b516b;--v-ink:#f1f6ff;--v-muted:#a4b5ca;
   --v-accent:#66e4db;--v-accent2:#42cbbf;--v-soft:#173f49;
   --v-warn:#ffcc80;--v-warn-soft:#3c3023;--v-danger:#ffa2ae;
   --console-blue:#80baff;--console-violet:#bdabff;--console-rose:#ff9fc9;
   --c-blue:#80baff;--c-violet:#bdabff;--c-amber:#ffcc80;--c-pink:#ff9fc9;
   --v-shadow:0 12px 32px #050b242e;--button-ink:#081e32;
-  --workspace-backdrop:radial-gradient(ellipse at 93% 4%,#168fa754,transparent 44%),radial-gradient(ellipse at 15% 52%,#6851ba50,transparent 47%),radial-gradient(ellipse at 92% 92%,#b3417836,transparent 45%),linear-gradient(135deg,#111c37,#141c36 55%,#10192e)
+  --workspace-backdrop:radial-gradient(ellipse at 95% 0%,#247d9024,transparent 45%),radial-gradient(ellipse at 5% 70%,#6955b518,transparent 50%),#0c1421
 }
 :root[data-theme="light"]{
   --v-bg:#edf2ff;--v-side:#16233e;--v-surface:#fff;--v-surface2:#f1f5ff;
@@ -42,7 +42,7 @@
 
 /* Application shell and navigation */
 :root[data-theme] .shell{grid-template-columns:250px minmax(0,1fr);background:transparent}
-:root[data-theme] .side{position:sticky;top:0;width:250px;height:100dvh;min-height:600px;gap:18px;padding:22px 15px 16px;border-right:1px solid #8598eb30;background:linear-gradient(170deg,#17294a,#18203c 52%,#241e40);box-shadow:5px 0 22px #06101b26}
+:root[data-theme] .side{position:sticky;top:0;width:250px;height:100dvh;min-height:600px;gap:18px;padding:22px 15px 16px;border-right:1px solid #8598eb20;background:linear-gradient(170deg,#142238,#111b2c 60%,#191f34);box-shadow:none}
 :root[data-theme] .side .brand{padding:0 8px;gap:11px}
 :root[data-theme] .side .mark{width:38px;height:38px;border:0;border-radius:10px;background:linear-gradient(145deg,#39b9c9,#476ade 62%,#9165d8);box-shadow:0 5px 18px #538df34d;color:#fff}
 :root[data-theme] .side .brand strong{font-size:13px;letter-spacing:.15em}
@@ -270,5 +270,103 @@
   :root[data-theme] .overview-metric strong{font-size:23px}
   :root[data-theme] .chat-tools{grid-template-columns:1fr}
   :root[data-theme] .panel-grid{grid-template-columns:1fr}
+}
+/* A quiet assistant identity and readable service controls replace the face HUD. */
+:root[data-theme] .mobile-menu-toggle{display:none}
+:root[data-theme] .content,:root[data-theme] .command-copy{min-width:0}
+:root[data-theme] .command-hero{grid-template-columns:minmax(0,1fr) 144px;gap:18px 28px;min-height:0;padding:26px;border:1px solid var(--v-line2);border-radius:16px;background:linear-gradient(115deg,color-mix(in srgb,var(--console-blue) 5%,var(--v-surface)),var(--v-surface) 68%);box-shadow:var(--v-shadow)}
+:root[data-theme] .command-hero:before,:root[data-theme] .command-hero:after,:root[data-theme] .command-visual:before,:root[data-theme] .command-visual:after{content:none;animation:none}
+:root[data-theme] .command-copy h2{font-size:clamp(25px,2.5vw,34px);line-height:1.15;letter-spacing:-.035em;text-shadow:none}
+:root[data-theme] .command-copy>p{max-width:600px;font-size:13px;line-height:1.6}
+:root[data-theme] .command-eyebrow{font-size:9px;letter-spacing:.12em}
+:root[data-theme] .command-eyebrow i{box-shadow:none}
+:root[data-theme] .command-status-row{flex-direction:row;align-items:center;flex-wrap:wrap;gap:10px;margin-top:16px}
+:root[data-theme] .command-status{font-size:11px;padding:6px 10px}
+:root[data-theme] .command-status i{box-shadow:none;animation:none}
+:root[data-theme] .command-updated{font-size:10px}
+:root[data-theme] .command-visual{grid-column:2;grid-row:1;display:flex;flex-direction:column;justify-content:center;gap:9px;width:144px;height:144px;transform:none;opacity:1;filter:none}
+:root[data-theme] .assistant-emblem{display:block;flex:none;width:120px;height:120px;overflow:visible}
+:root[data-theme] .emblem-rim{stroke:color-mix(in srgb,var(--console-blue) 22%,transparent);stroke-width:1}
+:root[data-theme] .emblem-arc{stroke:url(#shadowRibbon);stroke-width:1;stroke-linecap:round;opacity:.38}
+:root[data-theme] .emblem-mark{stroke-width:7;stroke-linecap:round;stroke-linejoin:round}
+:root[data-theme] .emblem-light{fill:var(--v-muted);stroke:var(--v-surface);stroke-width:3}
+:root[data-theme] .agent-ready .emblem-light{fill:var(--v-accent)}
+:root[data-theme] .agent-attention .emblem-light{fill:var(--v-warn)}
+:root[data-theme] .agent-idle .assistant-emblem{opacity:.55}
+:root[data-theme] .assistant-caption{color:var(--v-muted);font-size:9px;font-weight:650;letter-spacing:.2em}
+:root[data-theme] .command-actions{grid-column:1/-1;gap:8px;margin:0}
+:root[data-theme] .command-action{min-height:40px;padding:0 14px;font-size:12px;border-radius:8px}
+:root[data-theme] .command-action svg{width:16px;height:16px;flex:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+:root[data-theme] .command-action:hover{box-shadow:none}
+:root[data-theme] .command-action.primary-action{background:var(--v-accent);color:var(--button-ink);box-shadow:none}
+:root[data-theme] .command-shortcut{border-style:solid}
+:root[data-theme] .command-shortcut kbd{font-size:10px}
+:root[data-theme] .command-readouts{grid-column:1/-1;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;padding:0;border:0;background:transparent}
+:root[data-theme] .command-readout,:root[data-theme] .command-readout:nth-child(2),:root[data-theme] .command-readout:nth-child(3){grid-template-columns:minmax(0,1fr);gap:5px;min-width:0;padding:14px;border:1px solid var(--v-line);border-radius:10px;background:color-mix(in srgb,var(--readout-color,var(--v-accent)) 3%,var(--v-surface2))}
+:root[data-theme] .command-readout .readout-label{font-size:9px;letter-spacing:.08em}
+:root[data-theme] .readout-dot,:root[data-theme] .readout-dot.failed{box-shadow:none}
+:root[data-theme] .command-readout strong{grid-column:1;grid-row:auto;font-size:13px;text-align:left}
+:root[data-theme] .command-readout small{grid-column:1;grid-row:auto;font-size:11px;text-align:left}
+:root[data-theme] .overview-metric{background:linear-gradient(120deg,color-mix(in srgb,var(--metric-accent) 7%,var(--v-surface)),var(--v-surface));box-shadow:none}
+:root[data-theme] .overview-metric:after{display:none}
+:root[data-theme] .overview-metric .metric-label{font-size:12px}
+:root[data-theme] .overview-metric small{font-size:11px}
+:root[data-theme] .overview-panel-head{background:color-mix(in srgb,var(--panel-color) 6%,var(--v-surface))}
+:root[data-theme] .overview-panel-head h2{font-size:14px}
+:root[data-theme] .overview-panel-head p{font-size:11px}
+@media(max-width:1000px) and (min-width:781px){
+  :root[data-theme] .command-hero{grid-template-columns:minmax(0,1fr) 110px;gap:16px;padding:20px}
+  :root[data-theme] .command-visual{width:110px;height:120px}
+  :root[data-theme] .assistant-emblem{width:96px;height:96px}
+}
+@media(max-width:780px){
+  :root[data-theme] .side{flex-wrap:nowrap;justify-content:space-between;gap:12px;padding:12px 16px;overflow:visible;backdrop-filter:none;background:var(--v-side)}
+  :root[data-theme] .side .mark{width:36px;height:36px}
+  :root[data-theme] .side .brand strong{font-size:12px}
+  :root[data-theme] .side .brand small{font-size:8px}
+  :root[data-theme] .mobile-menu-toggle{display:inline-flex;flex:none;align-items:center;justify-content:center;gap:8px;min-height:40px;padding:0 12px;border:1px solid var(--v-line2);border-radius:9px;background:var(--v-surface);color:var(--v-ink);font-size:12px;font-weight:600}
+  :root[data-theme] .mobile-menu-toggle svg{width:18px;height:18px}
+  :root[data-theme] .mobile-menu-toggle[aria-expanded="true"]{border-color:var(--v-accent);color:var(--v-accent)}
+  :root[data-theme] .workspace-nav{position:absolute;top:calc(100% + 8px);left:12px;right:12px;display:none!important;width:auto;max-width:none;flex:initial;max-height:calc(100dvh - 90px);overflow:auto;margin:0;padding:10px;border:1px solid var(--v-line2);border-radius:12px;background:var(--v-side);box-shadow:0 20px 48px #0005}
+  :root[data-theme] .side.menu-open .workspace-nav{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px}
+  :root[data-theme] .nav-group{display:contents}
+  :root[data-theme] .workspace-nav .nav{width:100%;min-width:0;min-height:44px;height:auto;margin:0;padding:10px;font-size:11px;white-space:normal;text-align:left}
+  :root[data-theme] .workspace-nav .nav b{flex:none;width:25px;height:25px}
+  :root[data-theme] .workspace-nav .nav.active{box-shadow:inset 3px 0 var(--nav-color)}
+  :root[data-theme] .top{gap:14px}
+  :root[data-theme] .top-actions{display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-start;width:100%;gap:8px}
+  :root[data-theme] .top-actions>.tool-group,:root[data-theme] .top-actions>.view-tools{flex:0 0 auto;width:auto;margin:0;padding:0;border:0;background:transparent}
+  :root[data-theme] .top-actions .tool-group{flex:0 0 auto;width:auto}
+  :root[data-theme] .top-actions>.user-menu{margin-left:auto}
+  :root[data-theme] .data-sync{padding:0 5px}
+  :root[data-theme] .tool-group .btn,:root[data-theme] .tool-group .theme-toggle{min-height:38px;height:38px;font-size:11px}
+  :root[data-theme] .user-btn{height:38px}
+  :root[data-theme] .command-hero{grid-template-columns:minmax(0,1fr) 88px;gap:16px;padding:18px}
+  :root[data-theme] .command-visual{width:88px;height:96px}
+  :root[data-theme] .assistant-emblem{width:88px;height:88px}
+  :root[data-theme] .assistant-caption{display:none}
+  :root[data-theme] .command-copy h2{font-size:25px}
+  :root[data-theme] .command-copy>p{font-size:12px}
+  :root[data-theme] .command-status-row{gap:8px;margin-top:12px}
+  :root[data-theme] .command-shortcut-label,:root[data-theme] .command-shortcut kbd{display:none}
+  :root[data-theme] .command-shortcut{min-width:42px;justify-content:center;padding:0 10px}
+  :root[data-theme] .command-readouts{grid-template-columns:1fr;gap:7px}
+  :root[data-theme] .command-readout,:root[data-theme] .command-readout:nth-child(2),:root[data-theme] .command-readout:nth-child(3){grid-template-columns:100px minmax(0,1fr);gap:4px 10px;padding:11px 12px}
+  :root[data-theme] .command-readout .readout-label{grid-column:1;grid-row:1 / span 2;align-self:center}
+  :root[data-theme] .command-readout strong,:root[data-theme] .command-readout small{grid-column:2;text-align:right}
+  :root[data-theme] .command-readout strong{grid-row:1}
+  :root[data-theme] .command-readout small{grid-row:2}
+}
+@media(max-width:400px){
+  :root[data-theme] .content{padding:20px 12px 32px}
+  :root[data-theme] .command-hero{grid-template-columns:minmax(0,1fr) 66px;gap:14px;padding:16px}
+  :root[data-theme] .command-visual{width:66px;height:76px}
+  :root[data-theme] .assistant-emblem{width:66px;height:66px}
+  :root[data-theme] .command-eyebrow{font-size:8px;letter-spacing:.08em}
+  :root[data-theme] .command-copy h2{font-size:24px}
+  :root[data-theme] .command-actions{gap:6px}
+  :root[data-theme] .command-action{min-height:44px;gap:6px;padding:0 10px;font-size:11px}
+  :root[data-theme] .command-shortcut{min-width:44px;padding:0}
+  :root[data-theme] .command-readout,:root[data-theme] .command-readout:nth-child(2),:root[data-theme] .command-readout:nth-child(3){grid-template-columns:85px minmax(0,1fr)}
 }
 @media(prefers-reduced-motion:reduce){:root[data-theme] *,:root[data-theme] *:before,:root[data-theme] *:after{scroll-behavior:auto!important;animation-duration:.01ms!important;transition-duration:.01ms!important}}
