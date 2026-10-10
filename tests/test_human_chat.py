@@ -26,7 +26,7 @@ class HumanChatTests(unittest.TestCase):
 
     def test_skill_forbids_unprompted_offers_and_meta_comments(self):
         skill = assistant.SKILL_PROMPT
-        self.assertIn("kredit bo'yicha yordam kerakmidi?", skill)
+        self.assertIn("kredit boyicha yordam kerakmidi?", skill)
         self.assertIn("yana salom", skill)
         self.assertIn("The one test", skill)
         self.assertIn("so‘ramagan xizmat yoki mavzuni", assistant.SYSTEM_PROMPT)
@@ -54,7 +54,7 @@ class HumanChatTests(unittest.TestCase):
     def test_clarifying_questions_name_the_options(self):
         skill = assistant.SKILL_PROMPT
         self.assertIn("Clarifying questions: name the options", skill)
-        self.assertIn("Avto salondan yangi mashinami, yoki bozordan (ikkinchi qo‘l)mi?", skill)
+        self.assertIn("Avto salondan yangi mashinami, yoki bozordan (ikkinchi qol)mi?", skill)
         self.assertIn("ask one short question that names the options", skill)
         self.assertIn("Clarifying questions: name the options", assistant.PUBLIC_SKILL_PROMPT)
 
@@ -68,8 +68,8 @@ class HumanChatTests(unittest.TestCase):
         self.assertIn("Real Uzbek texting", skill)
         self.assertIn("> Good: ha, shunaqa", skill)
         self.assertIn("Real Uzbek texting", assistant.PUBLIC_SKILL_PROMPT)
-        for phrase in ("tuzukman, ishlar ham joyida. o'zingiz-chi?", "Javob qaytarish",
-                       "Never answer \"yo'q\" to \"avtomatmi\""):
+        for phrase in ("tuzukman, ishlar ham joyida. ozingizchi?", "Javob qaytarish",
+                       "Never answer \"yoq\" to \"avtomatmi\""):
             self.assertIn(phrase, skill)
         self.assertIn("men Shadow AI, egasining yordamchisiman", skill)
 
