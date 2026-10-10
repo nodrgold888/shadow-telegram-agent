@@ -6,7 +6,7 @@ from shadow import assistant
 CAR_OFFERS = ("Smart Auto", "UzAuto", "Comfort avto", "Smart Roodell", "KIA tezkor", "ROODELL AUTO", "ADM Avto",
               "SPECIAL AUTO", "NAVBATSIZ AVTO", "GLOBAL AVTO", "IKKILAMCHI AVTO", "BYD", "ROODELL 15")
 MICRO_OFFERS = ("Davr Online", "Davr Online 2", "Universal mikroqarz", "Mikroqarz 100", "Nuroniy",
-                "To‘lov uchun mikroqarz", "Maxsus mikroqarz", "Mini kredit", "Mini kredit 2", "Mini kredit 3")
+                "Tolov uchun mikroqarz", "Maxsus mikroqarz", "Mini kredit", "Mini kredit 2", "Mini kredit 3")
 
 
 def annuity(principal: float, annual_percent: float, months: int) -> float:
@@ -47,8 +47,8 @@ class DavrLoansSkillTests(unittest.TestCase):
 
     def test_worked_examples_match_the_formulas(self):
         m = annuity(212_500_000, 25.99, 72)
-        self.assertIn(f"about {spaced(m)} so‘m a month", self.skill)
-        self.assertIn(f"about {spaced(m * 72)} so‘m in total", self.skill)
+        self.assertIn(f"about {spaced(m)} som a month", self.skill)
+        self.assertIn(f"about {spaced(m * 72)} som in total", self.skill)
         first, last, total = differential(280_000_000, 26, 60)
         for value in (first, last, total):
             self.assertIn(spaced(value), self.skill)
