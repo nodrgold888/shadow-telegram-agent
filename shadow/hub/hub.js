@@ -2,6 +2,8 @@
   'use strict';
   const $ = id => document.getElementById(id);
   const paths = {
+    moon:'M20.5 13a8.5 8.5 0 0 1-9.5-9.5 8.5 8.5 0 1 0 9.5 9.5Z',
+    sun:'M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8 M12 2v2 M12 20v2 M2 12h2 M20 12h2 M5 5l1.5 1.5 M17.5 17.5 19 19 M5 19l1.5-1.5 M17.5 6.5 19 5',
     arrowup:'M7 17 17 7 M7 7h10v10',
     user:'M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2 M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8',
     spark:'m12 3 2.7 6.3L21 12l-6.3 2.7L12 21l-2.7-6.3L3 12l6.3-2.7Z',
@@ -21,6 +23,16 @@
   const animePage = document.body.dataset.page === 'anime';
   $('homePage').hidden=animePage; $('animePage').hidden=!animePage;
   $('headerAnimeSearch').hidden=!animePage;
+  const themeToggle=$('animeThemeToggle');themeToggle.hidden=!animePage;
+  function updateThemeButton() {
+    const amoled=document.documentElement.dataset.animeTheme!=='light';
+    const action=amoled?'Kunduzgi rejimga otish':'AMOLED tungi rejimga otish';
+    themeToggle.setAttribute('aria-pressed',String(amoled));themeToggle.setAttribute('aria-label',action);themeToggle.title=action;
+    themeToggle.replaceChildren(icon(amoled?'moon':'sun'),document.createTextNode(amoled?'AMOLED':'Kun rejimi'));
+  }
+  themeToggle.onclick=()=>{const theme=document.documentElement.dataset.animeTheme==='light'?'amoled':'light';document.documentElement.dataset.animeTheme=theme;try{localStorage.setItem('shadow-anime:theme',theme);}catch{}updateThemeButton();};
+  window.addEventListener('storage',event=>{if(event.key==='shadow-anime:theme'){document.documentElement.dataset.animeTheme=event.newValue==='light'?'light':'amoled';updateThemeButton();}});
+  updateThemeButton();
   document.querySelector('[data-nav="'+(animePage?'anime':'home')+'"]').classList.add('active');
   const video=$('animeVideo'), dialog=$('watchDialog');
   let library=new Map(), account=null, accountEpoch=0, tab='catalog', page=1, pages=1, catalogRequest=0, catalogController;

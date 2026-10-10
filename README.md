@@ -16,7 +16,8 @@ resume history, episode selection, automatic next episode, metadata-based intro 
 cinema view, native fullscreen, supported picture-in-picture, and a JSON library export.
 Anime pages follow the supplied YummyAnime reference: a light layout, coral tabs, a poster
 beside title facts, episode buttons above the inline player, and a poster-first mobile page
-with bottom navigation. The source code and complete third-party catalogs are not mirrored. YummyAnime and HDrezka search links open those sites separately.
+with bottom navigation. AMOLED night mode uses a pure-black page background by default;
+the day/night button beside sign-in saves the choice in the browser. The source code and complete third-party catalogs are not mirrored. YummyAnime and HDrezka search links open those sites separately.
 
 Metadata and public HLS streams come from AniLibria's API. **1080p is preferred when the actual
 selected episode supplies it**; available 720p/480p options and missing Full HD are shown accurately.

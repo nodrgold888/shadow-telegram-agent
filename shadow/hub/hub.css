@@ -159,3 +159,57 @@ body[data-page="anime"] .hub-toast{background:#333;color:white;border-color:#555
 }
 .anime-detail.cinema .title-layout{grid-template-columns:minmax(0,1fr)}
 .anime-detail.cinema .title-sidebar,.anime-detail.cinema .title-overview,.anime-detail.cinema .related-panel{display:none}
+/* Day and AMOLED share the same layout. Correct contrast applies to the actual
+   hero-shade/search elements rather than unused legacy selectors. */
+.anime-theme-toggle{display:inline-flex;align-items:center;justify-content:center;gap:7px;white-space:nowrap;min-height:38px;padding:8px 11px;border:1px solid #ccc;border-radius:6px;background:#e4e4e4;color:#333;font-size:11px;font-weight:600}
+.anime-theme-toggle .icon{width:17px;height:17px}
+body[data-page="anime"] .search{display:flex;align-items:center;gap:9px;background:#e5e5e5;border:1px solid #ccc;border-radius:7px;color:#656565;padding:8px 11px}
+body[data-page="anime"] .search input{min-width:0;width:100%;border:0;outline:none;background:transparent;color:#292929;font-size:12px;padding:4px 0}
+body[data-page="anime"] .search button{border-color:#c2c2c2;background:transparent;color:#555}
+body[data-page="anime"] .hero-shade{background:linear-gradient(90deg,#f7f8fa 1%,#f7f8faf5 38%,#f7f8fa9c 70%,#f7f8fa15 100%)}
+body[data-page="anime"] .hero-copy h2{color:#242424}
+body[data-page="anime"] .hero-copy>p{color:#595959}
+body[data-page="anime"] .hero-meta{color:#646464}
+body[data-page="anime"] .pill{color:#666;background:#f0f0f0;border-color:#d6d6d6}
+body[data-page="anime"] .pill.orange{color:#c74247;background:#ffe6e8;border-color:#f4c1c4}
+body[data-page="anime"] .poster-rating,body[data-page="anime"] #catalogCount{color:#f5f5f5}
+html:not([data-anime-theme="light"]) body[data-page="anime"]{color-scheme:dark;--bg:#000;--panel:#0b0b0d;--line:#28282d;--ink:#f1f1f5;--muted:#a4a4ae;background:#000;color:#f1f1f5}
+html:not([data-anime-theme="light"]) body[data-page="anime"] :is(.site-header,.anime-sidebar,.anime-hero,.catalog-controls,.title-overview,.title-statistics,.title-help,.related-panel,.watch-dialog[open],.episode-panel,.mobile-tabs,.anime-mobile-dock){background:#0b0b0d;color:#f1f1f5;border-color:#29292e;box-shadow:none}
+html:not([data-anime-theme="light"]) body[data-page="anime"] :is(.anime-sidebar,.anime-hero,.catalog-controls,.title-overview,.title-statistics,.title-help,.related-panel,.watch-dialog[open]){border:1px solid #242428}
+html:not([data-anime-theme="light"]) body[data-page="anime"] .site-header{border-bottom:1px solid #242428}
+html:not([data-anime-theme="light"]) body[data-page="anime"] :is(.header-anime-search,.search,.search input,.header-anime-search input,select){background:#151518;border-color:#333339;color:#eeeef3}
+html:not([data-anime-theme="light"]) body[data-page="anime"] :is(.search input,.header-anime-search input){background:transparent}
+html:not([data-anime-theme="light"]) body[data-page="anime"] :is(.search button,.header-anime-search button,.header-anime-search input::placeholder,.search input::placeholder){color:#a5a5b0}
+html:not([data-anime-theme="light"]) body[data-page="anime"] :is(.brand,.site-header nav a,.side-item,.sidebar-title,.catalog-header h1,.catalog-controls h2,.poster-card h3,.title-copy h1,.title-facts dd,.watch-tabs button,.watch-actions h3,.hero-copy h2){color:#f1f1f5}
+html:not([data-anime-theme="light"]) body[data-page="anime"] :is(.brand small,.sidebar-label,.library-notice,.source-caption,.hero-copy>p,.hero-meta,.poster-meta,.poster-footer,.title-english,.title-rating,.title-facts dt,.title-statistics p,.title-help p,.player-notice,.alternate-sources p,.autonext,.episode-heading h3,.episode-heading span,.mobile-tabs button,.detail-breadcrumb){color:#a4a4ae}
+html:not([data-anime-theme="light"]) body[data-page="anime"] :is(.sidebar-title strong,.title-facts #detailYear,.detail-back,.title-help a,.title-help button,.alternate-sources a){color:#ff737a}
+html:not([data-anime-theme="light"]) body[data-page="anime"] :is(.site-header nav a.active,.mobile-tabs button.active,.watch-tabs button.active){color:white;background:#f55e66}
+html:not([data-anime-theme="light"]) body[data-page="anime"] .side-item.active{color:#ff737a;background:#281215}
+html:not([data-anime-theme="light"]) body[data-page="anime"] :is(.secondary,.account-link,.anime-theme-toggle,.icon-button,.poster-footer button,.title-poster button,.episode-button,.watch-preference,.mobile-tabs,.detail-quality){background:#18181d;color:#e1e1e8;border-color:#34343b}
+html:not([data-anime-theme="light"]) body[data-page="anime"] .anime-theme-toggle{border-color:#5f3439;color:#ff9ca1;background:#211114}
+html:not([data-anime-theme="light"]) body[data-page="anime"] .hero-shade{background:linear-gradient(90deg,#08080b 1%,#08080bf5 36%,#08080b90 72%,#08080b33 100%),linear-gradient(0deg,#08080bbf,transparent 75%)}
+html:not([data-anime-theme="light"]) body[data-page="anime"] .hero-copy h2{color:#fff}
+html:not([data-anime-theme="light"]) body[data-page="anime"] .hero-copy>p{color:#d2d2db}
+html:not([data-anime-theme="light"]) body[data-page="anime"] .hero-meta{color:#c2c2ce}
+html:not([data-anime-theme="light"]) body[data-page="anime"] .pill{background:#24242a;color:#dddde4;border-color:#414148}
+html:not([data-anime-theme="light"]) body[data-page="anime"] .pill.orange{background:#351519;color:#ffadb2;border-color:#6c3037}
+html:not([data-anime-theme="light"]) body[data-page="anime"] .poster-art{background:#151519;border-color:#29292f}
+html:not([data-anime-theme="light"]) body[data-page="anime"] .poster-footer button.saved{color:#ff737a}
+html:not([data-anime-theme="light"]) body[data-page="anime"] .title-description{color:#dddde5}
+html:not([data-anime-theme="light"]) body[data-page="anime"] .detail-genres span{color:#dcdce5;border-color:#4a4a54;background:#17171d}
+html:not([data-anime-theme="light"]) body[data-page="anime"] .title-status{color:#64dd9e;border-color:#359e67}
+html:not([data-anime-theme="light"]) body[data-page="anime"] :is(.title-poster,.title-poster img){background:#141417}
+html:not([data-anime-theme="light"]) body[data-page="anime"] .title-poster button[aria-pressed="true"]{color:#ff9da5;background:#2b1318}
+html:not([data-anime-theme="light"]) body[data-page="anime"] .episode-button.active{border-top-color:#53db96;background:#25252d;color:#fff}
+html:not([data-anime-theme="light"]) body[data-page="anime"] .episode-number{color:#efeff5}
+html:not([data-anime-theme="light"]) body[data-page="anime"] :is(.title-statistics p,.title-help button,.title-help a,.watch-description,.sidebar-divider){border-color:#2c2c32}
+html:not([data-anime-theme="light"]) body[data-page="anime"] .player-bar select{background:#19191f;color:#eeeef6;border-color:#3b3b45}
+html:not([data-anime-theme="light"]) body[data-page="anime"] .site-footer{background:#050505;border-color:#232328;color:#a4a4af}
+html:not([data-anime-theme="light"]) body[data-page="anime"] .anime-mobile-dock{border-top:2px solid #ff6065}
+html:not([data-anime-theme="light"]) body[data-page="anime"] :is(.anime-mobile-dock a,.anime-mobile-dock button){color:#dedee8}
+html:not([data-anime-theme="light"]) body[data-page="anime"] .anime-mobile-dock button.active{color:#ff7b83}
+html:not([data-anime-theme="light"]) body[data-page="anime"] .skeleton .poster-art{background:#16161b}
+@media(max-width:600px){body[data-page="anime"] .site-header nav a[data-nav="ai"]{display:none}.anime-theme-toggle{min-height:32px;padding:6px 8px;gap:4px;font-size:10px}.anime-theme-toggle .icon{width:15px;height:15px}}
+html:not([data-anime-theme="light"]) body[data-page="anime"] input::placeholder{color:#a5a5b0}
+html:not([data-anime-theme="light"]) body[data-page="anime"] :is(.primary,.site-header nav a.active,.mobile-tabs button.active,.watch-tabs button.active){background:#cf3d47;border-color:#cf3d47;color:#fff}
+html:not([data-anime-theme="light"]) body[data-page="anime"] .brand-mark{background:#eb505a}
