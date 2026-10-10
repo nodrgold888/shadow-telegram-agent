@@ -2,6 +2,9 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
+import re
+import shutil
 import json
 import os
 import sqlite3
@@ -12,10 +15,11 @@ from pathlib import Path
 
 from .assistant import chat_create, should_fall_back
 from .model_routing import ordered_backup_providers
+from .workspace_agent import AgentRunner, AgentToolError, INSTRUCTIONS, compat_agent, openai_agent
 from .workspace_models import account_shortlist, catalog_choice, check_catalog_choice
 from .skills.web_search import search_web, _configured_providers
 
-MODES = {'chat', 'code', 'research'}
+MODES = {'chat', 'code', 'research', 'agent'}
 SYSTEM = '''You are Shadow, the owner's AI assistant inside the Shadow workspace.
 Match the user's language. Be useful, accurate, and direct. This is a full workspace,
 not Telegram auto-replies: preserve apostrophes, punctuation, indentation, and code.
@@ -115,10 +119,10 @@ class ChatStore:
             db.execute('DELETE FROM threads WHERE id=? AND account=?', (thread, str(account)))
 
 
-async def workspace_reply(assistant, history, mode, sources, *, max_tokens=6000, model="auto"):
+async def workspace_reply(assistant, history, mode, sources, *, max_tokens=6000, model="auto", runner=None):
     validate_model_selection(assistant.settings, model)
     preferred_slot = int(model.split(':')[1]) if model.startswith('slot:') else None
-    instructions = SYSTEM
+    instructions = SYSTEM + (INSTRUCTIONS if runner is not None else '')
     if mode == 'code':
         instructions += '\nFocus on coding, debugging, tests and practical implementation. Preserve code exactly.'
     if mode == 'research':
@@ -133,21 +137,27 @@ async def workspace_reply(assistant, history, mode, sources, *, max_tokens=6000,
         context.insert(0, {'role': item['role'], 'content': item['content']})
         size += len(item['content'])
     messages = [{'role': 'system', 'content': instructions}, *context]
-    purpose = {'chat': 'chat', 'code': 'development', 'research': 'analysis'}[mode]
+    purpose = {'chat': 'chat', 'code': 'development', 'research': 'analysis', 'agent': 'development'}[mode]
     chosen = {}
 
     async def compat(provider, client, override=None):
         requested = override or provider.model
-        response = await chat_create(client, model=requested, messages=messages, max_tokens=max_tokens)
-        text = response.choices[0].message.content or ''
+        if runner is not None:
+            text = await compat_agent(client, requested, messages, runner, max_tokens)
+        else:
+            response = await chat_create(client, model=requested, messages=messages, max_tokens=max_tokens)
+            text = response.choices[0].message.content or ''
         if text.strip():
             chosen.update(provider=provider.name, model=requested, provider_id=("catalog:" + override) if override else f"slot:{provider.slot}")
         return text
 
     async def primary():
-        response = await assistant.client.responses.create(model=assistant.settings.openai_model,
-            instructions=instructions, input=context, max_output_tokens=max_tokens)
-        text = response.output_text or ''
+        if runner is not None:
+            text = await openai_agent(assistant.client, assistant.settings.openai_model, instructions, context, runner, max_tokens)
+        else:
+            response = await assistant.client.responses.create(model=assistant.settings.openai_model,
+                instructions=instructions, input=context, max_output_tokens=max_tokens)
+            text = response.output_text or ''
         if not text.strip():
             raise WorkspaceError('AI bosh javob qaytardi.')
         chosen.update(provider='OpenAI', model=assistant.settings.openai_model, provider_id='openai')
@@ -162,7 +172,7 @@ async def workspace_reply(assistant, history, mode, sources, *, max_tokens=6000,
         client = next(client for p, client in assistant.compat_clients if p.slot == provider.slot)
         try:
             # Leave the original gateway auto route and all backups intact.
-            async with asyncio.timeout(35):
+            async with asyncio.timeout(120 if runner is not None else 35):
                 answer = await compat(provider, client, target)
             if answer.strip():
                 chosen['fallback_used'] = False
@@ -196,7 +206,8 @@ async def workspace_reply(assistant, history, mode, sources, *, max_tokens=6000,
 
 
 class Workspace:
-    def __init__(self, store=None):
+    def __init__(self, store=None, development=None):
+        self.development = development
         self.store = store or ChatStore()
         self.jobs = {}
 
@@ -209,13 +220,13 @@ class Workspace:
         recommendations = await account_shortlist(settings)
         models = recommendations["models"]
         return {'account_id': account, 'configured': settings.ai_ready, 'mode': settings.ai_work_mode,
-                **recommendations, 'recommended_count': len(models), 'models': models, 'connected_count': sum(m['enabled'] for m in models), 'eligible_count': sum(m['enabled'] for m in model_options(settings)), 'research_ready': research, 'threads': self.store.list(account),
+                **recommendations, 'recommended_count': len(models), 'models': models, 'connected_count': sum(m['enabled'] for m in models), 'eligible_count': sum(m['enabled'] for m in model_options(settings)), 'agent_ready': True, 'agent_capabilities': ['Hisoblash', 'Web va yangilik qidiruv', 'Kod va matn fayllari', 'Word va Excel'] + (['Loyiha vazifalari'] if self.development else []), 'research_ready': research, 'threads': self.store.list(account),
                 'active': next((self.public(j) for j in self.jobs.values() if j['account'] == str(account) and j['state'] == 'running'), None),
                 'storage_note': 'Suhbatlar shu serverda saqlanadi. Render free qayta joylashtirilganda tarix yoqolishi mumkin. Muhim suhbatni eksport qiling.'}
 
     @staticmethod
     def public(job):
-        return {key: job[key] for key in ('id', 'thread_id', 'state', 'stage', 'error')}
+        return {key: job[key] for key in ('id', 'thread_id', 'state', 'stage', 'error', 'events') if key in job}
 
     def job(self, account, job_id):
         job = self.jobs.get(job_id)
@@ -247,33 +258,77 @@ class Workspace:
             if old['state'] != 'running' and (time.time() - old['created'] > 3600 or len(self.jobs) >= 300):
                 del self.jobs[key]
         job = {'id': uuid.uuid4().hex, 'thread_id': thread['id'], 'account': str(account),
-               'state': 'running', 'stage': 'Qidiruv' if mode == 'research' else 'Javob tayyorlanmoqda', 'error': '', 'created': time.time()}
+               'state': 'running', 'stage': 'Qidiruv' if mode == 'research' else 'Javob tayyorlanmoqda', 'error': '', 'created': time.time(), 'events': []}
         self.jobs[job['id']] = job
         job['task'] = asyncio.create_task(self.run(job, assistant, thread, text, owned=owned))
         return self.public(job)
 
+    def artifact_dir(self, account, thread_id):
+        if not re.fullmatch(r'[a-f0-9]{32}', thread_id):
+            raise WorkspaceError('Fayl topilmadi.')
+        scope = hashlib.sha256(str(account).encode()).hexdigest()[:24]
+        return self.store.path.parent / 'artifacts' / scope / thread_id
+
+    def attachment(self, account, thread_id, file_id):
+        thread = self.store.get(account, thread_id)
+        if not re.fullmatch(r'[a-f0-9]{32}', file_id):
+            raise WorkspaceError('Fayl topilmadi.')
+        item = next((a for m in thread['messages'] for a in m.get('attachments', []) if a['id'] == file_id), None)
+        path = self.artifact_dir(account, thread_id) / file_id
+        if item is None or not path.is_file():
+            raise WorkspaceError('Fayl topilmadi yoki server qayta ishga tushgan. Qayta yaratish uchun agentga yozing.')
+        return path, item
+
+    def delete(self, account, thread_id):
+        self.store.get(account, thread_id)
+        self.store.delete(account, thread_id)
+        shutil.rmtree(self.artifact_dir(account, thread_id), ignore_errors=True)
+
     async def run(self, job, assistant, thread, text, *, owned=False):
-        sources = []
+        sources, runner = [], None
+        if thread['mode'] == 'agent':
+            runner = AgentRunner(assistant, self.artifact_dir(job['account'], thread['id']), job['account'], job, self.development)
         try:
-            async with asyncio.timeout(120):
+            async with asyncio.timeout(240 if runner else 120):
                 if thread['mode'] == 'research':
                     result = await search_web(text[:300])
                     sources = result['results']
                     job['stage'] = 'Manbalar tahlil qilinmoqda'
-                answer, chosen = await workspace_reply(assistant, thread['messages'], thread['mode'], sources, model=thread.get('selected_model', 'auto'))
-                thread['messages'].append({'role': 'assistant', 'content': answer, 'created': time.time(), 'sources': sources, **chosen})
+                extra = {'runner': runner} if runner else {}
+                answer, chosen = await workspace_reply(assistant, thread['messages'], thread['mode'], sources, model=thread.get('selected_model', 'auto'), **extra)
+                thread['messages'].append({'role': 'assistant', 'content': answer, 'created': time.time(),
+                    'sources': runner.sources if runner else sources, **chosen, **(runner.receipt() if runner else {})})
                 self.store.save(job['account'], thread)
                 job['state'] = 'done'
         except asyncio.CancelledError:
             job['state'] = 'cancelled'
+            if runner:
+                for event in runner.events:
+                    if event['state'] == 'running':
+                        event['state'] = 'cancelled'
+                if self.development:
+                    for project in runner.projects:
+                        try:
+                            child = self.development.get(project['id'], runner.scope)
+                        except ValueError:
+                            continue
+                        if child['state'] in {'queued', 'inspecting', 'building', 'validating'}:
+                            await self.development.cancel(project['id'])
         except Exception as exc:
             job['state'] = 'error'
             job['error'] = reply_error(exc)
         finally:
-            job.pop('task', None)
-            job['stage'] = ''
-            if owned:
-                await close_assistant(assistant)
+            try:
+                # Keep completed outputs even when generation failed or was cancelled.
+                if runner and job['state'] != 'done' and runner.events:
+                    thread['messages'].append({'role': 'assistant', 'content': 'Agent javobi yakunlanmadi. Bajarilgan amallar va tayyor fayllar quyida saqlandi.',
+                        'created': time.time(), 'sources': runner.sources, **runner.receipt()})
+                    self.store.save(job['account'], thread)
+            finally:
+                job.pop('task', None)
+                job['stage'] = ''
+                if owned:
+                    await close_assistant(assistant)
 
     async def close(self):
         tasks = [j["task"] for j in self.jobs.values() if "task" in j]
@@ -308,8 +363,8 @@ async def close_assistant(assistant):
 
 def reply_error(exc):
     code = getattr(exc, 'status_code', None)
-    return (str(exc) if isinstance(exc, WorkspaceError) else
+    return (str(exc) if isinstance(exc, (WorkspaceError, AgentToolError)) else
         'AI kvotasi yoki balansi tugagan. Boshqa provayder yoki bepul modelni sozlang.' if code in {402, 429} else
         'AI kaliti yoki gateway ruxsati rad etildi. AI provayderlar sozlamalarini tekshiring.' if code in {401, 403} else
-        'AI 120 soniyada javob bermadi. Boshqa model yoki zaxira provayderni tanlang.' if isinstance(exc, TimeoutError) else
+        'AI uchun ajratilgan vaqt tugadi. Boshqa model yoki zaxira provayderni tanlang.' if isinstance(exc, TimeoutError) else
         'AI javob bermadi. AI provayderlar bolimida modelni tekshiring va qayta urinib koring.')

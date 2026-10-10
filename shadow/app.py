@@ -11,7 +11,7 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 from fastapi import Cookie, Depends, FastAPI, Header, HTTPException, Request
-from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, Response
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, PlainTextResponse, Response
 
 from .config import Settings
 from .assistant import ShadowAssistant
@@ -168,7 +168,7 @@ def development_auth(shadow_setup: str | None = Cookie(default=None),
         raise HTTPException(status_code=401, detail="Kirish kerak")
 
 
-workspace_ai = Workspace()
+workspace_ai = Workspace(development=development)
 
 
 @app.get("/dashboard/workspace.js")
@@ -234,18 +234,31 @@ async def workspace_thread(thread_id: str, request: Request):
     return JSONResponse(result, headers={"Cache-Control": "no-store"})
 
 
+@app.get("/dashboard/api/workspace/threads/{thread_id}/files/{file_id}", dependencies=[Depends(development_auth)])
+async def workspace_file(thread_id: str, file_id: str, request: Request):
+    try:
+        path, item = workspace_ai.attachment(workspace_account(request), thread_id, file_id)
+    except WorkspaceError as exc:
+        raise HTTPException(404, str(exc)) from None
+    return FileResponse(path, filename=item['name'], media_type='application/octet-stream',
+                        headers={'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff'})
+
+
 @app.delete("/dashboard/api/workspace/threads/{thread_id}", dependencies=[Depends(development_auth)])
 async def workspace_delete(thread_id: str, request: Request):
     account = workspace_account(request)
     if any(j["account"] == str(account) and j["thread_id"] == thread_id and j["state"] == "running" for j in workspace_ai.jobs.values()):
         raise HTTPException(409, "Avval javobni toxtating.")
-    workspace_ai.store.delete(account, thread_id)
+    try:
+        workspace_ai.delete(account, thread_id)
+    except WorkspaceError as exc:
+        raise HTTPException(404, str(exc)) from None
     return {"ok": True}
 
 
 class WorkspaceMessage(BaseModel):
     message: str = Field(min_length=1, max_length=16000)
-    mode: Literal["chat", "code", "research"] = "chat"
+    mode: Literal["chat", "code", "research", "agent"] = "chat"
     thread_id: str | None = Field(default=None, max_length=40)
     model: str = Field(default="auto", max_length=140)
 
