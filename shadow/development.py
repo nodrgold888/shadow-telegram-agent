@@ -245,9 +245,11 @@ DEV_CHAIN_BUDGET = 120.0
 async def ask_ai(settings: Settings, messages: list[dict], max_tokens: int, *,
                  purpose: str = "development", on_success=None) -> dict:
     backups = [(p.name, p.api_key, p.base_url, p.model) for p in ordered_backup_providers(settings, purpose)]
-    primary = [("OpenAI", settings.openai_api_key, None, os.getenv("SHADOW_DEV_MODEL", "").strip() or settings.openai_model)] if settings.openai_api_key else []
+    primary = [("OpenAI", settings.openai_api_key, None, os.getenv("SHADOW_DEV_MODEL", "").strip() or settings.openai_model)] if settings.openai_api_key and settings.ai_work_mode != "free" else []
     providers = (backups + primary) if settings.ai_primary else (primary + backups)
     if not providers:
+        if settings.ai_work_mode == "free":
+            raise DevelopmentError("Bepul AI sozlanmagan. AI provayderlar bolimida xKiro Free, OpenRouter Free yoki lokal AI ni sozlang.")
         raise DevelopmentError("Configure an AI provider in the dashboard first")
     def health_key(provider):
         _, key, base, model = provider

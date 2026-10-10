@@ -3,12 +3,12 @@ from __future__ import annotations
 
 import re
 from typing import TYPE_CHECKING
-from .provider_catalog import XKIRO_BASE_URL, XKIRO_MODELS
+from .provider_catalog import XKIRO_BASE_URL, XKIRO_MODELS, OPENROUTER_BASE_URL, LOCAL_AI_SLOT
 
 if TYPE_CHECKING:
     from .config import AIProvider, Settings
 
-WORK_MODES = frozenset({"professional", "economy", "manual"})
+WORK_MODES = frozenset({"free", "professional", "economy", "manual"})
 _QWEN, _SONNET, _GPT, _OPUS = (model for model, _ in XKIRO_MODELS)
 _TASK_MODELS = {
     "selection": (_QWEN, _SONNET, _GPT, _OPUS),
@@ -19,10 +19,24 @@ _TASK_MODELS = {
 }
 
 
+def is_free_provider(provider: AIProvider) -> bool:
+    """Only explicit free cloud routes and the configured local host qualify.
+
+    A name containing 'free', or an arbitrary endpoint's model suffix, is not
+    evidence of zero-cost routing. Other providers remain opt-in in paid modes.
+    """
+    return (provider.slot == LOCAL_AI_SLOT or
+            (provider.base_url in {XKIRO_BASE_URL, OPENROUTER_BASE_URL}
+             and provider.model.endswith(":free")) or
+            (provider.base_url == OPENROUTER_BASE_URL and provider.model == "openrouter/free"))
+
+
 def ordered_backup_providers(settings: Settings, purpose: str = "chat") -> tuple[AIProvider, ...]:
     """Route only the known xKiro models; preserve other services and manual chat priority."""
     providers = list(settings.backup_providers)
     mode = settings.ai_work_mode
+    if mode == "free":
+        return tuple(p for p in providers if is_free_provider(p))
     preferred = (_QWEN, _SONNET, _GPT, _OPUS) if mode == "economy" else _TASK_MODELS.get(purpose)
     if mode == "manual" or not preferred:
         return tuple(providers)

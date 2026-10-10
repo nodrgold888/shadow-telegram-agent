@@ -11,7 +11,7 @@ from shadow.config import Settings
 class OfficeAssistantTests(unittest.IsolatedAsyncioTestCase):
     async def test_tool_output_creates_actual_file_then_returns_answer(self):
         settings = Settings(None, "", "", "test", "test", frozenset({123}), True,
-                            "mentions", 12, 3800, "", "")
+                            "mentions", 12, 3800, "", "", ai_work_mode="professional")
         with patch("shadow.assistant.AsyncOpenAI") as client:
             call = SimpleNamespace(
                 type="function_call", name="create_word", call_id="call1",
@@ -39,7 +39,7 @@ class OfficeAssistantTests(unittest.IsolatedAsyncioTestCase):
     async def test_permissions_revoked_during_generation_prevent_sending(self):
         from shadow.telegram_agent import TelegramAgent
         settings = Settings(None, "", "", "test", "test", frozenset({123}), True,
-                            "mentions", 12, 3800, "", "")
+                            "mentions", 12, 3800, "", "", ai_work_mode="professional")
         agent = TelegramAgent(settings)
         agent.client = SimpleNamespace(send_message=AsyncMock(), send_file=AsyncMock())
         # Telethon action context replaced by a minimal async context manager.

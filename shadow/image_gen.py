@@ -32,6 +32,8 @@ def parse_image_command(text: str) -> str | None:
 
 
 def gemini_api_key(settings: Settings) -> str:
+    if settings.ai_work_mode == "free":
+        return ""
     """Reuse the key of a Gemini backup provider, else GEMINI_API_KEY."""
     for provider in settings.backup_providers:
         if GEMINI_HOST in provider.base_url:

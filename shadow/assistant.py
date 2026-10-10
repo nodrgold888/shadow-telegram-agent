@@ -357,7 +357,7 @@ class ShadowAssistant:
 
     @staticmethod
     def _openai_client(settings: Settings):
-        if not settings.openai_api_key:
+        if not settings.openai_api_key or settings.ai_work_mode == "free":
             return None
         if settings.backup_providers:
             # A backup exists: fail fast and let the chain take over instead of waiting on OpenAI.
@@ -372,7 +372,7 @@ class ShadowAssistant:
              if provider.base_url == ANTHROPIC_BASE_URL else
              AsyncOpenAI(base_url=provider.base_url, api_key=provider.api_key,
                          timeout=120.0 if provider.slot == LOCAL_AI_SLOT else BACKUP_TIMEOUT, max_retries=0))
-            for provider in settings.backup_providers
+            for provider in ordered_backup_providers(settings)
         ]
 
     async def _retry_once(self, call):
@@ -409,6 +409,8 @@ class ShadowAssistant:
 
     def _openai(self) -> AsyncOpenAI:
         if self.client is None:
+            if self.settings.ai_work_mode == "free":
+                raise RuntimeError("Bepul rejim faol. AI provayderlar bolimida xKiro Free, OpenRouter Free yoki lokal AI sozlang. Pullik OpenAI va ovoz xizmatlari bu rejimda ishlatilmaydi.")
             raise RuntimeError("OPENAI_API_KEY o‘rnatilmagan: bu imkoniyat uchun OpenAI kerak")
         return self.client
 
@@ -522,7 +524,7 @@ class ShadowAssistant:
                 result["seconds"] = round(time.monotonic() - started, 2)
                 return result
 
-        if self.settings.openai_api_key:
+        if self.client is not None:
             for model in dict.fromkeys((self.settings.openai_model, self.settings.complex_openai_model)):
                 async def ask(model=model):
                     response = await self.client.responses.create(
@@ -603,7 +605,8 @@ class ShadowAssistant:
             return result
         if empty is not None:
             return empty
-        assert last is not None, "no backup AI provider configured"
+        if last is None:
+            raise RuntimeError("Bu rejim uchun AI sozlanmagan. AI provayderlar bolimini tekshiring.")
         raise last
 
     async def _compat_text(self, prompt: str, instructions: str, *, max_tokens: int = 1500) -> str:
@@ -617,7 +620,7 @@ class ShadowAssistant:
         return await self._try_providers(call)
 
     def _use_compat_first(self) -> bool:
-        return bool(self.compat_clients) and (self.settings.ai_primary or not self.settings.openai_api_key)
+        return bool(self.compat_clients) and (self.settings.ai_primary or self.client is None)
 
     async def reply_greeting(self, *, history: str, message: str) -> str:
         """Short, tool-free greeting that asks why a not-approved person wrote."""

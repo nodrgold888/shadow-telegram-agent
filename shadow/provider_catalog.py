@@ -10,3 +10,5 @@ XKIRO_MODELS = (
     ("anthropic/claude-opus-5.5", "xKiro Opus 5.5"),
 )
 XKIRO_DEFAULTS_VERSION = "1"
+OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
+AI_COST_POLICY_VERSION = "1"

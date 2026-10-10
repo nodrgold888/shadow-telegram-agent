@@ -8,8 +8,8 @@ from dataclasses import replace
 
 from .accounts import MAX_ACCOUNTS, dump_accounts, forget, parse_accounts, public_view, remember
 from .config import Settings
-from .ai_slots import prepare_xkiro_defaults
-from .provider_catalog import XKIRO_DEFAULTS_VERSION
+from .ai_slots import prepare_xkiro_defaults, prepare_free_defaults
+from .provider_catalog import XKIRO_DEFAULTS_VERSION, AI_COST_POLICY_VERSION
 from .persist import account_scope, load_accounts_raw, load_local_settings, save_accounts, save_env_vars, select_scope, set_task_scope
 from .telegram_agent import TelegramAgent, TelegramSetupTimeout, CONNECTION_TIMEOUT_SECONDS
 
@@ -22,13 +22,17 @@ class AccountWorker(TelegramAgent):
 
     async def _enter_account_scope(self, account_id):
         await super()._enter_account_scope(account_id)
-        if load_local_settings().get("XKIRO_DEFAULTS_VERSION") == XKIRO_DEFAULTS_VERSION:
-            return
-        try:
-            updated, values = prepare_xkiro_defaults(self.settings)
-        except ValueError:
-            # Provider setup must never prevent Telegram from connecting.
-            return
+        local = load_local_settings()
+        updated, values = self.settings, {}
+        if local.get("AI_COST_POLICY_VERSION") != AI_COST_POLICY_VERSION:
+            updated, values = prepare_free_defaults(updated)
+        if local.get("XKIRO_DEFAULTS_VERSION") != XKIRO_DEFAULTS_VERSION:
+            try:
+                updated, bundle_values = prepare_xkiro_defaults(updated)
+                values.update(bundle_values)
+            except ValueError:
+                # A full provider list must not block Telegram or free routing.
+                pass
         if values:
             self.settings = updated
             if self.assistant:

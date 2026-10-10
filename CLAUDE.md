@@ -12,7 +12,7 @@ with concurrent workers in `shadow/runtime.py`, deployed on Render. The owner sp
   `TELEGRAM_ACCOUNT_SETTINGS` (`persist.SCOPED_DEFAULTS`): `load_local_settings()` layers the active account's
   bundle over the globals and `_save_local`/`_put_env_var` redirect those keys into it. `_activate_client` enters the
   scope (first account keeps its old settings, later ones start blank). New per-account setting = add it to SCOPED_DEFAULTS.
-- `shadow/assistant.py` AI calls: OpenAI Responses API first, then the backup provider chain
+- `shadow/assistant.py` AI calls: free-only by default (known free cloud routes + configured local host); paid modes opt into OpenAI Responses API and the backup provider chain
   (OpenAI-compatible Chat Completions, slots `AI_*`, `AI_*_2`..`_12`), tools (calculator, Word, Excel).
 - `shadow/skills/*.md` prompt skills (human chat, banking, video download); `shadow/agents.py` per-chat agents.
 - `shadow/config.py` env settings and model catalog; `shadow/persist.py` Render env / local state persistence.
@@ -37,6 +37,7 @@ with concurrent workers in `shadow/runtime.py`, deployed on Render. The owner sp
   trigger replies. Unapproved chats only get the opt-in bank answers (`PUBLIC_BANK_REPLY`) and the opt-in short greeting
   (dashboard switch `GREET_UNKNOWN`, `shadow/greeting.py`), opt-in video links (`VIDEO_UNKNOWN`), opt-in short voice replies
   (`VOICE_UNKNOWN`) and opt-in notes to Saved Messages (`NOTIFY_UNKNOWN`), all off by default; chats on the friend list (`FRIEND_CHAT_IDS`) get nothing at all.
+- Free mode must never invoke excluded paid models or multimedia APIs, even on failure or during model checks. The one-time `AI_COST_POLICY_VERSION` migration enables it privately for existing accounts; later saved choices win.
 - OpenAI API credits are separate from ChatGPT plan limits (`insufficient_quota` = no API credits).
   `gpt-reserve` is not an API model (404); `gpt-5.6-luna` needs credits; `gpt-6-luna` worked on the owner's key.
 - A saved but no-longer-offered model in `SHADOW_MODEL_SELECTION` is ignored at boot, never fatal.

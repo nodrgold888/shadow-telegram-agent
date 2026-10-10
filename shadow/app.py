@@ -785,7 +785,7 @@ async def dashboard_ai_work_mode(
         purpose: [{"name": p.name, "model": p.model} for p in ordered_backup_providers(agent.settings, purpose)]
         for purpose in ("chat", "development", "analysis", "review")
     }
-    if agent.settings.openai_api_key:
+    if agent.settings.openai_api_key and agent.settings.ai_work_mode != "free":
         primary = {"name": "OpenAI", "model": agent.settings.openai_model}
         for route in routes.values():
             route.insert(len(route) if agent.settings.ai_primary else 0, primary)
@@ -805,7 +805,7 @@ async def dashboard_save_ai_work_mode(
     if not isinstance(mode, str) or mode not in WORK_MODES:
         raise HTTPException(status_code=400, detail="AI ishlash rejimini tekshiring")
     async with agent._setup_lock:
-        values = {"AI_WORK_MODE": mode}
+        values = {"AI_WORK_MODE": mode, "AI_COST_POLICY_VERSION": "1"}
         persisted = await save_env_vars(values)
         os.environ.update(values)
         agent.settings = replace(agent.settings, ai_work_mode=mode)

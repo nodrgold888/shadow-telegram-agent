@@ -11,7 +11,7 @@ from shadow.telegram_agent import TelegramAgent
 
 def settings():
     return Settings(None, "", "", "test", "test", frozenset({123}), True,
-                    "mentions", 12, 3800, "", "")
+                    "mentions", 12, 3800, "", "", ai_work_mode="professional")
 
 
 class VoiceAssistantTests(unittest.IsolatedAsyncioTestCase):

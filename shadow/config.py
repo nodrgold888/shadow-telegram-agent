@@ -7,7 +7,7 @@ import re
 from dataclasses import dataclass, field
 
 from .persist import load_local_settings
-from .model_routing import WORK_MODES
+from .model_routing import WORK_MODES, ordered_backup_providers
 from .provider_catalog import MAX_BACKUP_PROVIDERS, LOCAL_AI_SLOT
 
 log = logging.getLogger("shadow.config")
@@ -150,7 +150,7 @@ class Settings:
     ai_name: str = "zaxira"
     ai_extra_providers: tuple["AIProvider", ...] = ()
     ai_first_slot: int = 0
-    ai_work_mode: str = "professional"
+    ai_work_mode: str = "free"
     group_reply_enabled: bool = True
     # Shared inference host: no Telegram account data or permissions are shared.
     local_ai_base_url: str = ""
@@ -182,7 +182,7 @@ class Settings:
             model_selection = valid
         if mode not in {"mentions", "all"}:
             raise ValueError("GROUP_REPLY_MODE must be 'mentions' or 'all'")
-        work_mode = local.get("AI_WORK_MODE", os.getenv("AI_WORK_MODE", "professional"))
+        work_mode = local.get("AI_WORK_MODE", os.getenv("AI_WORK_MODE", "free"))
         return cls(
             telegram_api_id=_integer("TELEGRAM_API_ID"),
             telegram_api_hash=os.getenv("TELEGRAM_API_HASH", "").strip(),
@@ -207,7 +207,7 @@ class Settings:
             ai_name=re.sub(r"[^A-Za-z0-9 ._-]", "", local.get("AI_NAME", os.getenv("AI_NAME", ""))).strip()[:30] or "zaxira",
             ai_extra_providers=_extra_providers(local),
             ai_first_slot=_first_slot(local.get("AI_FIRST_SLOT", os.getenv("AI_FIRST_SLOT", ""))),
-            ai_work_mode=work_mode if work_mode in WORK_MODES else "professional",
+            ai_work_mode=work_mode if work_mode in WORK_MODES else "free",
             local_ai_base_url=_ai_base_url(os.getenv("SHADOW_LOCAL_AI_BASE_URL", "")),
             local_ai_api_key=os.getenv("SHADOW_LOCAL_AI_API_KEY", "").strip(),
             local_ai_model=os.getenv("SHADOW_LOCAL_AI_MODEL", "").strip(),
@@ -233,11 +233,11 @@ class Settings:
     @property
     def compat_ai_ready(self) -> bool:
         """At least one OpenAI-compatible (Chat Completions) backup provider is fully configured."""
-        return bool(self.backup_providers)
+        return bool(ordered_backup_providers(self))
 
     @property
     def ai_ready(self) -> bool:
-        return bool(self.openai_api_key or self.compat_ai_ready)
+        return bool((self.openai_api_key and self.ai_work_mode != "free") or self.compat_ai_ready)
 
     @property
     def telegram_api_ready(self) -> bool:

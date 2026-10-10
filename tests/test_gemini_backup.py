@@ -43,7 +43,7 @@ class ChatCreateTests(unittest.IsolatedAsyncioTestCase):
 
 class GeminiConfigTests(unittest.TestCase):
     def test_gemini_openai_endpoint_is_accepted_as_a_backup_provider(self):
-        env = {"AI_BASE_URL": GEMINI_URL, "AI_API_KEY": "gemini-key", "AI_MODEL": "gemini-3.8-flash",
+        env = {"AI_WORK_MODE": "professional", "AI_BASE_URL": GEMINI_URL, "AI_API_KEY": "gemini-key", "AI_MODEL": "gemini-3.8-flash",
                "AI_NAME": "Gemini", "SHADOW_STATE_FILE": ""}
         with patch.dict(os.environ, env):
             settings = Settings.from_env()

@@ -24,6 +24,7 @@ class BadRequest(Exception):
 
 def make_settings(**overrides):
     base = dict(
+        ai_work_mode="professional",
         telegram_api_id=None, telegram_api_hash="", telegram_session="", openai_api_key="sk-openai",
         openai_model="gpt-5-mini", approved_chat_ids=frozenset(), reply_enabled=False,
         group_reply_mode="mentions", context_messages=12, max_reply_chars=3800, admin_token="", setup_token="",
@@ -141,7 +142,7 @@ class HelperAndConfigTests(unittest.TestCase):
         with patch.dict(os.environ, env):
             with self.assertRaises(ValueError):
                 Settings.from_env()
-        env = {"AI_BASE_URL": "https://api.backup.example/v1/", "AI_API_KEY": "k", "AI_MODEL": "m", "SHADOW_STATE_FILE": ""}
+        env = {"AI_WORK_MODE": "professional", "AI_BASE_URL": "https://api.backup.example/v1/", "AI_API_KEY": "k", "AI_MODEL": "m", "SHADOW_STATE_FILE": ""}
         with patch.dict(os.environ, env):
             settings = Settings.from_env()
         self.assertEqual(settings.ai_base_url, "https://api.backup.example/v1")

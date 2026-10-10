@@ -51,7 +51,7 @@ class ModePersistenceTests(ScopeTestCase):
         self.assertTrue(await persist.save_env_vars({"AI_WORK_MODE": "economy"}))
         self.assertEqual(Settings.from_env().ai_work_mode, "economy")
         await persist.enter_scope("2", migrate_globals=False)
-        self.assertEqual(Settings.from_env().ai_work_mode, "professional")
+        self.assertEqual(Settings.from_env().ai_work_mode, "free")
         await persist.enter_scope("1", migrate_globals=False)
         self.assertEqual(Settings.from_env().ai_work_mode, "economy")
 
@@ -185,4 +185,4 @@ class WorkModeApiTests(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual(routes.json()["routes"]["development"][0]["model"], XKIRO_MODELS[0][0])
             self.assertEqual(fake_agent.settings.ai_work_mode, "economy")
             self.assertFalse(fake_agent.settings.reply_enabled)
-            save.assert_awaited_once_with({"AI_WORK_MODE": "economy"})
+            save.assert_awaited_once_with({"AI_WORK_MODE": "economy", "AI_COST_POLICY_VERSION": "1"})

@@ -130,7 +130,7 @@ class ProviderConfigTests(unittest.TestCase):
         self.assertEqual(providers[1].base_url, "https://b.example/v1")
 
     def test_half_filled_slots_are_ignored(self):
-        with self.env(AI_BASE_URL_2="https://b.example/v1", AI_API_KEY_2="", AI_MODEL_2="m2"):
+        with self.env(AI_WORK_MODE="professional", AI_BASE_URL_2="https://b.example/v1", AI_API_KEY_2="", AI_MODEL_2="m2"):
             self.assertEqual(Settings.from_env().backup_providers, ())
 
     def test_insecure_slot_url_is_rejected(self):
@@ -143,7 +143,7 @@ class ProviderConfigTests(unittest.TestCase):
         self.assertNotIn("super-secret-key", repr(provider))
 
     def test_only_extra_slots_still_count_as_ready(self):
-        with self.env(AI_BASE_URL_2="https://b.example/v1", AI_API_KEY_2="k", AI_MODEL_2="m", OPENAI_API_KEY=""):
+        with self.env(AI_WORK_MODE="professional", AI_BASE_URL_2="https://b.example/v1", AI_API_KEY_2="k", AI_MODEL_2="m", OPENAI_API_KEY=""):
             self.assertTrue(Settings.from_env().ai_ready)
 
 

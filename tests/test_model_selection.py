@@ -11,7 +11,7 @@ from shadow.config import Settings
 def settings():
     return Settings(
         None, "", "", "test-key", "gpt-5-mini", frozenset(), False,
-        "mentions", 12, 3800, "", "",
+        "mentions", 12, 3800, "", "", ai_work_mode="professional",
     )
 
 

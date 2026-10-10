@@ -75,10 +75,10 @@ class RuntimeTests(unittest.IsolatedAsyncioTestCase):
         accounts = {"11": {"label": "@one", "session": "session-a"},
                     "22": {"label": "@two", "session": "session-b"}}
         bundles = {
-            "11": {"__legacy_migrated__": "1", "REPLY_ENABLED": "true", "APPROVED_CHAT_IDS": "77",
+            "11": {"__legacy_migrated__": "1", "AI_WORK_MODE": "professional", "AI_COST_POLICY_VERSION": "1", "REPLY_ENABLED": "true", "APPROVED_CHAT_IDS": "77",
                    "OPENAI_API_KEY": "sk-account-one", "OPENAI_MODEL": "gpt-5-mini", "ALWAYS_ONLINE": "false",
                    "SHADOW_CHAT_PROFILES": json.dumps({"77": {"memory": "First account context"}})},
-            "22": {"__legacy_migrated__": "1", "REPLY_ENABLED": "false", "APPROVED_CHAT_IDS": "88",
+            "22": {"__legacy_migrated__": "1", "AI_WORK_MODE": "professional", "AI_COST_POLICY_VERSION": "1", "REPLY_ENABLED": "false", "APPROVED_CHAT_IDS": "88",
                    "OPENAI_API_KEY": "sk-account-two", "OPENAI_MODEL": "gpt-6-luna", "ALWAYS_ONLINE": "false"},
         }
         env = {key: "" for key in persist.SCOPED_DEFAULTS}
@@ -196,6 +196,29 @@ class RuntimeTests(unittest.IsolatedAsyncioTestCase):
                 await one._enter_account_scope(11)
                 save.assert_not_awaited()
             self.assertEqual(len(one.settings.backup_providers), 3)
+
+    async def test_free_policy_migration_is_private_and_preserves_later_explicit_paid_choice(self):
+        from shadow.ai_slots import XKIRO_MODELS
+        from shadow.model_routing import ordered_backup_providers
+        with account_scope("11"):
+            await persist.delete_env_vars(["AI_COST_POLICY_VERSION"])
+            await persist.save_env_vars({"AI_BASE_URL": "https://api.xkiro.com/v1", "AI_API_KEY": "own-xkiro-test-key",
+                                         "AI_MODEL": XKIRO_MODELS[0][0], "XKIRO_DEFAULTS_VERSION": "1"})
+        await self.runtime.stop()
+        self.runtime = AccountRuntime(Settings.from_env())
+        await self.runtime.start()
+        await self.wait_connected()
+        one, two = self.runtime._workers["11"], self.runtime._workers["22"]
+        self.assertEqual(one.settings.ai_work_mode, "free")
+        self.assertEqual(two.settings.ai_work_mode, "professional")
+        self.assertEqual(len(ordered_backup_providers(one.settings, "development")), 1)
+        self.assertEqual(two.settings.backup_providers, ())
+        with account_scope("11"):
+            self.assertEqual(persist.load_local_settings()["AI_COST_POLICY_VERSION"], "1")
+            await persist.save_env_vars({"AI_WORK_MODE": "professional"})
+            await one._enter_account_scope(11)
+            self.assertEqual(one.settings.ai_work_mode, "professional")
+        self.assertNotIn("own-xkiro-test-key", json.dumps(self.runtime.status()))
 
     async def test_concurrent_render_writes_keep_both_account_updates(self):
         arrived, release = threading.Event(), threading.Event()

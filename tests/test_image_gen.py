@@ -144,7 +144,7 @@ class FakeClient:
 def make_agent(**env):
     from shadow.config import Settings
     from shadow.telegram_agent import TelegramAgent
-    with mock.patch.dict(os.environ, {"OPENAI_API_KEY": "", **env}):
+    with mock.patch.dict(os.environ, {"OPENAI_API_KEY": "", "AI_WORK_MODE": "professional", **env}):
         agent = TelegramAgent(Settings.from_env())
     agent.client = FakeClient()
     agent._me_id = 111

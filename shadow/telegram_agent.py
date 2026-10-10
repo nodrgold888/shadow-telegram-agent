@@ -25,6 +25,7 @@ from .video_download import VideoDownloadError, downloaded_video, find_video_url
 from .config import AVAILABLE_MODELS, Settings
 from .persist import persistence_available, load_greet_unknown, save_greet_unknown, load_video_unknown, save_video_unknown, load_stranger_flags, save_stranger_flag, load_friend_chats, save_friend_chats, format_friend_chats, FRIEND_CATEGORIES, DEFAULT_FRIEND_CATEGORY, load_chat_profiles, save_chat_profiles, save_session, save_approved_chats, save_reply_enabled, load_accounts_raw, save_accounts, enter_scope, current_scope
 from .provider_catalog import LOCAL_AI_SLOT, XKIRO_BASE_URL
+from .model_routing import is_free_provider
 from .diagnostics import safe_error_detail
 from .image_gen import ImageGenError, parse_image_command
 from .plugins import image_plugin
@@ -982,8 +983,10 @@ class TelegramAgent:
         return {"greet_unknown": enabled, "persisted": await save_greet_unknown(enabled)}
 
     async def ai_check(self) -> dict[str, object]:
-        """One tiny OpenAI request so the owner can see why replies fail. Never raises."""
+        """Check eligible models and a real chat reply; never invoke excluded paid services."""
         if not self.settings.ai_ready:
+            if self.settings.ai_work_mode == "free":
+                return {"ok": False, "error": "free_provider_missing", "detail": "Bepul AI sozlanmagan. AI provayderlar bolimida xKiro Free, OpenRouter Free yoki lokal AI sozlang."}
             return {"ok": False, "error": "openai_key_missing", "detail": "OPENAI_API_KEY o‘rnatilmagan"}
         assistant = self.assistant or ShadowAssistant(self.settings)
         try:
@@ -1289,7 +1292,7 @@ class TelegramAgent:
             "last_ai_model": self.assistant.last_model if self.assistant else None,
             "openai_model": self.settings.openai_model,
             "ai_work_mode": self.settings.ai_work_mode,
-            "ai_backup": {"configured": self.settings.compat_ai_ready, "model": self.settings.ai_model or None, "primary": self.settings.ai_primary, "first_slot": self.settings.ai_first_slot, "last_provider": self.assistant.last_provider if self.assistant else None, "providers": [{"name": p.name, "model": p.model, "slot": p.slot, "server_managed": p.slot == LOCAL_AI_SLOT, "provider": "xkiro" if p.base_url == XKIRO_BASE_URL else "local" if p.slot == LOCAL_AI_SLOT else "custom"} for p in self.settings.backup_providers]},
+            "ai_backup": {"configured": self.settings.compat_ai_ready, "model": self.settings.ai_model or None, "primary": self.settings.ai_primary, "first_slot": self.settings.ai_first_slot, "last_provider": self.assistant.last_provider if self.assistant else None, "providers": [{"name": p.name, "model": p.model, "slot": p.slot, "enabled_for_mode": self.settings.ai_work_mode != "free" or is_free_provider(p), "server_managed": p.slot == LOCAL_AI_SLOT, "provider": "xkiro" if p.base_url == XKIRO_BASE_URL else "local" if p.slot == LOCAL_AI_SLOT else "custom"} for p in self.settings.backup_providers]},
             "supported_models": [{"id": model_id, "label": label} for model_id, label in AVAILABLE_MODELS],
             "complex_openai_model": self.settings.complex_openai_model,
             "last_error": self.last_error,

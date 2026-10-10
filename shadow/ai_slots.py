@@ -8,7 +8,8 @@ import httpx
 
 from .anthropic_compat import ANTHROPIC_BASE_URL
 from .config import MAX_BACKUP_PROVIDERS, AIProvider, Settings, _ai_base_url
-from .provider_catalog import XKIRO_BASE_URL, XKIRO_MODELS, XKIRO_DEFAULTS_VERSION
+from .provider_catalog import XKIRO_BASE_URL, XKIRO_MODELS, XKIRO_DEFAULTS_VERSION, OPENROUTER_BASE_URL, AI_COST_POLICY_VERSION
+from .model_routing import is_free_provider
 
 _NAME_RE = re.compile(r"[^A-Za-z0-9 ._-]")
 _MODEL_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:/@+-]{0,99}$")
@@ -69,6 +70,26 @@ def prepare_xkiro_defaults(settings: Settings) -> tuple[Settings, dict[str, str]
         updated, order = set_first(updated, qwen.slot)
         values.update(order)
     values["XKIRO_DEFAULTS_VERSION"] = XKIRO_DEFAULTS_VERSION
+    return updated, values
+
+
+def prepare_free_defaults(settings: Settings) -> tuple[Settings, dict[str, str]]:
+    """Enable no-credit routing and reuse this account's OpenRouter key once.
+
+    Never overwrite a slot or borrow another account's credentials. A full
+    provider list still receives the free-only policy without adding a slot.
+    """
+    updated = replace(settings, ai_work_mode="free")
+    values = {"AI_WORK_MODE": "free", "AI_COST_POLICY_VERSION": AI_COST_POLICY_VERSION}
+    router = [p for p in settings.backup_providers if p.base_url == OPENROUTER_BASE_URL]
+    if router and not any(is_free_provider(p) for p in router):
+        available = next((slot for slot in range(1, MAX_BACKUP_PROVIDERS + 1)
+                          if slot not in {p.slot for p in settings.backup_providers}), None)
+        if available is not None:
+            provider = parse_provider({"name": "OpenRouter Free", "base_url": OPENROUTER_BASE_URL,
+                                       "api_key": router[0].api_key, "model": "openrouter/free"})
+            updated = apply_provider(updated, available, provider)
+            values.update(provider_env(available, provider))
     return updated, values
 
 

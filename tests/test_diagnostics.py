@@ -32,7 +32,7 @@ class AiCheckTests(unittest.TestCase):
     def make_agent(self, **env):
         from shadow.config import Settings
         from shadow.telegram_agent import TelegramAgent
-        with mock.patch.dict(os.environ, {"OPENAI_API_KEY": "", **env}):
+        with mock.patch.dict(os.environ, {"OPENAI_API_KEY": "", "AI_WORK_MODE": "professional", **env}):
             return TelegramAgent(Settings.from_env())
 
     def test_missing_key_is_reported(self):

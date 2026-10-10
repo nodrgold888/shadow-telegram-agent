@@ -35,7 +35,8 @@ SCOPED_DEFAULTS = {
     # AI credentials and provider order are private to the Telegram account too.
     "OPENAI_API_KEY": "", "OPENAI_MODEL": "gpt-5-mini", "OPENAI_COMPLEX_MODEL": "gpt-6-luna",
     "AI_BASE_URL": "", "AI_API_KEY": "", "AI_MODEL": "", "AI_NAME": "", "AI_PRIMARY": "", "AI_FIRST_SLOT": "",
-    "AI_WORK_MODE": "professional",
+    "AI_WORK_MODE": "free",
+    "AI_COST_POLICY_VERSION": "",
     "XKIRO_DEFAULTS_VERSION": "",
     "ALWAYS_ONLINE": "true", "PUBLIC_BANK_REPLY": "false", "CONTEXT_MESSAGES": "12", "MAX_REPLY_CHARS": "3800",
 }
