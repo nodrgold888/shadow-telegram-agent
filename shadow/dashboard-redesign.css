@@ -433,3 +433,10 @@
   :root[data-theme] .command-readout,:root[data-theme] .command-readout:nth-child(2),:root[data-theme] .command-readout:nth-child(3){grid-template-columns:85px minmax(0,1fr)}
 }
 @media(prefers-reduced-motion:reduce){:root[data-theme] *,:root[data-theme] *:before,:root[data-theme] *:after{scroll-behavior:auto!important;animation-duration:.01ms!important;transition-duration:.01ms!important}}
+/* Service navigation is visible before sign-in and in the dashboard toolbar. */
+:root[data-theme] .service-switcher{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 24px}
+:root[data-theme] .service-switcher a{display:flex;align-items:center;justify-content:center;min-height:38px;padding:8px 12px;border:1px solid var(--v-line2);border-radius:7px;color:var(--v-ink);background:var(--v-surface2);text-decoration:none;font-size:12px;font-weight:650}
+:root[data-theme] .service-switcher a:first-child{color:var(--v-accent);border-color:var(--v-accent)}
+:root[data-theme] .service-switcher a:hover,:root[data-theme] .service-home-link:hover{border-color:var(--v-accent);color:var(--v-accent)}
+:root[data-theme] .service-home-link{display:inline-flex;align-items:center;text-decoration:none}
+@media(max-width:390px){:root[data-theme] .service-switcher{gap:4px}:root[data-theme] .service-switcher a{padding:7px 8px;font-size:11px}}

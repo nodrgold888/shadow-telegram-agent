@@ -107,7 +107,7 @@ class AnimeLibraryTests(unittest.IsolatedAsyncioTestCase):
     async def test_home_and_watch_are_public_but_never_contain_private_settings(self):
         module=importlib.import_module('shadow.app')
         async with httpx.AsyncClient(transport=httpx.ASGITransport(app=module.app),base_url='http://test') as client:
-            for path,page in [('/','home'),('/anime','anime')]:
+            for path,page in [('/','home'),('/home','home'),('/anime','anime')]:
                 response=await client.get(path)
                 self.assertEqual(response.status_code,200)
                 self.assertIn('data-page="'+page+'"',response.text)

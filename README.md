@@ -7,15 +7,16 @@ New deployments start in read-only connection mode with `REPLY_ENABLED=false`. I
 
 ## Shadow home and Anime Watch
 
-`/` is the new service home: **Shadow AI** opens the private AI workspace and **Anime Watch**
+`/` and `/home` are the service home: **Shadow AI** opens the private AI workspace and **Anime Watch**
 opens `/anime`. Telegram administration and existing sign-in remain at `/dashboard`.
 The dashboard also links directly to Anime Watch.
 
 Anime Watch has search, genre filters, rating/year sorting, pagination, posters, favorites,
 resume history, episode selection, automatic next episode, metadata-based intro skipping,
 cinema view, native fullscreen, supported picture-in-picture, and a JSON library export.
-The original interface uses the supplied anime sites as references; their source code and
-complete catalogs are not mirrored. YummyAnime and HDrezka search links open those sites separately.
+Anime pages follow the supplied YummyAnime reference: a light layout, coral tabs, a poster
+beside title facts, episode buttons above the inline player, and a poster-first mobile page
+with bottom navigation. The source code and complete third-party catalogs are not mirrored. YummyAnime and HDrezka search links open those sites separately.
 
 Metadata and public HLS streams come from AniLibria's API. **1080p is preferred when the actual
 selected episode supplies it**; available 720p/480p options and missing Full HD are shown accurately.

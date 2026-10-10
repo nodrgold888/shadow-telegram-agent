@@ -55,6 +55,8 @@ def release_card(row):
             'english': str(name.get('english') or '')[:240], 'poster': public_url((poster.get('optimized') or {}).get('src') or poster.get('src')),
             'poster_thumbnail': public_url((poster.get('optimized') or {}).get('thumbnail') or poster.get('thumbnail')),
             'year': row.get('year'), 'type': (row.get('type') or {}).get('description', ''),
+            'age_rating': str((row.get('age_rating') or {}).get('label') or ''),
+            'season': str((row.get('season') or {}).get('description') or ''),
             'rating': (row.get('mal') or {}).get('rating'), 'ongoing': bool(row.get('is_ongoing')),
             'episodes_total': row.get('episodes_total'), 'description': str(row.get('description') or '')[:8000],
             'genres': [{'id': g['id'], 'name': str(g.get('name') or '')[:70]} for g in row.get('genres', []) if isinstance(g, dict) and isinstance(g.get('id'), int)],

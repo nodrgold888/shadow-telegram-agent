@@ -119,6 +119,7 @@ def _dashboard_page() -> HTMLResponse:
 
 
 @app.get("/", response_class=HTMLResponse)
+@app.get("/home", response_class=HTMLResponse)
 async def home() -> HTMLResponse:
     return _hub_page('home')
 

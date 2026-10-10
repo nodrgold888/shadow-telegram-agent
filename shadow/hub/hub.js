@@ -20,6 +20,7 @@
   document.querySelectorAll('[data-icon]').forEach(node => node.replaceChildren(icon(node.dataset.icon).firstChild));
   const animePage = document.body.dataset.page === 'anime';
   $('homePage').hidden=animePage; $('animePage').hidden=!animePage;
+  $('headerAnimeSearch').hidden=!animePage;
   document.querySelector('[data-nav="'+(animePage?'anime':'home')+'"]').classList.add('active');
   const video=$('animeVideo'), dialog=$('watchDialog');
   let library=new Map(), account=null, accountEpoch=0, tab='catalog', page=1, pages=1, catalogRequest=0, catalogController;
@@ -133,10 +134,25 @@
     if(window.Hls)return window.Hls;if(!hlsPromise)hlsPromise=new Promise((resolve,reject)=>{const script=document.createElement('script');script.src='/hub/vendor/hls.min.js';script.onload=()=>resolve(window.Hls);script.onerror=()=>{hlsPromise=null;script.remove();reject(new Error('Playerni yuklab bolmadi. Sahifani yangilang.'));};document.head.append(script);});return hlsPromise;
   }
   function stopVideo() {playerEpoch++;video.pause();if(hls){hls.destroy();hls=null;}video.removeAttribute('src');video.load();}
-  function updateFavorite() {const saved=!!library.get(current?.id)?.favorite;$('watchFavorite').setAttribute('aria-pressed',String(saved));$('watchFavorite').replaceChildren(icon('bookmark'),document.createTextNode(saved?'Saqlangan':'Saqlash'));}
+  function updateFavorite() {const saved=!!library.get(current?.id)?.favorite;for(const id of ['watchFavorite','detailFavorite']){$(id).setAttribute('aria-pressed',String(saved));$(id).replaceChildren(icon('bookmark'),document.createTextNode(saved?'Saqlangan':'Saqlash'));}$('detailSavedCount').textContent=[...library.values()].filter(row=>row.favorite).length;$('detailLibraryNotice').textContent=account===null?'Mehmon tarixi shu qurilmada saqlanadi.':'Tomosha tarixi faqat shu akkaunt uchun.';}
+  function titleOverview(card) {
+    $('titleOverview').hidden=false;$('detailTitle').textContent=card.title;$('detailEnglish').textContent=card.english||'';
+    $('detailPoster').removeAttribute('src');const poster=posterURL(card.poster);if(poster)$('detailPoster').src=poster;$('detailPoster').alt=card.title;
+    $('detailRating').textContent=Number.isFinite(card.rating)&&card.rating>0?'★ '+Number(card.rating).toFixed(2):'Baholanmagan';
+    $('detailGenres').replaceChildren(...card.genres.map(g=>element('span',g.name)));
+    $('detailType').textContent=card.type||'Anime';$('detailAge').textContent=card.age_rating||'Korsatilmagan';$('detailStatus').textContent=card.ongoing?'Davom etmoqda':'Yakunlangan';
+    $('detailYear').textContent=card.year||'—';$('detailSeason').textContent=card.season||'Korsatilmagan';$('detailEpisodes').textContent=card.episodes_total||card.episodes.length||'Hali yoq';$('detailDescription').textContent=card.description;
+    const best=card.episodes.some(ep=>ep.streams['1080'])?'1080p':card.episodes.some(ep=>ep.streams['720'])?'720p':card.episodes.length?'480p':'Video mavjud emas';
+    $('detailQuality').textContent=best;$('detailBestQuality').textContent=best;$('detailAvailable').textContent=card.episodes.length;
+  }
+  function relatedTitles(card, version) {
+    $('relatedPanel').hidden=true;$('relatedGrid').replaceChildren();const genre=card.genres[0]?.id;if(!genre)return;
+    api('/anime/api/catalog?genre='+genre).then(data=>{if(version!==detailEpoch||current!==card)return;const rows=data.items.filter(item=>item.id!==card.id).slice(0,5);$('relatedPanel').hidden=!rows.length;$('relatedGrid').replaceChildren(...rows.map(item=>cardNode(item)));}).catch(()=>{});
+  }
   function episodesUI() {
     $('episodeCount').textContent=current.episodes.length+' seriya';$('episodeList').replaceChildren(...current.episodes.map((ep,index)=>{
       const button=element('button',undefined,'episode-button');button.type='button';button.classList.toggle('active',index===episodeIndex);if(index===episodeIndex)button.setAttribute('aria-current','true');
+      button.classList.toggle('has-intro',Number.isFinite(ep.opening?.start)&&Number.isFinite(ep.opening?.stop)&&ep.opening.stop>ep.opening.start);
       const copy=element('span',undefined,'episode-copy');copy.append(element('strong',ep.number+'-seriya'),element('small',ep.name||Math.round(ep.duration/60)+' daqiqa'));
       button.append(element('span',String(ep.number),'episode-number'),copy,element('span',ep.streams['1080']?'1080p':ep.streams['720']?'720p':'480p','episode-quality'));button.onclick=()=>selectEpisode(index);return button;
     }));$('previousEpisode').disabled=episodeIndex<=0;$('nextEpisode').disabled=episodeIndex<0||episodeIndex>=current.episodes.length-1;
@@ -147,17 +163,21 @@
     try {await persist(body,card);}catch(error){if(Date.now()-lastSaveError>30000){lastSaveError=Date.now();toast('Tomosha tarixi saqlanmadi. '+error.message);}if(error.status===401||error.status===409)loadLibrary();}
   }
   function closePlayer() {
-    if(current)saveProgress();detailEpoch++;episodeRequest++;current=null;episodeIndex=-1;stopVideo();dialog.close();dialog.classList.remove('cinema');$('cinemaToggle').setAttribute('aria-pressed','false');
+    if(current)saveProgress();detailEpoch++;episodeRequest++;current=null;episodeIndex=-1;stopVideo();dialog.close();dialog.classList.remove('cinema');$('animeDetail').classList.remove('cinema');$('cinemaToggle').setAttribute('aria-pressed','false');
+    $('animeDetail').hidden=true;$('animeBrowse').hidden=false;$('jumpToVideo').hidden=true;
     const url=new URL(location.href);url.searchParams.delete('title');url.searchParams.delete('episode');history.replaceState(null,'',url);
   }
   async function openTitle(id,requestedEpisode) {
     const version=++detailEpoch;catalogNotice('');
+    $('animeBrowse').hidden=true;$('animeDetail').hidden=false;$('titleOverview').hidden=true;$('relatedPanel').hidden=true;$('jumpToVideo').hidden=true;
     if(current)await saveProgress();if(version!==detailEpoch)return;episodeRequest++;current=null;stopVideo();$('watchTitle').textContent='Anime yuklanmoqda…';$('watchMeta').textContent='';$('episodeList').replaceChildren();$('watchDescription').textContent='';$('playerNotice').textContent='Katalog va mavjud seriyalar tekshirilmoqda.';video.removeAttribute('poster');
     $('videoQuality').replaceChildren();$('videoResolution').textContent='';$('qualityStatus').textContent='Sifat tekshirilmoqda';$('skipIntro').hidden=true;$('watchFavorite').disabled=true;
-    if(!dialog.open)dialog.showModal();
+    if(!dialog.open)dialog.show();window.scrollTo({top:0,behavior:'instant'});
     try {
       const card=await api('/anime/api/releases/'+id);if(version!==detailEpoch||!dialog.open)return;
       current=card;episodeIndex=-1;$('watchTitle').textContent=card.title;$('watchMeta').textContent=[card.year,'AniLibria','Ruscha ovoz'].filter(Boolean).join(' · ');$('watchDescription').textContent=card.description;
+      titleOverview(card);relatedTitles(card,version);
+      $('jumpToVideo').hidden=!card.episodes.length;
       $('watchGenres').replaceChildren(...card.genres.map(g=>element('span',g.name)));$('watchFavorite').disabled=false;updateFavorite();
       $('yummyLink').href='https://ru.yummyani.me/catalog?search='+encodeURIComponent(card.title);$('rezkaLink').href='https://hdrezka.film/search/?do=search&subaction=search&q='+encodeURIComponent(card.title);
       const src=posterURL(card.poster);if(src)video.poster=src;
@@ -191,10 +211,18 @@
     }catch(error){if(epoch===playerEpoch)$('playerNotice').textContent=error.message;}
   }
   $('watchClose').onclick=closePlayer;dialog.addEventListener('cancel',event=>{event.preventDefault();closePlayer();});
+  document.addEventListener('keydown',event=>{if(event.key==='Escape'&&dialog.open&&!document.fullscreenElement&&!document.pictureInPictureElement){event.preventDefault();closePlayer();}});
+  $('headerAnimeSearch').onsubmit=event=>{event.preventDefault();if(dialog.open)closePlayer();$('animeQuery').value=$('headerAnimeQuery').value;setTab('catalog');};
+  $('detailFavorite').onclick=()=>current&&toggleFavorite(current);
+  $('detailHistory').onclick=()=>{closePlayer();setTab('history');};
+  $('watchTabPlay').onclick=()=>$('videoStage').scrollIntoView({behavior:'smooth',block:'center'});
+  $('jumpToVideo').onclick=()=>$('videoStage').scrollIntoView({behavior:'smooth',block:'center'});
+  $('watchTabInfo').onclick=()=>$('titleOverview').scrollIntoView({behavior:'smooth',block:'start'});
+  $('watchTabSources').onclick=()=>document.querySelector('.alternate-sources').scrollIntoView({behavior:'smooth',block:'center'});
   $('videoQuality').onchange=()=>{const position=video.currentTime,playing=!video.paused;quality=$('videoQuality').value;loadStream(position,playing);};
   $('previousEpisode').onclick=()=>selectEpisode(episodeIndex-1);$('nextEpisode').onclick=()=>selectEpisode(episodeIndex+1);
   $('watchFavorite').onclick=()=>current&&toggleFavorite(current);
-  $('cinemaToggle').onclick=()=>{const expanded=dialog.classList.toggle('cinema');$('cinemaToggle').setAttribute('aria-pressed',String(expanded));};
+  $('cinemaToggle').onclick=()=>{const expanded=dialog.classList.toggle('cinema');$('animeDetail').classList.toggle('cinema',expanded);$('cinemaToggle').setAttribute('aria-pressed',String(expanded));if(expanded)$('videoStage').scrollIntoView({behavior:'smooth',block:'start'});};
   $('pictureInPicture').hidden=!document.pictureInPictureEnabled;$('pictureInPicture').onclick=async()=>{try{if(document.pictureInPictureElement)await document.exitPictureInPicture();else await video.requestPictureInPicture();}catch{toast('Video boshlangandan keyin suzuvchi playerni tanlang.');}};
   for(const event of ['loadedmetadata','resize','playing'])video.addEventListener(event,()=>{if(video.videoWidth)$('videoResolution').textContent=video.videoWidth+' × '+video.videoHeight;});
   video.addEventListener('playing',()=>{const ep=current?.episodes[episodeIndex];if(ep)$('playerNotice').textContent=ep.number+'-seriya · '+quality+'p'+(quality!=='1080'&&!ep.streams['1080']?' · Bu seriyada 1080p yoq.':'');});
@@ -203,7 +231,7 @@
   video.addEventListener('pause',()=>{if(current&&video.currentTime>0)saveProgress();});
   video.addEventListener('ended',async()=>{const card=current,index=episodeIndex,epoch=playerEpoch;await saveProgress({status:'watched'});if(current===card&&epoch===playerEpoch&&index===episodeIndex&&$('autoNext').checked&&index+1<current.episodes.length)selectEpisode(index+1);});
   video.addEventListener('error',()=>{if(current&&video.error&&video.getAttribute('src'))$('playerNotice').textContent='Videoni ochib bolmadi. Boshqa sifatni tanlang yoki qayta urinib koring.';});
-  document.querySelectorAll('[data-tab]').forEach(button=>button.onclick=()=>setTab(button.dataset.tab));
+  document.querySelectorAll('[data-tab]').forEach(button=>button.onclick=()=>{if(dialog.open)closePlayer();setTab(button.dataset.tab);});
   $('animeSearch').onsubmit=event=>{event.preventDefault();page=1;loadCatalog();};
   $('animeGenre').onchange=$('animeSort').onchange=()=>{page=1;loadCatalog();};
   $('prevPage').onclick=()=>{page=Math.max(1,page-1);loadCatalog();};$('nextPage').onclick=()=>{page++;loadCatalog();};

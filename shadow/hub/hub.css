@@ -3,3 +3,159 @@
 
 .site-header .nav-play{width:12px;height:12px;vertical-align:middle}.round-arrow .icon{width:17px;height:17px}.section-heading>a,.home-bottom>a{display:flex;align-items:center;gap:8px}.section-heading>a .icon,.home-bottom>a .icon{width:14px;height:14px}
 @media(max-width:360px){.site-header{height:auto;min-height:70px;padding:13px 16px;gap:10px}.site-header .brand{margin-right:auto}.site-header .account-link{order:2}.site-header nav{order:3;flex-basis:100%;justify-content:center}.site-header nav a:first-child{display:block}.site-header nav a{flex:1;text-align:center}.home-intro h1{font-size:33px}}
+/* Anime pages follow the supplied YummyAnime reference: light cards, coral tabs,
+   poster-and-facts overview, a real inline player, and episode buttons above it. */
+body[data-page="anime"]{color-scheme:light;--bg:#ececec;--panel:#f7f8fa;--line:#d4d4d4;--ink:#292929;--muted:#808080;--amber:#ff6065;--mint:#ff6065;background:var(--bg);color:var(--ink);font-family:"Segoe UI",Arial,sans-serif}
+body[data-page="anime"] .site-header{height:100px;padding:12px 30px;gap:20px;background:#f1f1f1;border-bottom:0;box-shadow:0 3px 8px #0002}
+body[data-page="anime"] .brand-mark{width:64px;height:64px;background:#ff6065;color:white;border-radius:7px;font-size:38px}
+body[data-page="anime"] .brand{gap:13px;font-size:20px;letter-spacing:0;font-weight:500}
+body[data-page="anime"] .brand small{font-size:10px;color:#767676}
+body[data-page="anime"] .site-header nav{gap:8px;margin:0}
+body[data-page="anime"] .site-header nav a{color:#333;font-size:13px;font-weight:600;border-radius:5px;padding:10px 12px}
+body[data-page="anime"] .site-header nav a.active{background:#ff6065;color:white}
+body[data-page="anime"] .account-link{border-color:#d3d3d3;background:#e4e4e4;color:#333;border-radius:6px}
+.header-anime-search{display:flex;align-items:center;width:280px;min-width:120px;max-width:30vw;background:#dfdfdf;border:1px solid #cecece;border-radius:6px}
+.header-anime-search input{width:100%;min-width:0;border:0;background:transparent;color:#333;padding:11px 12px;font-size:13px;outline:none}
+.header-anime-search button{padding:8px;background:transparent;color:#444}
+body[data-page="anime"] .anime-page{display:block;max-width:1500px;padding:25px 30px 45px}
+.anime-browse{display:grid;grid-template-columns:minmax(0,1fr) 250px;gap:20px}
+body[data-page="anime"] .anime-sidebar{grid-column:2;grid-row:1;padding:20px;background:#f7f8fa;border:0;border-radius:12px;align-self:start;box-shadow:0 3px 8px #0002}
+body[data-page="anime"] .anime-content{grid-column:1;grid-row:1;padding:0}
+body[data-page="anime"] .sidebar-title{font-size:22px;color:#333}
+body[data-page="anime"] .sidebar-title .icon{color:#ff6065}
+body[data-page="anime"] .sidebar-title strong{color:#ff6065}
+body[data-page="anime"] .side-item{color:#333;font-size:13px;background:transparent;border-radius:6px}
+body[data-page="anime"] .side-item.active{color:#ff6065;background:#ffe8e9}
+body[data-page="anime"] .side-count{background:#ff6065;color:white}
+body[data-page="anime"] .sidebar-label{color:#888}
+body[data-page="anime"] .watch-preference{border-color:#ddd;background:#f0f0f0}
+body[data-page="anime"] .watch-preference strong{color:#ff6065}
+body[data-page="anime"] .catalog-header{margin-bottom:18px}
+body[data-page="anime"] .catalog-header h1{font-size:28px;letter-spacing:-.02em;color:#333}
+body[data-page="anime"] .anime-search{border-color:#d1d1d1;background:#dfdfdf}
+body[data-page="anime"] input,body[data-page="anime"] select{color:#333;background:#dfdfdf;border-color:#d0d0d0;color-scheme:light}
+body[data-page="anime"] input::placeholder{color:#777}
+body[data-page="anime"] .anime-hero{height:260px;margin-bottom:20px;background:#f7f8fa;border:0;border-radius:12px;box-shadow:0 3px 8px #0002}
+body[data-page="anime"] .anime-hero:before{background:linear-gradient(90deg,#f7f8fa 0%,#f7f8faf5 42%,#f7f8fa80 73%,transparent)}
+body[data-page="anime"] .hero-copy{padding:24px;max-width:78%}
+body[data-page="anime"] .hero-copy h2{font-size:26px;color:#292929;text-shadow:none}
+body[data-page="anime"] .hero-copy p{color:#5a5a5a;max-width:560px}
+body[data-page="anime"] .hero-copy .eyebrow{color:#ff6065}
+body[data-page="anime"] .hero-meta{color:#888}
+body[data-page="anime"] .hero-caption{display:none}
+body[data-page="anime"] .primary{background:#ff6065;color:white;border-radius:6px;border:1px solid #ff6065}
+body[data-page="anime"] .secondary{background:#e4e4e4;color:#333;border:1px solid #cecece;border-radius:6px}
+body[data-page="anime"] .catalog-controls{padding:15px;background:#f7f8fa;border-radius:10px;margin-bottom:18px;flex-wrap:wrap;box-shadow:0 2px 6px #0001}
+body[data-page="anime"] .catalog-controls h2{font-size:18px}
+body[data-page="anime"] .poster-grid{gap:15px}
+body[data-page="anime"] .poster-art{border-radius:7px;background:#d9d9d9;border-color:#d7d7d7}
+body[data-page="anime"] .poster-card h3{font-size:13px;color:#333;font-weight:600}
+body[data-page="anime"] .poster-meta,body[data-page="anime"] .poster-footer{color:#777}
+body[data-page="anime"] .poster-footer button{background:#e0e0e0;color:#777;border-radius:5px}
+body[data-page="anime"] .poster-footer button.saved{color:#ff6065}
+body[data-page="anime"] .mobile-tabs{background:#f8f8f8;border-color:#d3d3d3}
+body[data-page="anime"] .mobile-tabs button{color:#666}
+body[data-page="anime"] .mobile-tabs button.active{background:#ff6065;color:white}
+body[data-page="anime"] .site-footer{border-color:#d5d5d5;color:#777;background:#e7e7e7}
+.detail-breadcrumb{display:flex;align-items:center;justify-content:space-between;gap:15px;margin:0 0 16px;color:#888;font-size:12px}
+.detail-back{background:transparent;color:#ff6065;padding:5px 0;font-size:13px;font-weight:600}
+.title-layout{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:20px}
+.title-main{min-width:0}
+.title-overview,.title-statistics,.title-help,.related-panel{border-radius:12px;background:#f7f8fa;box-shadow:0 3px 8px #0002;overflow:hidden}
+.title-overview{padding:15px;margin-bottom:12px;scroll-margin-top:20px}
+.title-summary{display:grid;grid-template-columns:minmax(0,1fr) 264px;gap:22px}
+.title-copy{min-width:0}
+.title-copy h1{font-size:29px;line-height:1.25;color:#272727;letter-spacing:-.02em;font-weight:700;margin:3px 0 8px}
+.title-english{font-size:14px;color:#8b8b8b;line-height:1.5;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.title-rating{display:flex;align-items:center;flex-wrap:wrap;gap:9px;margin:10px 0;font-size:14px;color:#858585}
+.title-rating>span:first-child{color:#32c77d;font-size:25px;font-weight:700}
+.title-rating small{font-size:12px}
+.detail-quality{margin-left:8px;border:1px solid #dedede;border-radius:5px;padding:3px 7px;font-size:11px}
+.title-facts{display:grid;grid-template-columns:170px minmax(0,1fr);gap:9px 15px;font-size:14px;line-height:1.3;margin:12px 0 15px}
+.title-facts dt{font-weight:600;color:#929292}
+.title-facts dd{margin:0;font-weight:600;color:#333}
+.title-facts #detailYear{color:#ff6065}
+.detail-genres{display:flex;flex-wrap:wrap;gap:5px}
+.detail-genres span{font-size:11px;font-weight:500;border:1px solid #a7a7a7;border-radius:8px;padding:3px 8px;color:#333}
+.title-status{display:inline-flex;border:1px solid #29cd76;border-radius:7px;padding:2px 7px;font-size:12px;font-weight:500}
+.title-poster{min-width:0}
+.title-poster img{width:100%;aspect-ratio:2/2.8;object-fit:cover;border-radius:9px 9px 0 0;background:#ddd}
+.title-poster button{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;min-height:35px;background:#dfdfdf;border-radius:0 0 9px 9px;color:#777;font-size:12px}
+.title-poster button[aria-pressed="true"]{color:#ff6065;background:#ffe8e9}
+.title-description{margin:18px 0 2px;font-size:14px;line-height:1.5;white-space:pre-line;color:#333}
+.title-sidebar{display:grid;gap:12px;align-content:start}
+.anime-brand-card{min-height:210px;padding:25px;background:linear-gradient(140deg,#ff777c,#f4545d);color:white;border-radius:12px;box-shadow:0 3px 8px #0002;position:relative;overflow:hidden}
+.anime-brand-card:after{content:"S";font-weight:800;font-size:170px;position:absolute;right:0;bottom:-50px;color:#ffffff17;pointer-events:none}
+.anime-brand-card>span{font-size:11px;letter-spacing:.2em;font-weight:700}
+.anime-brand-card strong{display:block;font-size:31px;margin:12px 0 7px;letter-spacing:-.03em}
+.anime-brand-card p{font-size:13px;line-height:1.5;max-width:220px;margin-bottom:22px}
+.anime-brand-card a{font-size:12px;font-weight:650;border-bottom:1px solid #ffffff88;padding-bottom:3px}
+.title-statistics h2,.title-help h2{font-size:14px;font-weight:500;text-align:center;margin:0;padding:17px 10px;border-bottom:3px solid #ff6065}
+.title-statistics dl{display:grid;grid-template-columns:1fr auto;gap:12px;margin:18px 15px;font-size:13px}
+.title-statistics dd{margin:0;font-variant-numeric:tabular-nums}
+.title-statistics p{font-size:12px;color:#888;line-height:1.5;border-top:1px solid #ddd;margin:0 15px;padding:14px 0}
+.title-help p{font-size:13px;line-height:1.6;color:#777;padding:15px}
+.title-help button,.title-help a{display:block;width:100%;text-align:left;background:transparent;font-size:12px;color:#ff6065;padding:12px 15px;border-top:1px solid #ddd}
+.related-panel{margin-top:14px;padding:15px}
+.related-panel h2{font-size:18px;font-weight:600;margin-bottom:18px}
+body[data-page="anime"] #relatedGrid{grid-template-columns:repeat(5,minmax(0,1fr))}
+body[data-page="anime"] .watch-dialog[open]{position:static;inset:auto;display:block;width:100%;max-width:100%;max-height:none;overflow:visible;background:#f7f8fa;color:#333;border:0;border-radius:12px;padding:0;margin:0;box-shadow:0 3px 8px #0002}
+body[data-page="anime"] .watch-dialog:not([open]){display:none}
+body[data-page="anime"] .watch-header{display:none}
+.watch-tabs{display:flex;gap:0;align-items:stretch;border-bottom:3px solid #ff6065;overflow-x:auto;border-radius:12px 12px 0 0}
+.watch-tabs button{display:flex;align-items:center;justify-content:center;gap:8px;white-space:nowrap;background:transparent;padding:16px 18px;font-size:12px;color:#333}
+.watch-tabs button.active{background:#ff6065;color:white}
+body[data-page="anime"] .watch-layout{display:flex;flex-direction:column}
+body[data-page="anime"] .watch-main{padding:0 15px 15px}
+body[data-page="anime"] .episode-panel{order:-1;border:0;background:transparent;padding:12px 15px 10px}
+body[data-page="anime"] .episode-heading{display:inline-flex;align-items:center;gap:10px;margin:0 20px 8px 0}
+body[data-page="anime"] .episode-heading h3{font-size:12px;color:#888;font-weight:500}
+body[data-page="anime"] .episode-heading span{font-size:11px;color:#888}
+body[data-page="anime"] .autonext{display:inline-flex;font-size:12px;color:#777;margin-bottom:8px}
+body[data-page="anime"] .episode-list{display:flex;flex-wrap:wrap;gap:5px;max-height:145px;overflow-y:auto}
+body[data-page="anime"] .episode-button{position:relative;display:flex;justify-content:center;align-items:center;min-width:49px;min-height:40px;padding:9px 11px;background:#dfdfdf;color:#333;border:0;border-top:3px solid transparent;border-radius:6px;text-align:center}
+body[data-page="anime"] .episode-button.active{border-top-color:#32c77d;background:#d3d3d3;color:#333;box-shadow:none}
+body[data-page="anime"] .episode-button.has-intro:before{position:absolute;content:"";left:2px;top:9px;width:4px;height:15px;background:#bd88dd;border-radius:2px}
+body[data-page="anime"] .episode-copy,body[data-page="anime"] .episode-quality{display:none}
+body[data-page="anime"] .episode-number{width:auto;height:auto;background:transparent;border:0;color:#333;font-size:14px}
+body[data-page="anime"] .video-stage{border-radius:9px;aspect-ratio:16/9;background:#000;overflow:hidden}
+body[data-page="anime"] .video-stage video{display:block;width:100%;height:100%;max-height:none;object-fit:contain}
+body[data-page="anime"] .player-bar{margin:12px 0;font-size:12px}
+body[data-page="anime"] .player-bar select{min-width:80px;background:#e1e1e1;color:#333;border:1px solid #ccc}
+body[data-page="anime"] .icon-button{background:#dfdfdf;color:#666;border-color:#ccc}
+body[data-page="anime"] .player-notice{font-size:12px;color:#888;line-height:1.5}
+body[data-page="anime"] .watch-description{margin-top:18px;border-color:#ddd}
+body[data-page="anime"] #watchDescription,body[data-page="anime"] #watchGenres{display:none}
+body[data-page="anime"] .watch-actions h3{font-size:14px;font-weight:500}
+body[data-page="anime"] .alternate-sources a{color:#ff6065}
+body[data-page="anime"] .alternate-sources p{color:#888}
+body[data-page="anime"] .watch-dialog.cinema{width:100%;max-width:100%}
+body[data-page="anime"] .watch-dialog.cinema .episode-panel{border:0}
+body[data-page="anime"] .watch-dialog.cinema .episode-list{display:flex;max-height:145px}
+body[data-page="anime"] .skeleton .poster-art{background:#ddd}
+body[data-page="anime"] .hub-toast{background:#333;color:white;border-color:#555}
+@media(min-width:1650px){body[data-page="anime"] .site-header{padding-inline:max(30px,calc((100vw - 1440px)/2))}}
+@media(max-width:1150px){body[data-page="anime"] .site-header{gap:12px;padding-inline:20px}.header-anime-search{width:220px}.title-layout{grid-template-columns:minmax(0,1fr) 250px}.title-summary{grid-template-columns:minmax(0,1fr) 210px;gap:15px}.title-copy h1{font-size:25px}.title-facts{grid-template-columns:130px minmax(0,1fr);font-size:13px;gap:8px 10px}body[data-page="anime"] .site-header nav a{padding:9px;font-size:11px}body[data-page="anime"] .brand{font-size:16px}body[data-page="anime"] .brand-mark{width:46px;height:46px;font-size:28px}}
+@media(max-width:950px){.title-layout{grid-template-columns:minmax(0,1fr)}.title-sidebar{grid-template-columns:repeat(3,minmax(0,1fr));margin-top:8px;gap:12px}.anime-brand-card{padding:18px;min-height:0}.anime-brand-card strong{font-size:23px}.title-statistics dl{font-size:12px;gap:10px;margin:15px 12px}.anime-browse{grid-template-columns:minmax(0,1fr)}body[data-page="anime"] .anime-sidebar{display:none}body[data-page="anime"] .site-header{flex-wrap:wrap;height:auto;gap:12px;padding:12px 20px}.header-anime-search{flex:1;max-width:none;order:3;width:100%}body[data-page="anime"] .site-header nav{margin-left:auto}body[data-page="anime"] .catalog-header h1{font-size:24px}}
+@media(max-width:600px){body[data-page="anime"] .site-header{padding:10px 12px;gap:8px}body[data-page="anime"] .brand{font-size:14px;gap:8px}body[data-page="anime"] .brand-mark{width:36px;height:36px;font-size:23px}body[data-page="anime"] .brand small{font-size:7px}body[data-page="anime"] .site-header nav{gap:0}body[data-page="anime"] .site-header nav a{font-size:10px;padding:8px 7px}body[data-page="anime"] .site-header nav a[data-nav="home"]{display:none}body[data-page="anime"] .account-link{padding:8px;border:0}body[data-page="anime"] .account-link>span:last-child{display:none}.header-anime-search{order:4;flex-basis:100%;height:36px}body[data-page="anime"] .anime-page{padding:16px 12px 30px}.title-overview{padding:12px}.title-summary{grid-template-columns:minmax(0,1fr) 112px;gap:12px}.title-copy h1{font-size:19px;margin-top:0}.title-english{font-size:11px;white-space:normal;line-height:1.4;max-height:45px}.title-rating{gap:5px;margin:7px 0}.title-rating>span:first-child{font-size:19px}.title-rating small{font-size:9px}.detail-quality{margin-left:0;font-size:9px}.title-poster img{border-radius:6px 6px 0 0}.title-poster button{font-size:10px;gap:5px;min-height:33px}.title-poster .icon{width:14px;height:14px}.title-facts{grid-template-columns:92px minmax(0,1fr);grid-column:1/-1;font-size:11px;gap:7px 9px;margin:10px 0 0}.detail-genres span{padding:2px 5px;font-size:9px}.title-status{font-size:10px}.title-description{font-size:12px;line-height:1.6;margin-top:14px}.title-sidebar{grid-template-columns:1fr}.title-sidebar .anime-brand-card,.title-sidebar .title-help{display:none}.title-statistics{margin-top:0}.title-statistics h2{padding:12px;font-size:12px}.title-statistics dl{grid-template-columns:1fr auto;gap:9px;font-size:12px}.watch-tabs button{font-size:10px;padding:13px 11px}.watch-tabs .icon{width:15px;height:15px}body[data-page="anime"] .episode-panel{padding:10px}body[data-page="anime"] .episode-button{min-width:37px;min-height:36px;padding:6px 10px}body[data-page="anime"] .watch-main{padding:0 10px 12px}body[data-page="anime"] .player-bar{gap:6px}body[data-page="anime"] .player-bar>div{gap:6px}body[data-page="anime"] #videoResolution{font-size:9px}body[data-page="anime"] .player-bar .icon-button{width:31px;height:31px;padding:7px}body[data-page="anime"] #relatedGrid{grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.related-panel{padding:12px}.related-panel h2{font-size:15px}body[data-page="anime"] .anime-hero{height:245px}body[data-page="anime"] .hero-copy{padding:18px;max-width:90%}body[data-page="anime"] .hero-copy h2{font-size:22px}body[data-page="anime"] .catalog-controls{padding:12px;gap:10px}body[data-page="anime"] .catalog-controls h2{font-size:15px}body[data-page="anime"] .filter-controls{width:100%;display:flex}body[data-page="anime"] .poster-grid{gap:11px}.detail-breadcrumb{font-size:10px}.detail-back{font-size:12px}}
+@media(prefers-reduced-motion:reduce){body[data-page="anime"] *{scroll-behavior:auto!important}}
+/* The reference's mobile page puts the poster above the title and keeps navigation at hand. */
+.anime-mobile-dock,.jump-player{display:none}
+@media(max-width:600px){
+ body[data-page="anime"]{padding-bottom:60px}
+ .title-summary{display:flex;flex-direction:column;gap:15px}
+ .title-poster{order:-1;display:flex;align-items:center;flex-direction:column;width:100%;padding:5px 0 0;background:#f1f2f5;border-radius:6px}
+ .title-poster img{width:190px;aspect-ratio:2/2.8;object-fit:cover;border-radius:6px}
+ .title-poster button{margin-top:10px;width:100%;min-height:36px;border-radius:0 0 6px 6px;font-size:12px}
+ .title-poster .icon{width:17px;height:17px}
+ .title-copy h1{font-size:25px;line-height:1.3;margin:0 0 8px}
+ .title-english{font-size:13px;line-height:1.5;max-height:40px}
+ .title-rating{margin:9px 0}.title-rating>span:first-child{font-size:24px}.title-rating small{font-size:11px}.detail-quality{font-size:10px;margin-left:6px}
+ .title-facts{grid-template-columns:115px minmax(0,1fr);font-size:13px;gap:8px 10px}.detail-genres span{font-size:11px;padding:3px 6px}.title-status{font-size:12px}
+ body[data-page="anime"] .anime-mobile-dock{position:fixed;bottom:0;left:0;right:0;z-index:8;display:flex;align-items:stretch;justify-content:space-around;gap:3px;padding:7px 6px max(7px,env(safe-area-inset-bottom));background:#e3e3e3;border-top:2px solid #ff6065;box-shadow:0 -2px 7px #0002}
+ .anime-mobile-dock button,.anime-mobile-dock a{display:flex;align-items:center;flex-direction:column;justify-content:center;gap:4px;flex:1;padding:3px 4px;color:#444;background:transparent;font-size:9px;min-height:39px}
+ .anime-mobile-dock button.active{color:#ff6065}.anime-mobile-dock .icon{width:18px;height:18px}
+ body[data-page="anime"] .jump-player{display:flex;position:fixed;bottom:75px;left:15px;z-index:7;background:#ff6065;color:white;border-radius:20px;padding:9px 14px;font-size:12px;box-shadow:0 3px 10px #0003}
+}
+.anime-detail.cinema .title-layout{grid-template-columns:minmax(0,1fr)}
+.anime-detail.cinema .title-sidebar,.anime-detail.cinema .title-overview,.anime-detail.cinema .related-panel{display:none}

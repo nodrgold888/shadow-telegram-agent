@@ -1200,6 +1200,7 @@ fieldset.agent-picker{margin:13px 0;padding:0;border:0}fieldset.agent-picker leg
   <main class="login">
     <div class="brand"><div class="mark">S</div><div><strong>SHADOW</strong><small>SHAXSIY YORDAMCHI</small></div></div>
     <button class="theme-toggle" type="button" data-theme-toggle aria-label="Rang rejimini ozgartirish" title="Rang rejimi">☀</button>
+    <nav class="service-switcher" aria-label="Shadow xizmatlari"><a href="/home">Bosh sahifa</a><a href="/dashboard#aiworkspace">Shadow AI</a><a href="/anime">Anime Watch</a></nav>
     <div class="login-heading"><span class="login-overline">ISH MAYDONINGIZ</span><h1>Hisobingizga kiring</h1><p>Telegram akkauntingizni tanlang va kirish kodini tasdiqlang.</p></div>
     <div id="loginRuntime" class="login-runtime" data-state="loading" role="status"><i></i><span id="loginRuntimeLabel">Ulanishlar tekshirilmoqda</span><small>JONLI HOLAT</small></div>
     <div id="loginError" class="error" role="status" aria-live="polite"></div>
@@ -1764,13 +1765,10 @@ observer.observe(el,{childList:true,characterData:true,subtree:true})});
   const symbol=document.createElement('b');symbol.setAttribute('aria-hidden','true');
   symbol.innerHTML='<svg viewBox="0 0 24 24"><path d="m8 5 11 7-11 7Z"/></svg>';
   link.append(symbol,document.createTextNode('Anime Watch'));nav.insertBefore(link,nav.firstChild);
-  const home=document.createElement('a');home.className='nav';home.href='/';home.textContent='← Shadow home';nav.append(home);
+  const home=document.createElement('a');home.className='nav';home.href='/home';home.textContent='← Bosh sahifa · AI & Anime';nav.prepend(home);
  }
- const login=document.querySelector('#login .login-card')||document.querySelector('#login');
- if(login){const links=document.createElement('div');links.style.cssText='display:flex;gap:18px;justify-content:center;padding:18px 0;font-size:12px';
-  for(const [name,url] of [['← Shadow home','/'],['Anime Watch ↗','/anime']]){const a=document.createElement('a');a.href=url;a.textContent=name;links.append(a);}
-  login.append(links);
- }
+ const actions=document.querySelector('.top-actions');
+ if(actions){const home=document.createElement('a');home.id='shadowHomeButton';home.className='btn service-home-link';home.href='/home';home.textContent='← Bosh sahifa';actions.prepend(home);}
 })();
 </script>
 <script src="/dashboard/development.js" defer></script>
