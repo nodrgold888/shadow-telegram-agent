@@ -119,12 +119,12 @@ class AgentScopeTests(ScopeTestCase):
             self.assertEqual((agent.settings.approved_chat_ids, agent.reply_enabled, agent.friend_ids), (frozenset({5}), True, {9: "oila"}))
             assistant.assert_called()
 
-    async def test_entering_the_same_account_again_changes_nothing(self):
+    async def test_entering_the_same_account_again_keeps_its_saved_data(self):
         agent = make_agent()
         agent.accounts = {}
         with mock.patch("shadow.telegram_agent.ShadowAssistant"):
             await agent._enter_account_scope(1)
-            agent.friend_ids = {1: "ish"}
+            await save_friend_chats("1:ish")
             await agent._enter_account_scope(1)
         self.assertEqual(agent.friend_ids, {1: "ish"})
 
@@ -134,7 +134,7 @@ class FakeTg:
         self.user_id, self.username, self.handlers = user_id, username, []
 
     async def get_me(self):
-        return mock.Mock(id=self.user_id, username=self.username)
+        return mock.Mock(id=self.user_id, username=self.username, first_name=None, last_name=None)
 
     def add_event_handler(self, callback, event):
         self.handlers.append(callback.__name__)

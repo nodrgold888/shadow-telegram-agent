@@ -164,7 +164,7 @@ class OwnerCommandTests(unittest.IsolatedAsyncioTestCase):
     async def test_command_in_saved_messages_sends_the_image(self):
         agent = make_agent(GEMINI_API_KEY="g")
         fake = mock.AsyncMock(return_value=(PNG, "image/png"))
-        with mock.patch("shadow.telegram_agent.generate_image", fake):
+        with mock.patch("shadow.plugins.image_plugin.generate_image", fake):
             await agent._on_owner_command(event("/rasm mushuk"))
         fake.assert_awaited_once_with("g", "mushuk")
         kind, name, data, caption, reply_to = agent.client.sent[0]
