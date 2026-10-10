@@ -116,6 +116,7 @@ SKILLS: tuple[tuple[str, str, str], ...] = (
     ("mcp_builder", "MCP va API integratsiyasi", "GitHub manbali Python/MCP integratsiya arxitekturasi va xavfsiz API ko‘rsatmalari."),
     ("skill_creator", "Skill va prompt yaratish", "GitHub manbali takror ishlatiladigan agent promptlarini yaratish va sozlash."),
     ("webapp_testing", "Veb ilovani tekshirish", "GitHub manbali brauzer sinovi va UI tekshirish ko‘rsatmalari."),
+    ("theme_factory", "Rang va mavzular", "GitHub manbali rang palitralari va izchil vizual uslub ko‘rsatmalari."),
 )
 
 

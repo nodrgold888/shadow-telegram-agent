@@ -157,6 +157,14 @@ class SkillCatalogTests(unittest.TestCase):
         self.assertIn("Never confirm attendance", prompt)
         self.assertIn("> Good: ha, shunaqa", prompt)
 
+    def test_theme_skill_is_loaded_only_for_visual_requests(self):
+        from shadow.assistant import skill_prompt_for
+        visual = skill_prompt_for('Dashboard rang va theme ni yaxshila')
+        ordinary = skill_prompt_for('bugun havo qanday')
+        self.assertIn('Midnight Galaxy', visual)
+        self.assertIn('Shadow adapter: theme factory', visual)
+        self.assertNotIn('Midnight Galaxy', ordinary)
+
 
 class AgentPromptTests(unittest.IsolatedAsyncioTestCase):
     async def test_each_chat_gets_only_its_own_agent_in_the_system_prompt(self):

@@ -61,11 +61,30 @@ TASK_TYPES = {
     "devops": {"mode": "build", "category": "Yaratish va yaxshilash", "label": "Deploy va runtime sozlamalari", "description": "Ishga tushirish, muhit o‘zgaruvchilari va health-check oqimini yaxshilaydi.", "guidance": "Improve deployment/runtime configuration, startup validation, health checks, or safe rollback while preserving secrets and production data."},
 }
 COMMUNITY_TASK_SKILLS = {
-    "design": ("frontend-design/SKILL.md", "frontend-design/LOCAL_ADAPTER.md"),
+    "design": ("frontend-design/SKILL.md", "frontend-design/LOCAL_ADAPTER.md", "theme-factory/SKILL.md", "theme-factory/LOCAL_ADAPTER.md"),
     "tests": ("webapp-testing/SKILL.md", "webapp-testing/LOCAL_ADAPTER.md"),
     "skill": ("skill-creator/SKILL.md", "skill-creator/LOCAL_ADAPTER.md"),
     "integration": ("mcp-builder/SKILL.md", "mcp-builder/LOCAL_ADAPTER.md", "mcp-builder/reference/mcp_best_practices.md", "mcp-builder/reference/python_mcp_server.md"),
 }
+COMMUNITY_TASK_AGENTS = {
+    "architecture": "categories/04-quality-security/architect-reviewer.md",
+    "code_review": "categories/04-quality-security/code-reviewer.md",
+    "security_audit": "categories/04-quality-security/security-auditor.md",
+    "security_fix": "categories/04-quality-security/security-auditor.md",
+    "performance_audit": "categories/04-quality-security/performance-engineer.md",
+    "performance": "categories/04-quality-security/performance-engineer.md",
+    "tests": "categories/04-quality-security/test-automator.md",
+    "design": "categories/01-core-development/frontend-developer.md",
+    "integration": "categories/01-core-development/api-designer.md",
+    "integration_audit": "categories/01-core-development/api-designer.md",
+}
+COMMUNITY_AGENT_OBJECTIVE_TRIGGERS = (
+    (re.compile(r"\b(security|vulnerability|privacy|permission|auth)\b|xavfsizlik|maxfiylik|ruxsat", re.IGNORECASE), "security_audit"),
+    (re.compile(r"\b(design|dashboard|frontend|layout|ui|ux)\b|dizayn|interfeys", re.IGNORECASE), "design"),
+    (re.compile(r"\b(api|integration|webhook)\b|integratsiya|ulab ber", re.IGNORECASE), "integration"),
+    (re.compile(r"\b(test|tests|playwright)\b|sinov", re.IGNORECASE), "tests"),
+    (re.compile(r"\b(performance|latency|slow)\b|sekin|tezlik", re.IGNORECASE), "performance"),
+)
 COMMUNITY_OBJECTIVE_TRIGGERS = {
     "frontend-design": re.compile(r"\b(design|designer|dashboard|website|web site|frontend|layout|ui|ux)\b|dizayn|interfeys|sayt", re.IGNORECASE),
     "mcp-builder": re.compile(r"\b(api|mcp|integration|integrations|instagram|youtube|webhook)\b|integratsiya|xizmat ulash|ulab ber", re.IGNORECASE),
@@ -111,7 +130,7 @@ def source_path(name: str, *, writing: bool = False) -> str:
         raise DevelopmentError("Hidden files and environment secrets are not available to the development agent")
     if path.suffix not in SUFFIXES or any(p in {"__pycache__", "node_modules", "state", "sessions", ".git"} for p in path.parts):
         raise DevelopmentError("Unsupported source file")
-    if writing and name.startswith("shadow/skills/community/anthropics/") and path.name != "LOCAL_ADAPTER.md":
+    if writing and name.startswith(("shadow/skills/community/anthropics/", "shadow/skills/community/voltagent/")) and path.name != "LOCAL_ADAPTER.md":
         raise DevelopmentError("Keep upstream skill snapshots unchanged; edit the Shadow adapter or a local skill instead")
     return name
 
@@ -329,7 +348,9 @@ class DevelopmentStudio:
         return {"ai_ready": settings.ai_ready, "github_ready": bool(os.getenv("SHADOW_DEV_GITHUB_TOKEN", "").strip()),
                 "repository": os.getenv("SHADOW_DEV_GITHUB_REPO", "nodrgold888/shadow-telegram-agent"),
                 "busy": bool(self.task and not self.task.done()), "history_limit": MAX_JOBS,
-                "task_types": [{"id": key, **{field: value[field] for field in ("mode", "category", "label", "description")}}
+                "task_types": [{"id": key, **{field: value[field] for field in ("mode", "category", "label", "description")},
+                                "guide": ("GitHub agent: " + Path(COMMUNITY_TASK_AGENTS[key]).stem) if key in COMMUNITY_TASK_AGENTS
+                                         else ("Mos GitHub agent avtomatik tanlanadi" if key == "solve" else "")}
                                for key, value in TASK_TYPES.items()],
                 "jobs": [self.public(j) for j in sorted(self.jobs.values(), key=lambda j: j["created_at"], reverse=True)
                          if not j.get("account_scope") or j["account_scope"] == account_scope]}
@@ -380,6 +401,7 @@ class DevelopmentStudio:
                 ]
                 if job["task_type"] == "solve":
                     objective = job["objective"]
+                    matched_skills = 0
                     for skill_id, trigger in COMMUNITY_OBJECTIVE_TRIGGERS.items():
                         if trigger.search(objective):
                             required_skill_paths.extend(
@@ -389,6 +411,19 @@ class DevelopmentStudio:
                                      "skill-creator": "skill", "webapp-testing": "tests"}[skill_id], ()
                                 )
                             )
+                            matched_skills += 1
+                            if matched_skills == 2:
+                                break
+                agent_task = job["task_type"]
+                if agent_task == "solve":
+                    agent_task = next((task for trigger, task in COMMUNITY_AGENT_OBJECTIVE_TRIGGERS
+                                       if trigger.search(job["objective"])), "")
+                agent_source = COMMUNITY_TASK_AGENTS.get(agent_task)
+                if agent_source:
+                    required_skill_paths.extend((
+                        "shadow/skills/community/voltagent/" + agent_source,
+                        "shadow/skills/community/voltagent/LOCAL_ADAPTER.md",
+                    ))
                 required_skill_paths = [p for p in dict.fromkeys(required_skill_paths) if p in sources]
                 request = {"objective": job["objective"], "mode": job["mode"], "task_type": job["task_type"],
                            "task_guidance": TASK_TYPES[job["task_type"]]["guidance"], "previous_owner_feedback": memory,

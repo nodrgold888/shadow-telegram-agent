@@ -156,6 +156,7 @@ SKILL_PROMPT = "\n\n".join((SKILL_DIR / name).read_text(encoding="utf-8") for na
 BANK_SKILL_FILES = ("banking_uz.md", "davrbank_uz.md", "davr_loans_uz.md")
 COMMUNITY_SKILL_TRIGGERS = {
     "frontend-design": re.compile(r"\b(design|designer|dashboard|website|web site|frontend|layout|ui|ux)\b|dizayn|interfeys|sayt", re.IGNORECASE),
+    "theme-factory": re.compile(r"\b(theme|palette|colors?|branding)\b|rang|tema|yorug‘lik|yoruglik", re.IGNORECASE),
     "mcp-builder": re.compile(r"\b(api|mcp|integration|integrations|instagram|youtube|webhook)\b|integratsiya|xizmat ulash|ulab ber", re.IGNORECASE),
     "skill-creator": re.compile(r"\b(skill|skills|prompt|agent)\b|ko['‘’ʻʼ]?nikma|yangi agent|prompt yarat", re.IGNORECASE),
     "webapp-testing": re.compile(r"\b(playwright|browser|webapp|web app|ui test|tests?)\b|brauzerda tekshir|sinovdan o‘tkaz", re.IGNORECASE),
@@ -193,6 +194,9 @@ def skill_prompt_for(text: str, role: str = "") -> str:
         skill = re.sub(r"\A---\s*\n.*?\n---\s*\n", "", skill, count=1, flags=re.DOTALL)
         adapter = (folder / "LOCAL_ADAPTER.md").read_text(encoding="utf-8")
         extras.extend((skill, adapter))
+        if skill_id == "theme-factory":
+            extras.extend((folder / "themes" / name).read_text(encoding="utf-8")
+                          for name in ("midnight-galaxy.md", "tech-innovation.md"))
         if skill_id == "mcp-builder":
             extras.extend(((folder / "reference" / "mcp_best_practices.md").read_text(encoding="utf-8"),
                            (folder / "reference" / "python_mcp_server.md").read_text(encoding="utf-8")))

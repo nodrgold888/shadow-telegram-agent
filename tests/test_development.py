@@ -24,6 +24,9 @@ class SourceTests(unittest.TestCase):
         with self.assertRaises(DevelopmentError):
             source_path('shadow/skills/community/anthropics/frontend-design/SKILL.md', writing=True)
         self.assertTrue(source_path('shadow/skills/community/anthropics/frontend-design/LOCAL_ADAPTER.md', writing=True))
+        with self.assertRaises(DevelopmentError):
+            source_path('shadow/skills/community/voltagent/categories/04-quality-security/security-auditor.md', writing=True)
+        self.assertTrue(source_path('shadow/skills/community/voltagent/LOCAL_ADAPTER.md', writing=True))
         self.assertEqual(source_path('shadow/new_feature.py', writing=True), 'shadow/new_feature.py')
 
     def test_source_reader_excludes_secrets_and_symlinks(self):
@@ -125,6 +128,22 @@ class DevelopmentTests(unittest.IsolatedAsyncioTestCase):
         job=await self.studio.start(SETTINGS,'Audit the example module','audit',{'connected':True,'account':'private','token':'secret','reply_count':12})
         await self.studio.task
         self.assertEqual(json.loads(self.prompts[0][-1]['content'])['runtime'],{'connected':True,'reply_count':12})
+
+    async def test_security_audit_receives_installed_agent_and_adapter(self):
+        relative = 'shadow/skills/community/voltagent/categories/04-quality-security/security-auditor.md'
+        adapter = 'shadow/skills/community/voltagent/LOCAL_ADAPTER.md'
+        project = Path(__file__).resolve().parents[1]
+        for name in (relative, adapter):
+            destination = self.root/name
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            destination.write_bytes((project/name).read_bytes())
+        self.responses = [{'files': ['shadow/example.py']}, {'title': 'Audit', 'summary': 'Done', 'findings': [], 'changes': []}]
+        job = await self.studio.start(SETTINGS, 'Review account isolation', 'audit', task_type='security_audit')
+        await self.studio.task
+        request = json.loads(self.prompts[0][-1]['content'])
+        self.assertIn(relative, request['required_skill_references'])
+        self.assertIn(adapter, request['required_skill_references'])
+        self.assertEqual(self.studio.get(job['id'])['state'], 'ready')
 
     async def test_stale_github_source_prevents_any_write(self):
         job=await self.build();writes=[]

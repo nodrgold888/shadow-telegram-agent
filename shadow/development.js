@@ -64,7 +64,8 @@
   }
   function updateTaskHint() {
     const selectedOption=el('devMode').selectedOptions[0];
-    text('devTypeHint',taskCatalog.find(item=>item.id===selectedOption?.value)?.description||'Vazifa turi tanlang.');
+    const item=taskCatalog.find(item=>item.id===selectedOption?.value);
+    text('devTypeHint',(item?.description||'Vazifa turi tanlang.')+(item?.guide?' · '+item.guide:''));
   }
   function renderTaskTypes(types) {
     if(!Array.isArray(types)||!types.length)return;
