@@ -435,7 +435,7 @@ class RuntimeTests(unittest.IsolatedAsyncioTestCase):
         cookies = [login.verify_code(login.issue_code(account_id="11")), login._new_session(__import__('time').time())]
         login.select_session_account(cookies[1], "22")
         seen = []
-        async def reply(assistant, history, mode, sources):
+        async def reply(assistant, history, mode, sources, **kwargs):
             seen.append(assistant.settings.openai_api_key)
             return "```python\nx = 'account-code'\n```", {'provider': 'test', 'model': assistant.settings.openai_model}
         for worker in self.runtime._workers.values():

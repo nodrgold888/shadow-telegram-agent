@@ -1,6 +1,7 @@
 import asyncio
 import json
 import tempfile
+import sqlite3
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
@@ -10,7 +11,7 @@ import httpx
 
 from shadow.assistant import ShadowAssistant
 from shadow.config import AIProvider
-from shadow.workspace import ChatStore, Workspace, WorkspaceError, workspace_reply
+from shadow.workspace import ChatStore, Workspace, WorkspaceError, workspace_reply, model_options, validate_model_selection
 from tests.test_ai_fallback import build, make_settings, QuotaError
 
 CODE = "```python\ndef hello(name):\n    return 'hi-' + name\n```\n\nozingiz-chi?"
@@ -39,6 +40,75 @@ class WorkspaceTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(another.list(11)), 1)
         self.assertEqual(self.store.path.stat().st_mode & 0o777, 0o600)
 
+    async def test_old_history_migrates_without_losing_messages(self):
+        old = Path(self.tmp.name) / 'old.sqlite3'
+        with sqlite3.connect(old) as db:
+            db.execute('CREATE TABLE threads (id TEXT PRIMARY KEY, account TEXT NOT NULL, title TEXT, mode TEXT, updated REAL, messages TEXT)')
+            db.execute('INSERT INTO threads VALUES (?,?,?,?,?,?)', ('old-thread', '11', 'Private code', 'code', 1, json.dumps([{'role': 'user', 'content': CODE}])))
+        migrated = ChatStore(old)
+        thread = migrated.get(11, 'old-thread')
+        self.assertEqual(thread['selected_model'], 'auto')
+        self.assertEqual(thread['messages'][0]['content'], CODE)
+        self.assertEqual(migrated.list(22), [])
+        new = migrated.create(11, 'new', 'chat')
+        self.assertEqual(migrated.get(11, new['id'])['selected_model'], 'auto')
+
+    async def test_selector_shows_saved_models_but_never_enables_paid_in_free_mode(self):
+        settings = make_settings(ai_work_mode='free', ai_base_url='https://openrouter.ai/api/v1', ai_model='first:free',
+                                ai_extra_providers=(AIProvider('other free', 'https://openrouter.ai/api/v1', 'own-secret', 'second:free', 2),
+                                                    AIProvider('paid', 'https://paid.example/v1', 'private-paid', 'paid-model', 3)))
+        options = model_options(settings)
+        self.assertEqual(len(options), 4)
+        self.assertEqual({m['id'] for m in options if m['enabled']}, {'slot:1', 'slot:2'})
+        for model in ['openai', 'slot:3', 'slot:8', 'arbitrary-remote-model']:
+            with self.assertRaises(WorkspaceError):
+                validate_model_selection(settings, model)
+        self.assertNotIn('private-paid', json.dumps(options))
+        self.assertNotIn('own-secret', json.dumps(options))
+
+    async def test_selected_backup_is_used_first_and_retains_free_fallback(self):
+        settings = make_settings(ai_work_mode='free', ai_base_url='https://openrouter.ai/api/v1', ai_model='first:free',
+                                 ai_extra_providers=(AIProvider('second', 'https://openrouter.ai/api/v1', 'second-key', 'second:free', 2),))
+        def client():
+            return SimpleNamespace(chat=SimpleNamespace(completions=SimpleNamespace(create=AsyncMock(return_value=SimpleNamespace(choices=[SimpleNamespace(message=SimpleNamespace(content=CODE))])))))
+        first, second = client(), client()
+        with patch('shadow.assistant.AsyncOpenAI', side_effect=[first, second]):
+            assistant = ShadowAssistant(settings)
+        answer, chosen = await workspace_reply(assistant, [{'role': 'user', 'content': 'hello'}], 'chat', [], model='slot:2')
+        first.chat.completions.create.assert_not_awaited()
+        second.chat.completions.create.assert_awaited_once()
+        self.assertEqual(chosen['provider_id'], 'slot:2')
+        self.assertFalse(chosen['fallback_used'])
+        second.chat.completions.create.side_effect = QuotaError()
+        answer, chosen = await workspace_reply(assistant, [{'role': 'user', 'content': 'hello'}], 'chat', [], model='slot:2')
+        first.chat.completions.create.assert_awaited_once()
+        self.assertEqual(chosen['provider_id'], 'slot:1')
+        self.assertTrue(chosen['fallback_used'])
+
+    async def test_manual_openai_selection_and_free_block_are_enforced(self):
+        assistant, primary, compat = build(make_settings(ai_primary=True))
+        _, chosen = await workspace_reply(assistant, [{'role': 'user', 'content': 'hello'}], 'chat', [], model='openai')
+        self.assertEqual(chosen['provider_id'], 'openai')
+        primary.responses.create.assert_awaited_once()
+        compat.chat.completions.create.assert_not_awaited()
+        assistant.settings = make_settings(ai_work_mode='free')
+        with self.assertRaises(WorkspaceError):
+            await workspace_reply(assistant, [{'role': 'user', 'content': 'hello'}], 'chat', [], model='openai')
+        self.assertEqual(primary.responses.create.await_count, 1)
+
+    async def test_selection_is_remembered_per_conversation_and_rejected_before_writes(self):
+        assistant, _, _ = build(make_settings())
+        with patch('shadow.workspace.workspace_reply', AsyncMock(return_value=(CODE, {'provider': 'test', 'model': 'model'}))):
+            job = self.workspace.start(11, assistant, 'my code', 'code', model='slot:1')
+            await self.workspace.jobs[job['id']]['task']
+        self.assertEqual(self.store.get(11, job['thread_id'])['selected_model'], 'slot:1')
+        with self.assertRaises(WorkspaceError):
+            self.workspace.start(11, assistant, 'do not save', 'code', job['thread_id'], model='slot:9')
+        self.assertEqual(len(self.store.get(11, job['thread_id'])['messages']), 2)
+        with self.assertRaises(WorkspaceError):
+            self.workspace.start(22, assistant, 'private', 'code', job['thread_id'], model='slot:1')
+        self.assertEqual(self.store.list(22), [])
+
     async def test_raw_code_preserved_and_openai_credits_fall_back(self):
         assistant, primary, compat = build(make_settings(), openai_error=QuotaError())
         compat.chat.completions.create.return_value.choices[0].message.content = CODE
@@ -66,7 +136,7 @@ class WorkspaceTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_background_reply_cancellation_is_account_bound(self):
         assistant, _, _ = build(make_settings())
-        async def wait(*args):
+        async def wait(*args, **kwargs):
             await asyncio.Event().wait()
         with patch('shadow.workspace.workspace_reply', side_effect=wait):
             job = self.workspace.start(11, assistant, 'hello', 'chat')

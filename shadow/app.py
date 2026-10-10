@@ -16,7 +16,7 @@ from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, Res
 from .config import Settings
 from .assistant import ShadowAssistant
 from .model_routing import WORK_MODES, ordered_backup_providers, free_gateway_base_url
-from .workspace import Workspace, WorkspaceError, close_assistant, workspace_reply, reply_error
+from .workspace import Workspace, WorkspaceError, close_assistant, workspace_reply, reply_error, validate_model_selection
 from .development import DevelopmentError, DevelopmentStudio
 from .guardian import Guardian
 from .ai_slots import apply_provider, fetch_provider_models, free_slot, parse_provider, prepare_xkiro_bundle, prepare_xkiro_defaults, ProviderSlotsFull, XKIRO_MODELS, provider_env, remove_slot, set_first, slot_env_names
@@ -198,8 +198,12 @@ async def workspace_status(request: Request):
     return JSONResponse(workspace_ai.status(account, agent.settings), headers={"Cache-Control": "no-store"})
 
 
+class WorkspaceModelChoice(BaseModel):
+    model: str = Field(default="auto", max_length=40)
+
+
 @app.post("/dashboard/api/workspace/check", dependencies=[Depends(development_auth)])
-async def workspace_check(request: Request):
+async def workspace_check(request: Request, choice: WorkspaceModelChoice | None = None):
     import asyncio
     import time
     account = workspace_account(request)
@@ -210,8 +214,9 @@ async def workspace_check(request: Request):
     assistant = ShadowAssistant(agent.settings)
     started = time.monotonic()
     try:
+        validate_model_selection(assistant.settings, choice.model if choice else "auto")
         async with asyncio.timeout(120):
-            answer, chosen = await workspace_reply(assistant, [{"role": "user", "content": "Reply with just: Shadow AI ready"}], "chat", [], max_tokens=512)
+            answer, chosen = await workspace_reply(assistant, [{"role": "user", "content": "Reply with just: Shadow AI ready"}], "chat", [], max_tokens=512, model=choice.model if choice else "auto")
         return {"ok": True, "seconds": round(time.monotonic()-started, 1), **chosen}
     except Exception as exc:
         return {"ok": False, "detail": reply_error(exc)}
@@ -241,6 +246,7 @@ class WorkspaceMessage(BaseModel):
     message: str = Field(min_length=1, max_length=16000)
     mode: Literal["chat", "code", "research"] = "chat"
     thread_id: str | None = Field(default=None, max_length=40)
+    model: str = Field(default="auto", max_length=40)
 
 
 @app.post("/dashboard/api/workspace/messages", dependencies=[Depends(development_auth)])
@@ -249,7 +255,7 @@ async def workspace_message(body: WorkspaceMessage, request: Request):
     # Web chat is independent of Telegram's auto-reply switch and model cooldowns.
     assistant = ShadowAssistant(agent.settings)
     try:
-        return workspace_ai.start(account, assistant, body.message, body.mode, body.thread_id, owned=True)
+        return workspace_ai.start(account, assistant, body.message, body.mode, body.thread_id, owned=True, model=body.model)
     except ValueError as exc:
         await close_assistant(assistant)
         raise HTTPException(400, str(exc)) from None

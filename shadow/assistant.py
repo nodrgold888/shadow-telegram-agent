@@ -569,7 +569,7 @@ class ShadowAssistant:
         return {"ok": True, "seconds": seconds, "provider": self.last_provider, "model": self.last_model,
                 "preview": text[:60]}
 
-    async def _try_providers(self, call, purpose: str = "chat"):
+    async def _try_providers(self, call, purpose: str = "chat", *, preferred_slot: int | None = None):
         """Run call(provider, client) on each backup provider in order; the first success wins.
 
         Every provider's failure is logged by class only; if all fail, the last error is raised.
@@ -581,7 +581,8 @@ class ShadowAssistant:
         # Providers that recently hit a usage limit go last, so the others answer first.
         rank = {p.slot: i for i, p in enumerate(ordered_backup_providers(self.settings, purpose))}
         ordered = sorted(self.compat_clients,
-                         key=lambda pc: (self._cooling(f"{pc[0].slot}:{pc[0].name}"), rank[pc[0].slot]))
+                         key=lambda pc: (preferred_slot is not None and pc[0].slot != preferred_slot,
+                                        self._cooling(f"{pc[0].slot}:{pc[0].name}"), rank[pc[0].slot]))
         started = time.monotonic()
         for provider, client in ordered:
             remaining = CHAIN_BUDGET - (time.monotonic() - started)

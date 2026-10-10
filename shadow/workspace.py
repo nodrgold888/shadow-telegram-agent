@@ -31,6 +31,34 @@ class WorkspaceError(ValueError):
     pass
 
 
+def model_options(settings):
+    eligible = {p.slot for p in ordered_backup_providers(settings)}
+    options = []
+    for p in settings.backup_providers:
+        enabled = p.slot in eligible
+        options.append({'id': f'slot:{p.slot}', 'name': p.name, 'model': p.model, 'enabled': enabled,
+                        'reason': '' if enabled else 'Bepul rejimda yopiq: pullik yoki tasdiqlanmagan model.'})
+    if settings.openai_api_key:
+        primary = {'id': 'openai', 'name': 'OpenAI', 'model': settings.openai_model,
+                   'enabled': settings.ai_work_mode != 'free',
+                   'reason': 'Bepul rejimda yopiq: OpenAI API uchun balans kerak.' if settings.ai_work_mode == 'free' else ''}
+        if settings.ai_primary and options:
+            options.append(primary)
+        else:
+            options.insert(0, primary)
+    return options
+
+
+def validate_model_selection(settings, model):
+    if model == 'auto':
+        return
+    option = next((item for item in model_options(settings) if item['id'] == model), None)
+    if option is None:
+        raise WorkspaceError('Model bu akkauntda sozlanmagan. Model royxatini yangilang.')
+    if not option['enabled']:
+        raise WorkspaceError(option['reason'])
+
+
 class ChatStore:
     def __init__(self, path=None):
         self.path = Path(path or os.getenv('SHADOW_CHAT_STORE', '.shadow-state/workspace.sqlite3'))
@@ -42,6 +70,8 @@ class ChatStore:
         os.chmod(self.path, 0o600)
         db.row_factory = sqlite3.Row
         db.execute('CREATE TABLE IF NOT EXISTS threads (id TEXT PRIMARY KEY, account TEXT NOT NULL, title TEXT, mode TEXT, updated REAL, messages TEXT)')
+        if 'selected_model' not in {row['name'] for row in db.execute('PRAGMA table_info(threads)')}:
+            db.execute("ALTER TABLE threads ADD COLUMN selected_model TEXT NOT NULL DEFAULT 'auto'")
         try:
             with db:
                 yield db
@@ -57,19 +87,19 @@ class ChatStore:
             row = db.execute('SELECT * FROM threads WHERE id=? AND account=?', (thread, str(account))).fetchone()
         if row is None:
             raise WorkspaceError('Suhbat topilmadi.')
-        return {'id': row['id'], 'title': row['title'], 'mode': row['mode'], 'updated': row['updated'], 'messages': json.loads(row['messages'])}
+        return {'id': row['id'], 'title': row['title'], 'mode': row['mode'], 'updated': row['updated'], 'selected_model': row['selected_model'], 'messages': json.loads(row['messages'])}
 
     def create(self, account, text, mode):
         if len(self.list(account)) >= 100:
             raise WorkspaceError('100 ta suhbat chegarasi. Eski suhbatlardan birini ochiring yoki eksport qiling.')
-        thread = {'id': uuid.uuid4().hex, 'title': ' '.join(text.split())[:70], 'mode': mode, 'updated': time.time(), 'messages': []}
+        thread = {'id': uuid.uuid4().hex, 'title': ' '.join(text.split())[:70], 'mode': mode, 'updated': time.time(), 'selected_model': 'auto', 'messages': []}
         with self.connect() as db:
-            db.execute('INSERT INTO threads VALUES (?,?,?,?,?,?)', (thread['id'], str(account), thread['title'], mode, thread['updated'], '[]'))
+            db.execute('INSERT INTO threads (id,account,title,mode,updated,messages) VALUES (?,?,?,?,?,?)', (thread['id'], str(account), thread['title'], mode, thread['updated'], '[]'))
         return thread
 
     def save(self, account, thread):
         with self.connect() as db:
-            changed = db.execute('UPDATE threads SET messages=?,updated=?,mode=? WHERE id=? AND account=?', (json.dumps(thread['messages'], ensure_ascii=False), time.time(), thread['mode'], thread['id'], str(account)))
+            changed = db.execute('UPDATE threads SET messages=?,updated=?,mode=?,selected_model=? WHERE id=? AND account=?', (json.dumps(thread['messages'], ensure_ascii=False), time.time(), thread['mode'], thread.get('selected_model', 'auto'), thread['id'], str(account)))
             if not changed.rowcount:
                 raise WorkspaceError('Suhbat topilmadi.')
 
@@ -78,7 +108,9 @@ class ChatStore:
             db.execute('DELETE FROM threads WHERE id=? AND account=?', (thread, str(account)))
 
 
-async def workspace_reply(assistant, history, mode, sources, *, max_tokens=6000):
+async def workspace_reply(assistant, history, mode, sources, *, max_tokens=6000, model="auto"):
+    validate_model_selection(assistant.settings, model)
+    preferred_slot = int(model.split(':')[1]) if model.startswith('slot:') else None
     instructions = SYSTEM
     if mode == 'code':
         instructions += '\nFocus on coding, debugging, tests and practical implementation. Preserve code exactly.'
@@ -101,7 +133,7 @@ async def workspace_reply(assistant, history, mode, sources, *, max_tokens=6000)
         response = await chat_create(client, model=provider.model, messages=messages, max_tokens=max_tokens)
         text = response.choices[0].message.content or ''
         if text.strip():
-            chosen.update(provider=provider.name, model=provider.model)
+            chosen.update(provider=provider.name, model=provider.model, provider_id=f"slot:{provider.slot}")
         return text
 
     async def primary():
@@ -110,19 +142,19 @@ async def workspace_reply(assistant, history, mode, sources, *, max_tokens=6000)
         text = response.output_text or ''
         if not text.strip():
             raise WorkspaceError('AI bosh javob qaytardi.')
-        chosen.update(provider='OpenAI', model=assistant.settings.openai_model)
+        chosen.update(provider='OpenAI', model=assistant.settings.openai_model, provider_id='openai')
         return text
 
-    if assistant.client is not None and not assistant._use_compat_first():
+    if assistant.client is not None and (model == "openai" or (model == "auto" and not assistant._use_compat_first())):
         try:
             answer = await primary()
         except Exception as exc:
             if not should_fall_back(exc) or not assistant.compat_clients:
                 raise
-            answer = await assistant._try_providers(compat, purpose)
+            answer = await assistant._try_providers(compat, purpose, preferred_slot=preferred_slot)
     elif assistant.compat_clients:
         try:
-            answer = await assistant._try_providers(compat, purpose)
+            answer = await assistant._try_providers(compat, purpose, preferred_slot=preferred_slot)
         except Exception:
             if assistant.client is None:
                 raise
@@ -133,6 +165,7 @@ async def workspace_reply(assistant, history, mode, sources, *, max_tokens=6000)
         raise WorkspaceError('AI sozlanmagan. AI provayderlar bolimida API kalitni saqlang.')
     if not answer.strip():
         raise WorkspaceError('AI bosh javob qaytardi. Boshqa modelni tanlang.')
+    chosen['fallback_used'] = model != 'auto' and chosen.get('provider_id') != model
     return answer[:60000], chosen
 
 
@@ -147,15 +180,9 @@ class Workspace:
             research = True
         except ValueError:
             research = False
-        models = [{'name': p.name, 'model': p.model} for p in ordered_backup_providers(settings)]
-        if settings.openai_api_key and settings.ai_work_mode != 'free':
-            primary = {'name': 'OpenAI', 'model': settings.openai_model}
-            if settings.ai_primary and models:
-                models.append(primary)
-            else:
-                models.insert(0, primary)
+        models = model_options(settings)
         return {'account_id': account, 'configured': settings.ai_ready, 'mode': settings.ai_work_mode,
-                'models': models, 'research_ready': research, 'threads': self.store.list(account),
+                'models': models, 'eligible_count': sum(m['enabled'] for m in models), 'research_ready': research, 'threads': self.store.list(account),
                 'active': next((self.public(j) for j in self.jobs.values() if j['account'] == str(account) and j['state'] == 'running'), None),
                 'storage_note': 'Suhbatlar shu serverda saqlanadi. Render free qayta joylashtirilganda tarix yoqolishi mumkin. Muhim suhbatni eksport qiling.'}
 
@@ -169,11 +196,12 @@ class Workspace:
             raise WorkspaceError('Vazifa topilmadi.')
         return job
 
-    def start(self, account, assistant, text, mode, thread_id=None, *, owned=False):
+    def start(self, account, assistant, text, mode, thread_id=None, *, owned=False, model="auto"):
         if not account:
             raise WorkspaceError('Avval Telegram akkauntini ulang yoki tanlang.')
         if not assistant.settings.ai_ready:
             raise WorkspaceError('Bu akkaunt uchun AI sozlanmagan yoki joriy rejimda ruxsat yoq. AI provayderlar bolimini oching.')
+        validate_model_selection(assistant.settings, model)
         if any(j['account'] == str(account) and j['state'] == 'running' for j in self.jobs.values()):
             raise WorkspaceError('Javob tayyorlanmoqda. Kuting yoki uni toxtating.')
         if mode not in MODES or not isinstance(text, str) or not 1 <= len(text.strip()) <= 16000:
@@ -183,6 +211,7 @@ class Workspace:
         thread = self.store.get(account, thread_id) if thread_id else self.store.create(account, text, mode)
         if len(thread['messages']) >= 80:
             raise WorkspaceError('Bu suhbat chegaraga yetdi. Yangi suhbat oching.')
+        thread['selected_model'] = model
         thread['mode'] = mode
         thread['messages'].append({'role': 'user', 'content': text, 'created': time.time()})
         self.store.save(account, thread)
@@ -204,7 +233,7 @@ class Workspace:
                     result = await search_web(text[:300])
                     sources = result['results']
                     job['stage'] = 'Manbalar tahlil qilinmoqda'
-                answer, chosen = await workspace_reply(assistant, thread['messages'], thread['mode'], sources)
+                answer, chosen = await workspace_reply(assistant, thread['messages'], thread['mode'], sources, model=thread.get('selected_model', 'auto'))
                 thread['messages'].append({'role': 'assistant', 'content': answer, 'created': time.time(), 'sources': sources, **chosen})
                 self.store.save(job['account'], thread)
                 job['state'] = 'done'
