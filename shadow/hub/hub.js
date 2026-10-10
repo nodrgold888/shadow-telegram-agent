@@ -7,7 +7,9 @@
     arrowup:'M7 17 17 7 M7 7h10v10',
     user:'M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2 M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8',
     spark:'m12 3 2.7 6.3L21 12l-6.3 2.7L12 21l-2.7-6.3L3 12l6.3-2.7Z',
-    play:'m9 5 11 7-11 7Z', grid:'M3 3h7v7H3Z M14 3h7v7h-7Z M3 14h7v7H3Z M14 14h7v7h-7Z',
+    play:'m9 5 11 7-11 7Z', pause:'M8 5v14 M16 5v14', volume:'m3 9 4 0 5-4v14l-5-4H3Z M16 8a6 6 0 0 1 0 8 M19 5a10 10 0 0 1 0 14', muted:'m3 9 4 0 5-4v14l-5-4H3Z M16 9l6 6 M22 9l-6 6',
+    next:'m5 5 9 7-9 7Z M18 5v14', skip:'M3 5v14 M8 5l9 7-9 7Z M21 5v14', list:'M9 5h12 M9 12h12 M9 19h12 M3 5h1 M3 12h1 M3 19h1', bell:'M6 8a6 6 0 0 1 12 0v7l2 3H4l2-3Z M10 21h4',
+    grid:'M3 3h7v7H3Z M14 3h7v7h-7Z M3 14h7v7H3Z M14 14h7v7h-7Z',
     clock:'M12 8v4l3 2 M21 12a9 9 0 1 0-18 0 9 9 0 0 0 18 0',
     bookmark:'M6 3h12v18l-6-4-6 4Z', history:'M3 3v5h5 M3.6 8a9 9 0 1 1-.4 8 M12 7v5l4 2',
     settings:'m12 3 3 2 3-.2.8 3L21 10v4l-2.2 2.2-.8 3-3-.2-3 2-3-2-3 .2-.8-3L3 14v-4l2.2-2.2.8-3 3 .2Z M15 12a3 3 0 1 0-6 0 3 3 0 0 0 6 0',
@@ -37,6 +39,9 @@
   const video=$('animeVideo'), dialog=$('watchDialog');
   let library=new Map(), account=null, accountEpoch=0, tab='catalog', page=1, pages=1, catalogRequest=0, catalogController;
   let current=null, episodeIndex=-1, quality='1080', hls=null, hlsPromise=null, playerEpoch=0, detailEpoch=0, episodeRequest=0, hero=null, toastTimer, lastSave=0, lastSaveError=0;
+  let historyResetting=false;
+  const pendingSaves=new Set();
+  const player=window.createShadowPlayer({video,icon,episode:()=>current?.episodes[episodeIndex],onExpand:setCinema,onClearHistory:clearCurrentHistory,notice:toast});
   function element(tag, text, className) { const el=document.createElement(tag); if(text!==undefined)el.textContent=text; if(className)el.className=className; return el; }
   function posterURL(value) { try { const url=new URL(value);return url.protocol==='https:'&&(url.hostname==='anilibria.top'||url.hostname.endsWith('.anilibria.top'))?url.href:''; }catch{return '';} }
   function image(url, alt) { const img=element('img');img.alt=alt||'';img.loading='lazy';img.decoding='async';const src=posterURL(url);if(src)img.src=src;img.addEventListener('error',()=>img.remove(),{once:true});return img; }
@@ -132,7 +137,7 @@
   }
   function renderLibrary() {
     if(tab==='catalog')return;
-    const q=$('animeQuery').value.trim().toLocaleLowerCase(),rows=[...library.values()].sort((a,b)=>b.updated-a.updated).filter(row=>(tab!=='favorites'||row.favorite)&&(tab!=='continue'||row.position>0&&row.status!=='watched')&&(!q||row.title.toLocaleLowerCase().includes(q)));
+    const q=$('animeQuery').value.trim().toLocaleLowerCase(),rows=[...library.values()].sort((a,b)=>b.updated-a.updated).filter(row=>(tab!=='favorites'||row.favorite)&&(tab!=='continue'||row.position>0&&row.status!=='watched')&&(tab!=='history'||row.position>0||row.status==='watched')&&(!q||row.title.toLocaleLowerCase().includes(q)));
     $('animeGrid').replaceChildren(...rows.map(row=>cardNode({id:row.release_id,...row},false,row)));
     $('catalogCount').textContent=rows.length+' anime';$('animeEmpty').hidden=rows.length>0;$('catalogPagination').hidden=true;updateHero(null);catalogNotice('');
   }
@@ -146,7 +151,7 @@
     if(window.Hls)return window.Hls;if(!hlsPromise)hlsPromise=new Promise((resolve,reject)=>{const script=document.createElement('script');script.src='/hub/vendor/hls.min.js';script.onload=()=>resolve(window.Hls);script.onerror=()=>{hlsPromise=null;script.remove();reject(new Error('Playerni yuklab bolmadi. Sahifani yangilang.'));};document.head.append(script);});return hlsPromise;
   }
   function stopVideo() {playerEpoch++;video.pause();if(hls){hls.destroy();hls=null;}video.removeAttribute('src');video.load();}
-  function updateFavorite() {const saved=!!library.get(current?.id)?.favorite;for(const id of ['watchFavorite','detailFavorite']){$(id).setAttribute('aria-pressed',String(saved));$(id).replaceChildren(icon('bookmark'),document.createTextNode(saved?'Saqlangan':'Saqlash'));}$('detailSavedCount').textContent=[...library.values()].filter(row=>row.favorite).length;$('detailLibraryNotice').textContent=account===null?'Mehmon tarixi shu qurilmada saqlanadi.':'Tomosha tarixi faqat shu akkaunt uchun.';}
+  function updateFavorite() {const saved=!!library.get(current?.id)?.favorite;for(const id of ['watchFavorite','detailFavorite']){$(id).setAttribute('aria-pressed',String(saved));$(id).replaceChildren(icon('bookmark'),document.createTextNode(saved?'Saqlangan':'Saqlash'));}$('playerFollow').setAttribute('aria-pressed',String(saved));$('playerFollowLabel').textContent=saved?'Kuzatilmoqda':'Kuzatish';$('detailSavedCount').textContent=[...library.values()].filter(row=>row.favorite).length;$('detailLibraryNotice').textContent=account===null?'Mehmon tarixi shu qurilmada saqlanadi.':'Tomosha tarixi faqat shu akkaunt uchun.';updateEpisodeProgress();}
   function titleOverview(card) {
     $('titleOverview').hidden=false;$('detailTitle').textContent=card.title;$('detailEnglish').textContent=card.english||'';
     $('detailPoster').removeAttribute('src');const poster=posterURL(card.poster);if(poster)$('detailPoster').src=poster;$('detailPoster').alt=card.title;
@@ -162,20 +167,53 @@
     api('/anime/api/catalog?genre='+genre).then(data=>{if(version!==detailEpoch||current!==card)return;const rows=data.items.filter(item=>item.id!==card.id).slice(0,5);$('relatedPanel').hidden=!rows.length;$('relatedGrid').replaceChildren(...rows.map(item=>cardNode(item)));}).catch(()=>{});
   }
   function episodesUI() {
+    for(const id of ['voiceEpisodeCount','engineEpisodeCount'])$(id).textContent=current.episodes.length+' / '+(current.episodes_total||current.episodes.length);
     $('episodeCount').textContent=current.episodes.length+' seriya';$('episodeList').replaceChildren(...current.episodes.map((ep,index)=>{
       const button=element('button',undefined,'episode-button');button.type='button';button.classList.toggle('active',index===episodeIndex);if(index===episodeIndex)button.setAttribute('aria-current','true');
+      button.dataset.episode=ep.number;button.setAttribute('aria-label',ep.number+'-seriya'+(ep.name?' · '+ep.name:''));
       button.classList.toggle('has-intro',Number.isFinite(ep.opening?.start)&&Number.isFinite(ep.opening?.stop)&&ep.opening.stop>ep.opening.start);
+      button.classList.toggle('has-ending',Number.isFinite(ep.ending?.start)&&Number.isFinite(ep.ending?.stop)&&ep.ending.stop>ep.ending.start);
       const copy=element('span',undefined,'episode-copy');copy.append(element('strong',ep.number+'-seriya'),element('small',ep.name||Math.round(ep.duration/60)+' daqiqa'));
-      button.append(element('span',String(ep.number),'episode-number'),copy,element('span',ep.streams['1080']?'1080p':ep.streams['720']?'720p':'480p','episode-quality'));button.onclick=()=>selectEpisode(index);return button;
-    }));$('previousEpisode').disabled=episodeIndex<=0;$('nextEpisode').disabled=episodeIndex<0||episodeIndex>=current.episodes.length-1;
+      button.append(element('span',String(ep.number),'episode-number'),copy,element('span',ep.streams['1080']?'1080p':ep.streams['720']?'720p':'480p','episode-quality'),element('span',undefined,'episode-progress'));button.onclick=()=>selectEpisode(index);return button;
+    }));$('previousEpisode').disabled=episodeIndex<=0;$('nextEpisode').disabled=episodeIndex<0||episodeIndex>=current.episodes.length-1;updateEpisodeProgress();
+  }
+  function updateEpisodeProgress() {
+    const saved=library.get(current?.id);
+    document.querySelectorAll('#episodeList .episode-button').forEach(button=>{
+      const matches=saved?.episode===Number(button.dataset.episode);
+      const progress=matches?(saved.status==='watched'?100:saved.duration?Math.min(100,saved.position/saved.duration*100):0):0;
+      button.querySelector('.episode-progress').style.width=progress+'%';
+    });
   }
   async function saveProgress(changes={}) {
-    const card=current,ep=card?.episodes[episodeIndex];if(!card||!ep)return;
+    const card=current,ep=card?.episodes[episodeIndex];if(historyResetting||!card||!ep)return;
     const body=progressBody(card,{episode:ep.number,position:Number.isFinite(video.currentTime)?video.currentTime:0,duration:Number.isFinite(video.duration)&&video.duration>0?video.duration:ep.duration,quality,status:video.ended?'watched':video.currentTime>0?'watching':'planned',...changes});
-    try {await persist(body,card);}catch(error){if(Date.now()-lastSaveError>30000){lastSaveError=Date.now();toast('Tomosha tarixi saqlanmadi. '+error.message);}if(error.status===401||error.status===409)loadLibrary();}
+    const pending=persist(body,card);pendingSaves.add(pending);
+    try {await pending;}catch(error){if(Date.now()-lastSaveError>30000){lastSaveError=Date.now();toast('Tomosha tarixi saqlanmadi. '+error.message);}if(error.status===401||error.status===409)loadLibrary();}finally{pendingSaves.delete(pending);}
+  }
+  async function clearCurrentHistory() {
+    const card=current,owner=account,epoch=accountEpoch;if(!card)return;
+    historyResetting=true;video.pause();
+    try {
+      await Promise.allSettled([...pendingSaves]);
+      if(owner!==account||epoch!==accountEpoch||current!==card)throw new Error('Hisob ozgardi. Qayta urinib koring.');
+      const saved=library.get(card.id);
+      if(saved?.favorite)await persist(progressBody(card,{episode:0,position:0,duration:0,status:'planned'}),card);
+      else {
+        if(owner!==null)await api(libraryQuery('/anime/api/library/'+card.id),{method:'DELETE'});
+        if(owner!==account||epoch!==accountEpoch||current!==card)throw new Error('Hisob ozgardi. Qayta urinib koring.');
+        library.delete(card.id);if(owner===null)localStorage.setItem('shadow-anime:guest',JSON.stringify([...library.values()]));updateLibraryUI();
+      }
+      if(owner!==account||epoch!==accountEpoch||current!==card)throw new Error('Hisob ozgardi. Qayta urinib koring.');
+      video.currentTime=0;updateEpisodeProgress();toast('Shu anime tarixi tozalandi. Saqlangan anime saqlanadi.');
+    } finally {historyResetting=false;}
+  }
+  function setCinema(expanded) {
+    dialog.classList.toggle('cinema',expanded);$('animeDetail').classList.toggle('cinema',expanded);$('cinemaToggle').setAttribute('aria-pressed',String(expanded));player.expanded(expanded);
+    if(expanded)$('videoStage').scrollIntoView({behavior:'smooth',block:'start'});
   }
   function closePlayer() {
-    if(current)saveProgress();detailEpoch++;episodeRequest++;current=null;episodeIndex=-1;stopVideo();dialog.close();dialog.classList.remove('cinema');$('animeDetail').classList.remove('cinema');$('cinemaToggle').setAttribute('aria-pressed','false');
+    if(current)saveProgress();detailEpoch++;episodeRequest++;current=null;episodeIndex=-1;stopVideo();player.close();dialog.close();setCinema(false);
     $('animeDetail').hidden=true;$('animeBrowse').hidden=false;$('jumpToVideo').hidden=true;
     const url=new URL(location.href);url.searchParams.delete('title');url.searchParams.delete('episode');history.replaceState(null,'',url);
   }
@@ -211,7 +249,7 @@
   }
   async function loadStream(position=0,autoPlay=false) {
     const ep=current?.episodes[episodeIndex];if(!ep?.streams[quality])return;
-    stopVideo();const epoch=playerEpoch,source=ep.streams[quality];$('videoResolution').textContent='';$('qualityStatus').textContent=quality+'p';$('playerNotice').textContent=quality==='1080'?'1080p tanlandi. Video yuklangach tomoshani boshlang.':'Bu seriyada 1080p yoq yoki pastroq sifat tanlandi. Hozir '+quality+'p.';
+    stopVideo();player.reset(ep);player.log(ep.number+'-seriya · '+quality+'p');const epoch=playerEpoch,source=ep.streams[quality];$('videoResolution').textContent='';$('qualityStatus').textContent=quality+'p';$('playerNotice').textContent=quality==='1080'?'1080p tanlandi. Video yuklangach tomoshani boshlang.':'Bu seriyada 1080p yoq yoki pastroq sifat tanlandi. Hozir '+quality+'p.';
     const restore=()=>{if(epoch!==playerEpoch)return;if(position>0&&Number.isFinite(video.duration))video.currentTime=Math.min(position,Math.max(0,video.duration-1));if(autoPlay)video.play().catch(()=>{$('playerNotice').textContent='Boshlash uchun playerdagi Play tugmasini bosing.';});};
     video.addEventListener('loadedmetadata',restore,{once:true});
     try {
@@ -234,7 +272,8 @@
   $('videoQuality').onchange=()=>{const position=video.currentTime,playing=!video.paused;quality=$('videoQuality').value;loadStream(position,playing);};
   $('previousEpisode').onclick=()=>selectEpisode(episodeIndex-1);$('nextEpisode').onclick=()=>selectEpisode(episodeIndex+1);
   $('watchFavorite').onclick=()=>current&&toggleFavorite(current);
-  $('cinemaToggle').onclick=()=>{const expanded=dialog.classList.toggle('cinema');$('animeDetail').classList.toggle('cinema',expanded);$('cinemaToggle').setAttribute('aria-pressed',String(expanded));if(expanded)$('videoStage').scrollIntoView({behavior:'smooth',block:'start'});};
+  $('playerFollow').onclick=()=>current&&toggleFavorite(current);
+  $('cinemaToggle').onclick=()=>setCinema(!dialog.classList.contains('cinema'));
   $('pictureInPicture').hidden=!document.pictureInPictureEnabled;$('pictureInPicture').onclick=async()=>{try{if(document.pictureInPictureElement)await document.exitPictureInPicture();else await video.requestPictureInPicture();}catch{toast('Video boshlangandan keyin suzuvchi playerni tanlang.');}};
   for(const event of ['loadedmetadata','resize','playing'])video.addEventListener(event,()=>{if(video.videoWidth)$('videoResolution').textContent=video.videoWidth+' × '+video.videoHeight;});
   video.addEventListener('playing',()=>{const ep=current?.episodes[episodeIndex];if(ep)$('playerNotice').textContent=ep.number+'-seriya · '+quality+'p'+(quality!=='1080'&&!ep.streams['1080']?' · Bu seriyada 1080p yoq.':'');});

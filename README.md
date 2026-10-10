@@ -12,8 +12,13 @@ opens `/anime`. Telegram administration and existing sign-in remain at `/dashboa
 The dashboard also links directly to Anime Watch.
 
 Anime Watch has search, genre filters, rating/year sorting, pagination, posters, favorites,
-resume history, episode selection, automatic next episode, metadata-based intro skipping,
-cinema view, native fullscreen, supported picture-in-picture, and a JSON library export.
+resume history, episode selection, automatic next episode, metadata-based opening/ending skipping,
+cinema view, fullscreen, supported picture-in-picture, and a JSON library export.
+The inline player uses Shadow's custom controls: a red seek bar, time, volume, actual quality choices,
+fullscreen, and a gear menu. The menu saves playback preferences in the browser, can restore native
+browser controls, shows a bounded playback event log, and clears the current anime's progress without
+removing it from favorites. Skips use source-provided time ranges; unavailable voices, subtitle tracks,
+and Kodik sources are not invented. Following a title adds it to favorites, not push notifications.
 Anime pages follow the supplied YummyAnime reference: a light layout, coral tabs, a poster
 beside title facts, episode buttons above the inline player, and a poster-first mobile page
 with bottom navigation. AMOLED night mode uses a pure-black page background by default;

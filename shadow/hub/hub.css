@@ -213,3 +213,67 @@ html:not([data-anime-theme="light"]) body[data-page="anime"] .skeleton .poster-a
 html:not([data-anime-theme="light"]) body[data-page="anime"] input::placeholder{color:#a5a5b0}
 html:not([data-anime-theme="light"]) body[data-page="anime"] :is(.primary,.site-header nav a.active,.mobile-tabs button.active,.watch-tabs button.active){background:#cf3d47;border-color:#cf3d47;color:#fff}
 html:not([data-anime-theme="light"]) body[data-page="anime"] .brand-mark{background:#eb505a}
+
+/* Compact source selectors and Shadow's own reference-style video controls. */
+.player-source-row{display:flex;align-items:center;gap:5px;margin-bottom:9px;min-width:0}
+.player-source{position:relative;flex:1;min-width:0;display:flex;align-items:center}
+body[data-page="anime"] .player-source select{width:100%;max-width:none;min-width:0;height:36px;border:1px solid #ccc;border-radius:7px;background:#e5e5e5;color:#333;padding:0 84px 0 9px;font-size:12px;font-weight:600;text-overflow:ellipsis}
+.source-count{position:absolute;right:28px;pointer-events:none;font-size:10px;font-weight:700;padding:3px 5px;background:#62686b;color:white;border-radius:4px}
+body[data-page="anime"] .player-follow{display:flex;align-items:center;gap:7px;height:36px;padding:0 10px;border-radius:7px;background:#d8d8d8;color:#333;font-size:12px;font-weight:650}
+.player-follow .icon{width:16px;height:16px}
+body[data-page="anime"] .player-follow[aria-pressed="true"]{background:#276b4d;color:white}
+html:not([data-anime-theme="light"]) body[data-page="anime"] :is(.player-source select,.player-follow){background:#1c1f20;color:#ddd;border-color:#343738}
+body[data-page="anime"] .episode-heading{margin-bottom:7px}
+body[data-page="anime"] .episode-button.has-ending:after{position:absolute;content:"";right:2px;top:9px;width:4px;height:15px;background:#74419c;border-radius:2px}
+.episode-progress{position:absolute;bottom:0;left:0;height:4px;background:#c82028;border-radius:0 0 0 5px;pointer-events:none}
+body[data-page="anime"] .video-stage{position:relative;isolation:isolate;outline-offset:3px}
+.video-controls{position:absolute;z-index:3;left:9px;right:9px;bottom:9px;display:flex;align-items:center;gap:9px;padding:5px 8px;background:#17191bef;border-radius:6px;color:#eee;transition:opacity .2s}
+.video-controls:before{content:"";position:absolute;z-index:-1;pointer-events:none;inset:-45px -9px -9px;background:linear-gradient(transparent,#0009);border-radius:6px}
+.player-control{display:grid;place-items:center;flex-shrink:0;width:29px;height:29px;padding:4px;background:transparent;color:#eee;border-radius:4px}
+.player-control:hover{background:#ffffff24}
+.player-control .icon{width:20px;height:20px}
+.video-controls .player-play{width:45px;height:33px;background:#0c0e10;border-radius:5px;margin-left:-3px}
+.video-controls .player-play .icon{width:24px;height:24px}
+.player-time{font-size:10px;line-height:1;flex-shrink:0;font-variant-numeric:tabular-nums;color:#fff}
+.video-controls input[type="range"]{padding:0;border:0;min-width:0;appearance:none;-webkit-appearance:none;height:8px;border-radius:0;cursor:pointer;outline-offset:5px}
+.video-controls input[type="range"]::-webkit-slider-thumb{appearance:none;-webkit-appearance:none;width:10px;height:10px;border-radius:50%;background:#f2f2f2;opacity:0;transition:opacity .15s}
+.video-controls input[type="range"]::-moz-range-thumb{width:10px;height:10px;border:0;border-radius:50%;background:#f2f2f2}
+.video-controls input[type="range"]:is(:hover,:focus-visible)::-webkit-slider-thumb{opacity:1}
+body[data-page="anime"] .video-controls .player-seek{flex:1;background:linear-gradient(to right,#c31c25 0 var(--played,0%),#555a5d var(--played,0%) var(--buffered,0%),#292e30 var(--buffered,0%) 100%)}
+body[data-page="anime"] .video-controls .player-volume{width:48px;flex-shrink:0;background:linear-gradient(to right,#c31c25 var(--volume,100%),#45494b var(--volume,100%));clip-path:polygon(0 55%,100% 0,100% 100%,0 100%)}
+.player-quality{position:relative;flex-shrink:0;display:flex;align-items:center;gap:7px}
+body[data-page="anime"] .player-quality select{width:73px;min-width:0;height:30px;padding:3px 13px 3px 4px;font-size:11px;font-weight:700;background:#191b1d;color:#eee;border:0;border-radius:3px}
+.hd-badge{position:absolute;right:15px;top:0;font-size:7px;background:#c82028;color:#fff;padding:0 2px;border-radius:2px;pointer-events:none}
+.player-center-play{position:absolute;z-index:2;inset:0;margin:auto;width:70px;height:70px;display:grid;place-items:center;border-radius:50%;background:#111b;color:white;box-shadow:0 0 0 1px #ffffff35}
+.player-center-play .icon{width:32px;height:32px;margin-left:4px}
+.controls-hidden :is(.video-controls,.skip-intro){opacity:0;pointer-events:none}
+.controls-hidden{cursor:none}
+.controls-hidden:focus-within .video-controls{opacity:1;pointer-events:auto}
+.player-settings{position:absolute;z-index:6;right:10px;bottom:53px;width:326px;max-width:calc(100% - 20px);max-height:calc(100% - 64px);overflow:auto;overscroll-behavior:contain;background:#1e2223f7;border:2px solid #707474;border-radius:9px;box-shadow:0 5px 18px #0008;padding:8px 12px;color:#e3e3e3;font-size:12px;text-align:left;scrollbar-width:thin;color-scheme:dark}
+.player-settings-heading{display:flex;align-items:center;justify-content:space-between;margin-bottom:3px}
+.player-settings-heading strong{font-size:12px;color:#aaa;font-weight:500}
+.player-setting{display:flex;align-items:center;gap:8px;min-height:33px;cursor:pointer;position:relative}
+.player-setting>.icon{width:18px;height:18px;color:#e1e3e4}
+.player-setting>span:nth-child(2){flex:1;font-weight:600}
+.player-setting input{position:absolute;right:0;width:38px;height:21px;opacity:0;cursor:pointer}
+.player-switch{width:38px;height:20px;flex-shrink:0;background:#42484b;border-radius:12px;pointer-events:none;transition:background .15s}
+.player-switch:after{content:"";display:block;width:16px;height:16px;margin:2px;border-radius:50%;background:#202627;transition:transform .15s}
+.player-setting input:checked+.player-switch{background:#259e6c}
+.player-setting input:checked+.player-switch:after{transform:translateX(18px)}
+.player-setting input:focus-visible+.player-switch{outline:2px solid #eb8a8f;outline-offset:3px}
+.player-settings hr{border:0;border-top:1px solid #414647;margin:7px 0}
+.player-settings-action{display:flex;align-items:center;gap:8px;width:100%;min-height:32px;background:none;color:#ddd;font-weight:600;padding:0;text-align:left}
+.player-settings-action .icon{width:18px;height:18px}
+.player-settings-hint{font-size:10px;color:#b6b8b8;line-height:1.5;margin:6px 0}
+.player-clear-history{width:100%;min-height:33px;border-radius:20px;background:#b71620;color:white;font-weight:700;font-size:12px;margin:5px 0}
+.player-event-toast{position:absolute;top:12px;left:12px;z-index:4;padding:9px 12px;border-radius:5px;background:#171b1ce8;color:white;font-size:12px;pointer-events:none}
+.player-event-panel{font-size:11px;color:var(--anime-muted,#999);margin:9px 0}
+.player-event-panel summary{cursor:pointer;display:list-item}
+.player-event-panel ol{list-style:none;margin:8px 0;padding:0;max-height:140px;overflow:auto;line-height:1.8}
+.native-controls .player-center-play{display:none}
+.native-controls .player-quality{margin:6px 0}
+.native-controls .player-quality:before{content:"Video sifati";flex:1;font-weight:600}
+body[data-page="anime"] .video-stage:fullscreen{width:100%;height:100%;border-radius:0;aspect-ratio:auto;background:black}
+body[data-page="anime"] .video-stage:fullscreen .player-settings{bottom:58px}
+@media(min-width:981px){body[data-page="anime"] .anime-detail.cinema .watch-main{padding:0 0 15px}body[data-page="anime"] .anime-detail.cinema .video-stage{border-radius:9px}}
+@media(max-width:600px){.player-source-row{flex-wrap:wrap}.player-source{flex-basis:calc(50% - 3px)}body[data-page="anime"] .player-source select{height:34px;padding-left:6px;padding-right:61px;font-size:10px}.source-count{right:20px;font-size:8px;padding:2px 3px}body[data-page="anime"] .player-follow{height:30px;font-size:10px;margin-left:auto}.video-controls{left:5px;right:5px;bottom:5px;gap:5px;padding:4px;flex-wrap:wrap}.video-controls .player-play{width:31px;height:27px;margin-left:0}.video-controls .player-play .icon{width:20px;height:20px}.player-control{width:26px;height:27px}.player-control .icon{width:18px;height:18px}.player-seek{order:-1;flex-basis:100%;height:5px!important}.player-time{font-size:10px}.player-volume{display:none}.player-quality{margin-left:auto}body[data-page="anime"] .player-quality select{width:66px;font-size:10px;height:27px}.player-center-play{width:50px;height:50px}.player-center-play .icon{width:25px;height:25px}.player-settings{right:5px;bottom:45px;max-height:calc(100% - 50px);padding:6px 9px}.player-event-toast{font-size:10px;top:8px;left:8px}.player-setting{min-height:35px}.player-settings .player-settings-heading{position:sticky;top:-6px;background:#1e2223;z-index:1}.video-stage:fullscreen .player-settings{max-height:calc(100% - 70px)}}

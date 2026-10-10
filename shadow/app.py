@@ -136,7 +136,7 @@ async def anime_home() -> HTMLResponse:
 
 @app.get('/hub/{asset:path}')
 async def hub_asset(asset: str):
-    allowed = {'hub.css':'text/css', 'hub.js':'text/javascript', 'vendor/hls.min.js':'text/javascript',
+    allowed = {'hub.css':'text/css', 'hub.js':'text/javascript', 'player.js':'text/javascript', 'vendor/hls.min.js':'text/javascript',
                'vendor/hls-LICENSE.txt':'text/plain'}
     if asset not in allowed:
         raise HTTPException(404, 'Not found')
