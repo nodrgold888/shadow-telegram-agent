@@ -65,6 +65,10 @@ class AccountWorker(TelegramAgent):
         with account_scope(self.expected_id):
             return await super()._on_owner_command(event)
 
+    async def _on_video_link(self, event):
+        with account_scope(self.expected_id):
+            return await super()._on_video_link(event)
+
 
 class AccountRuntime:
     def __init__(self, settings: Settings):

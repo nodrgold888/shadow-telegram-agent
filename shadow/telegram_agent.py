@@ -332,6 +332,7 @@ class TelegramAgent:
         if previous is not None:
             previous.remove_event_handler(self._on_message)
             previous.remove_event_handler(self._on_owner_command)
+            previous.remove_event_handler(self._on_video_link)
         if self.reply_enabled:
             self.assistant = ShadowAssistant(self.settings)
         self.client = client
@@ -344,6 +345,8 @@ class TelegramAgent:
             client.add_event_handler(self._on_message, events.NewMessage(incoming=True))
         # Owner commands (/rasm) work whether or not auto-replies are on.
         client.add_event_handler(self._on_owner_command, events.NewMessage(outgoing=True))
+        # Video links need no AI, so they also work while auto-replies are off.
+        client.add_event_handler(self._on_video_link, events.NewMessage(incoming=True))
         self.connected = True
         self._last_connected_at = time.time()
         self.last_error = None
@@ -699,10 +702,35 @@ class TelegramAgent:
                 log.exception("Failed to reply in chat %s", chat_id)
 
     def _video_allowed(self, chat_id: int) -> bool:
-        """Videos go to approved chats, and to any private non-friend chat while the owner's switch is on."""
-        if not self.reply_enabled or chat_id in self.friend_ids:
+        """Videos go to approved chats, and to any private non-friend chat while the owner's switch is on.
+        Downloading needs no AI, so this does not depend on the auto-reply switch."""
+        if chat_id in self.friend_ids:
             return False
         return chat_is_approved(chat_id, self.settings.approved_chat_ids) or self.video_unknown
+
+    async def _on_video_link(self, event: events.NewMessage.Event) -> None:
+        """Send the video for a link while auto-replies are off (with replies on, _on_message does it)."""
+        if self.reply_enabled or not self.connected or not self.client or event.client is not self.client:
+            return
+        chat_id = event.chat_id
+        video_url = find_video_url((event.raw_text or "").strip())
+        if chat_id is None or not video_url or chat_id in self.friend_ids:
+            return
+        if not chat_is_approved(chat_id, self.settings.approved_chat_ids):
+            await self._maybe_unknown_video(event)
+            return
+        sender = await event.get_sender()
+        if sender is None or getattr(sender, "bot", False) or getattr(sender, "deleted", False) or sender.id in {777000, self._me_id}:
+            return
+        lock = self._locks.setdefault(chat_id, asyncio.Lock())
+        async with lock:
+            try:
+                async with _VIDEO_SLOTS:
+                    await self._send_video(event, chat_id, video_url)
+            except Exception as exc:
+                self.last_reply_error = type(exc).__name__
+                self.last_reply_error_detail = safe_error_detail(exc)
+                log.exception("Video failed in chat %s", chat_id)
 
     async def _send_video(self, event, chat_id: int, video_url: str) -> None:
         try:

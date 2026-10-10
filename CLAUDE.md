@@ -35,7 +35,7 @@ with concurrent workers in `shadow/runtime.py`, deployed on Render. The owner sp
   natural as possible (`shadow/skills/human_chat.md`) but this rule is not negotiable.
 - Replies need: Telegram connected, reply switch on, an AI configured, and the chat approved. Own messages never
   trigger replies. Unapproved chats only get the opt-in bank answers (`PUBLIC_BANK_REPLY`) and the opt-in short greeting
-  (dashboard switch `GREET_UNKNOWN`, `shadow/greeting.py`), opt-in video links (`VIDEO_UNKNOWN`), opt-in short voice replies
+  (dashboard switch `GREET_UNKNOWN`, `shadow/greeting.py`), opt-in video links (`VIDEO_UNKNOWN`, which need no AI and work with the reply switch off, via `_on_video_link`), opt-in short voice replies
   (`VOICE_UNKNOWN`) and opt-in notes to Saved Messages (`NOTIFY_UNKNOWN`), all off by default; chats on the friend list (`FRIEND_CHAT_IDS`) get nothing at all.
 - Free mode must never invoke excluded paid models or multimedia APIs, even on failure or during model checks. The one-time `AI_COST_POLICY_VERSION` migration enables it privately for existing accounts; later saved choices win.
 - OpenAI API credits are separate from ChatGPT plan limits (`insufficient_quota` = no API credits).

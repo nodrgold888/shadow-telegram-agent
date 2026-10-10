@@ -71,16 +71,52 @@ class UnknownVideoTests(unittest.IsolatedAsyncioTestCase):
             await agent._on_message(event(agent))
         agent.client.send_file.assert_not_called()
 
-    async def test_never_for_groups_bots_friends_or_when_replies_are_off(self):
+    async def test_never_for_groups_bots_or_friends(self):
         agent = make_agent()
         agent.friend_ids = {9: "ish"}
         with mock.patch("shadow.telegram_agent.downloaded_video", fake_video):
             await agent._on_message(event(agent, chat_id=9))
             await agent._on_message(event(agent, chat_id=10, private=False))
             await agent._on_message(event(agent, chat_id=11, bot=True))
-            agent.reply_enabled = False
-            await agent._on_message(event(agent, chat_id=12))
         agent.client.send_file.assert_not_called()
+
+    async def test_video_works_with_auto_replies_off(self):
+        agent = make_agent()
+        agent.reply_enabled = False
+        agent.assistant = None
+        with mock.patch("shadow.telegram_agent.downloaded_video", fake_video):
+            await agent._on_message(event(agent, chat_id=12))  # the reply listener ignores it while replies are off
+            agent.client.send_file.assert_not_called()
+            await agent._on_video_link(event(agent, chat_id=12))
+        agent.client.send_file.assert_awaited_once()
+        self.assertEqual(agent.client.send_file.await_args.args[0], 12)
+
+    async def test_video_link_listener_keeps_the_same_limits_with_replies_off(self):
+        agent = make_agent()
+        agent.reply_enabled = False
+        agent.friend_ids = {9: "ish"}
+        with mock.patch("shadow.telegram_agent.downloaded_video", fake_video):
+            await agent._on_video_link(event(agent, chat_id=9))                    # friend
+            await agent._on_video_link(event(agent, chat_id=10, private=False))    # stranger group
+            await agent._on_video_link(event(agent, chat_id=11, bot=True))         # bot
+            agent.video_unknown = False
+            await agent._on_video_link(event(agent, chat_id=13))                   # switch off
+            await agent._on_video_link(event(agent, chat_id=14, text="salom"))     # not a link
+        agent.client.send_file.assert_not_called()
+
+    async def test_approved_chat_gets_the_video_with_replies_off(self):
+        agent = make_agent()
+        agent.reply_enabled = False
+        agent.video_unknown = False
+        with mock.patch("shadow.telegram_agent.downloaded_video", fake_video):
+            await agent._on_video_link(event(agent, chat_id=5))
+        agent.client.send_file.assert_awaited_once()
+
+    async def test_the_link_listener_stays_quiet_while_replies_are_on(self):
+        agent = make_agent()
+        with mock.patch("shadow.telegram_agent.downloaded_video", fake_video):
+            await agent._on_video_link(event(agent, chat_id=12))
+        agent.client.send_file.assert_not_called()  # _on_message handles it then, so it is never sent twice
 
     async def test_plain_text_is_not_a_video_request(self):
         agent = make_agent()
